@@ -60,6 +60,8 @@ export interface AllInfo {
   punishnum: number
   score: number
   userID: number
+  /** 为 true 时，其他用户在其个人主页看不到发帖列表 */
+  hideProfilePosts?: boolean
 }
 
 /**
@@ -95,6 +97,7 @@ async function getAllInfo(userTelephone: string): Promise<AllInfo> {
       score: 0,
       userID: 0,
       emailpush: false,
+      hideProfilePosts: false,
     }
   }
 }

@@ -133,7 +133,7 @@ onMounted(async () => {
           :class="{ 'notice-card--unread': readPage }"
         >
           <div class="notice-card__avatar-wrap">
-            <UserAvatar :src="notice.senderAvatar" />
+            <UserAvatar :src="notice.senderAvatar" :user-id="notice.senderID ?? 0" />
           </div>
           <div class="notice-card__body">
             <div class="notice-card__meta">

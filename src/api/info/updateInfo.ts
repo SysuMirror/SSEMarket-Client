@@ -3,7 +3,13 @@ import { requestFunc } from '../req'
 
 const apiUrl = import.meta.env.VITE_API_BASE_URL
 
-async function updateUserInfo(avatarURL: string, intro: string, name: string, userID: number) {
+async function updateUserInfo(
+  avatarURL: string,
+  intro: string,
+  name: string,
+  userID: number,
+  hideProfilePosts?: boolean,
+) {
   try {
     const res = await requestFunc(`/auth/updateUserInfo`, {
       method: 'POST',
@@ -15,6 +21,7 @@ async function updateUserInfo(avatarURL: string, intro: string, name: string, us
         intro,
         name,
         userID,
+        hideProfilePosts,
       },
     }, true)
     const data = await res!.json()

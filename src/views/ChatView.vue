@@ -229,7 +229,7 @@ onUnmounted(() => {
           @keydown.enter.prevent="selectContact(entry)"
         >
           <div class="contact-row__avatar-wrap">
-            <UserAvatar class="contact-row__avatar" :src="entry.avatarURL" :alt="entry.name" />
+            <UserAvatar class="contact-row__avatar" :src="entry.avatarURL" :user-id="entry.userID" :alt="entry.name" />
             <span v-if="entry.unRead" class="contact-row__badge">{{ entry.unRead > 99 ? '99+' : entry.unRead }}</span>
           </div>
           <div class="contact-row__meta">
@@ -259,7 +259,7 @@ onUnmounted(() => {
           >
             <Icon icon="tabler:chevron-left" width="22" height="22" />
           </button>
-          <UserAvatar class="thread-head__avatar" :src="current.avatarURL" :alt="current.name" />
+          <UserAvatar class="thread-head__avatar" :src="current.avatarURL" :user-id="current.userID" :alt="current.name" />
           <div class="thread-head__text">
             <div class="thread-head__name">
               {{ current.name }}
@@ -283,12 +283,14 @@ onUnmounted(() => {
                 v-if="entry.senderUserID !== userInfo.userID"
                 class="thread-bubble-row__avatar"
                 :src="current.avatarURL"
+                :user-id="current.userID"
                 :alt="current.name"
               />
               <UserAvatar
                 v-else
                 class="thread-bubble-row__avatar"
                 :src="userInfo.avatarURL"
+                :user-id="userInfo.userID"
                 :alt="userInfo.name"
               />
               <div class="thread-bubble-stack">

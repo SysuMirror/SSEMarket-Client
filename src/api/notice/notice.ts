@@ -42,6 +42,8 @@ export interface Notice {
   receiverName: string
   senderName: string
   senderAvatar: string
+  /** 发送方用户 ID，用于头像跳转个人主页（旧接口可能缺省） */
+  senderID?: number
   type: string
   content: string
   read: boolean
