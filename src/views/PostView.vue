@@ -110,8 +110,12 @@ async function submitPost() {
     postTitle,
     userInfo.phone,
   )
-  router.push('/')
+  if (!res || typeof res.msg !== 'string') {
+    showMsg('发帖失败，请检查网络后重试')
+    return
+  }
   showMsg(res.msg)
+  router.push('/')
 }
 
 onMounted(async () => {

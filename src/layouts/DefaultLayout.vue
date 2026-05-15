@@ -76,6 +76,9 @@ const isHomePage = computed(() => {
   return false
 })
 
+/** 子页占满顶栏与主区域之间剩余高度，禁止整页滚动（如智能小秋） */
+const layoutFill = computed(() => Boolean(route.meta.layoutFill))
+
 const { headerHeight, handleTouchStart, handleTouchEnd } = (() => {
   const headerHeight = ref('3em')
   let startY = 0
@@ -178,7 +181,10 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 </script>
 
 <template>
-  <div class="root w-full" :class="{ 'pwa-mode': isDesktopExperience }">
+  <div
+    class="root w-full"
+    :class="{ 'pwa-mode': isDesktopExperience, 'root--layout-fill': layoutFill }"
+  >
     <header>
       <div class="site-top">
         <div class="top-left" />
@@ -204,8 +210,12 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
         :chat-num="chatNum"
       />
     </template>
-    <main class="mt-2 w-full flex flex-row p-0">
-      <div class="content" :class="{ 'menu-collapsed': isMenuCollapsed }" :data-menu-collapsed="isMenuCollapsed">
+    <main class="mt-2 w-full flex flex-row p-0" :class="{ 'main--layout-fill': layoutFill }">
+      <div
+        class="content"
+        :class="{ 'menu-collapsed': isMenuCollapsed, 'content--layout-fill': layoutFill }"
+        :data-menu-collapsed="isMenuCollapsed"
+      >
         <template v-if="!isPC && isHomePage">
           <PartitionList />
         </template>
@@ -309,5 +319,38 @@ header {
 .root.pwa-mode .site-top {
   position: relative;
   z-index: 2001;
+}
+
+/* 智能小秋等：整页定高，仅子区域滚动 */
+.root.root--layout-fill {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.root.root--layout-fill > main.main--layout-fill {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.root.root--layout-fill .content.content--layout-fill {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding-bottom: 0;
+}
+
+@media screen and (max-width: 767px) {
+  .root.root--layout-fill .content.content--layout-fill {
+    padding-bottom: 80px;
+  }
 }
 </style>

@@ -9,32 +9,102 @@ const info = defineModel({
 </script>
 
 <template>
-  <div class="relative mb-4 h-10 w-full">
+  <div class="field">
     <input
       v-model="info"
-      class="peer h-full w-full border-b-2 border-blue-300 border-none bg-[#ffffff84] text-base"
+      class="field__input peer"
       v-bind="$attrs"
       required
     >
-    <div
-      class="autofill-indicator absolute bottom-0 h-[2px] w-full scale-x-0 from-[#eb6b26] to-[#eb6b26] bg-gradient-to-r transition-all duration-300 ease peer-focus:scale-x-100 peer-valid:scale-x-100"
-    />
+    <div class="field__line" />
     <label
-      class="input-label pointer-events-none absolute bottom-[10px] left-0 text-gray-500 transition-all duration-300 ease peer-focus:scale-x-90 peer-valid:scale-x-90 peer-focus:border-0 peer-valid:border-0 peer-focus:text-base peer-valid:text-base peer-focus:text-[#eb6b26] peer-valid:text-[#eb6b26] peer-focus:font-bold peer-valid:font-bold peer-focus:-translate-y-[100%] peer-valid:-translate-y-[100%]"
+      class="field__label input-label pointer-events-none"
       :for="$attrs.id as string"
     >{{ $attrs.label }}</label>
   </div>
 </template>
 
 <style scoped lang="scss">
-.peer:-webkit-autofill ~ .autofill-indicator {
+$accent: #6b6a68;
+$accent-muted: #8e8d8b;
+
+.field {
+  position: relative;
+  margin-bottom: 1.25rem;
+  min-height: 2.75rem;
+  width: 100%;
+}
+
+.field__input {
+  height: 2.75rem;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid #e5e5ea;
+  border-radius: 0;
+  background: transparent;
+  font-size: 1rem;
+  color: #1a1a1a;
+  padding: 0.5rem 0 0.25rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.field__input:focus {
+  border-bottom-color: transparent;
+}
+
+.field__input::placeholder {
+  color: transparent;
+}
+
+.field__line {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: $accent;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+
+.field__input:focus ~ .field__line,
+.field__input:valid ~ .field__line {
   transform: scaleX(1);
 }
 
-.peer:-webkit-autofill ~ .input-label {
-  transform: translateY(-100%) scaleX(0.9);
-  color: #eb6b26;
-  font-weight: bold;
+.field__label {
+  position: absolute;
+  left: 0;
+  bottom: 0.625rem;
   font-size: 1rem;
+  color: #8e8e93;
+  transition:
+    transform 0.2s ease,
+    font-size 0.2s ease,
+    color 0.2s ease,
+    font-weight 0.2s ease;
+}
+
+.field__input:focus ~ .field__label,
+.field__input:valid ~ .field__label {
+  transform: translateY(-1.35rem) scale(0.85);
+  transform-origin: left top;
+  color: $accent-muted;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.peer:-webkit-autofill ~ .field__line {
+  transform: scaleX(1);
+}
+
+.peer:-webkit-autofill ~ .field__label {
+  transform: translateY(-1.35rem) scale(0.85);
+  transform-origin: left top;
+  color: $accent-muted;
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 </style>

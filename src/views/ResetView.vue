@@ -14,7 +14,7 @@ const form = ref<CustomFormData[]>([
   {
     id: 'email',
     value: '',
-    label: 'email',
+    label: '邮箱',
     type: 'email',
     autocomplete: 'email',
     reg: /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])|(([a-z\-0-9]+\.)+[a-z]{2,}))$/i,
@@ -22,7 +22,7 @@ const form = ref<CustomFormData[]>([
   {
     id: 'password',
     value: '',
-    label: 'password',
+    label: '新密码',
     type: 'password',
     autocomplete: 'new-password',
     reg: /^(?![a-zA-Z]+$)(?![A-Z0-9]+$)(?![A-Z\W_]+$)(?![a-z0-9]+$)(?![a-z\W_]+$)(?![0-9\W_]+$)[\s\S]{8,12}/,
@@ -30,14 +30,14 @@ const form = ref<CustomFormData[]>([
   {
     id: 'password2',
     value: '',
-    label: 'password2',
+    label: '确认新密码',
     type: 'password',
     reg: /^(?![a-zA-Z]+$)(?![A-Z0-9]+$)(?![A-Z\W_]+$)(?![a-z0-9]+$)(?![a-z\W_]+$)(?![0-9\W_]+$)[\s\S]{8,12}/,
   },
   {
     id: 'code',
     value: '',
-    label: 'code',
+    label: '验证码',
   },
 ])
 
@@ -103,31 +103,102 @@ async function sendVerificationCode() {
 
 <template>
   <FormContainer
-    class="mt-12 w-1/2"
-    form-name="重置密码"
+    title="重置密码"
+    subtitle="验证邮箱后设置新密码"
+    form-name="确认重置"
     :form-data="form"
     :disabled="!correct || !passwordCorrect"
     @submit-form="resetHandler"
   >
-    <p class="mb-5 mt-5 text-center">
-      <span :class="passwordCorrect ? 'text-green-400' : 'text-red-400'">{{
+    <p class="reset-hint" :class="passwordCorrect ? 'reset-hint--ok' : 'reset-hint--warn'">
+      {{
         passwordCorrect
-          ? '正确!'
-          : '密码必须包含大小写字母、数字、特殊字符，长度8-12位，且两次输入密码一致'
-      }}</span>
+          ? '密码格式与两次输入已符合要求'
+          : '密码需含大小写字母、数字与特殊字符，长度 8–12 位，且两次输入一致'
+      }}
     </p>
-    <div class="flex flex-row justify-around">
-      <router-link to="/auth/login">
-        没有忘记?
+    <div class="reset-footer">
+      <router-link class="auth-link" to="/auth/login">
+        返回登录
       </router-link>
     </div>
     <button
       type="button"
       :disabled="!emailCorrect"
-      class="mb-2 mt-5 h-10 w-full flex cursor-pointer items-center justify-center border-0 rounded-[20px] bg-[#eb6b26] text-lg text-white disabled:bg-zinc-600 hover:bg-[#ff7e3b]"
+      class="auth-btn-secondary"
       @click="sendVerificationCode"
     >
-      {{ emailCorrect ? '发送验证码' : '请填写正确的邮箱' }}
+      {{ emailCorrect ? '发送验证码' : '请先填写有效邮箱' }}
     </button>
   </FormContainer>
 </template>
+
+<style scoped lang="scss">
+.reset-hint {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #8e8e93;
+}
+
+.reset-hint--ok {
+  color: #5f7a6e;
+}
+
+.reset-hint--warn {
+  color: #8b7a78;
+}
+
+.reset-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.auth-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b6a68;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.auth-link:hover {
+  color: #3a3a3c;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.auth-btn-secondary {
+  margin-top: 1rem;
+  width: 100%;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d1d6;
+  border-radius: 0.625rem;
+  background: #fff;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #3a3a3c;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.auth-btn-secondary:hover:not(:disabled) {
+  background: #f2f2f7;
+  border-color: #c7c7cc;
+}
+
+.auth-btn-secondary:disabled {
+  color: #aeaeb2;
+  border-color: #e5e5ea;
+  background: #fafafa;
+  cursor: not-allowed;
+}
+</style>

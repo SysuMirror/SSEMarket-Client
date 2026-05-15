@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Product } from '@/api/shop/getProducts'
+import { Icon } from '@iconify/vue'
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProducts } from '@/api/shop/getProducts'
@@ -239,7 +240,7 @@ onBeforeUnmount(() => {
   <div class="w-full flex flex-row">
     <!-- 加载中骨架屏 -->
     <template v-if="isLoading">
-      <div class="skeleton-screen">
+      <div class="skeleton-screen shop-page">
         <div class="skeleton-top-section">
           <div class="skeleton-carousel" />
           <div class="skeleton-filter" />
@@ -255,7 +256,7 @@ onBeforeUnmount(() => {
 
     <!-- 错误状态 -->
     <template v-else-if="error">
-      <div class="error-container">
+      <div class="error-container shop-page">
         <div class="error-content">
           <div class="error-icon">
             ⚠
@@ -275,8 +276,19 @@ onBeforeUnmount(() => {
 
     <!-- 实际内容 -->
     <template v-else>
-      <div class="flex flex-row">
-        <div>
+      <div class="shop-page-wrap flex w-full flex-row">
+        <div class="shop-page">
+          <header class="shop-page__intro">
+            <Icon icon="tabler:shopping-bag" class="shop-page__intro-icon" width="22" height="22" aria-hidden="true" />
+            <div>
+              <h1 class="shop-page__intro-title">
+                {{ isMain ? '商城' : '我的商品' }}
+              </h1>
+              <p class="shop-page__intro-sub">
+                {{ isMain ? '浏览在售好物，支持价格筛选' : '查看与管理你发布的商品' }}
+              </p>
+            </div>
+          </header>
           <!-- 功能区和轮播图块 -->
           <div class="top-section flex-">
             <!-- 轮播窗 -->
@@ -468,35 +480,65 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
-  <style scoped>
-/* 现代化商城容器样式 */
-.shop-container {
-  padding: 0;
+<style scoped>
+.shop-page__intro {
   display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background: #f8f9fa;
-  position: relative;
-  overflow-x: hidden;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
 }
 
-/* 错误状态样式 */
+.shop-page__intro-icon {
+  color: var(--chat-accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.shop-page__intro-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--chat-text);
+}
+
+.shop-page__intro-sub {
+  margin: 0.3rem 0 0;
+  font-size: 0.875rem;
+  color: var(--chat-text-secondary);
+}
+
+.shop-page {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 12px 1.5rem;
+  box-sizing: border-box;
+}
+
+.shop-page-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 错误状态 */
 .error-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 60vh;
-  padding: 40px 20px;
+  padding: 40px 16px;
 }
 
 .error-content {
   text-align: center;
-  background: var(--shop-section-bg);
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px var(--color-post-card-box-shadow);
+  background: var(--chat-bg-highlight);
+  padding: 2rem 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--chat-border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   max-width: 400px;
-  color: var(--color-text);
+  color: var(--chat-text);
 }
 
 .error-icon {
@@ -505,35 +547,37 @@ onBeforeUnmount(() => {
 }
 
 .error-title {
-  font-size: 24px;
+  font-size: 1.25rem;
   color: var(--color-error);
   margin-bottom: 12px;
   font-weight: 600;
 }
 
 .error-message {
-  color: var(--shop-text-secondary);
+  color: var(--chat-text-secondary);
   margin-bottom: 24px;
   line-height: 1.5;
 }
 
 .retry-button {
   padding: 12px 24px;
-  background: #4c8baf;
-  color: white;
+  background: var(--chat-accent);
+  color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.3s ease;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+  transition: filter 0.15s ease;
 }
 
 .retry-button:hover {
-  background: #3a6b8a;
-  box-shadow: 0 2px 8px rgba(76, 139, 175, 0.2);
+  filter: brightness(1.05);
 }
 
-/* 骨架屏样式 */
+/* 骨架屏 */
 .skeleton-screen {
   display: flex;
   flex-direction: column;
@@ -542,17 +586,18 @@ onBeforeUnmount(() => {
 
 .skeleton-top-section {
   display: flex;
-  padding: 20px;
-  background-color: var(--shop-section-bg);
-  border-radius: 8px 8px 0 0;
-  box-shadow: 0 2px 5px var(--color-post-card-box-shadow);
+  padding: 20px 0;
+  background-color: var(--chat-bg-highlight);
+  border-radius: 16px;
+  border: 1px solid var(--chat-border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .skeleton-carousel {
   flex: 1;
   height: 300px;
   background-color: var(--shop-skeleton-bg);
-  border-radius: 8px;
+  border-radius: 12px;
   margin-right: 20px;
 }
 
@@ -560,18 +605,18 @@ onBeforeUnmount(() => {
   width: 250px;
   background-color: var(--shop-skeleton-bg);
   padding: 15px;
-  border-radius: 6px;
+  border-radius: 12px;
 }
 
 .skeleton-bottom-section {
   flex: 1;
-  padding: 20px;
+  padding: 20px 0;
 }
 
 .skeleton-title {
   height: 30px;
   background-color: var(--shop-skeleton-bg);
-  border-radius: 4px;
+  border-radius: 8px;
   margin-bottom: 20px;
 }
 
@@ -584,7 +629,7 @@ onBeforeUnmount(() => {
 .skeleton-product-card {
   height: 300px;
   background-color: var(--shop-skeleton-bg);
-  border-radius: 8px;
+  border-radius: 12px;
 }
 
 /* 响应式布局 */
@@ -592,9 +637,10 @@ onBeforeUnmount(() => {
   .top-section {
     display: flex;
     padding: 20px;
-    background-color: var(--shop-section-bg);
-    border-radius: 8px 8px 0 0;
-    box-shadow: 0 1px 3px var(--color-post-card-box-shadow);
+    background-color: var(--chat-bg-highlight);
+    border-radius: 16px;
+    border: 1px solid var(--chat-border);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
   .carousel-container {
@@ -609,7 +655,7 @@ onBeforeUnmount(() => {
 
   .bottom-section {
     flex: 1;
-    padding: 20px;
+    padding: 20px 0;
   }
 }
 
@@ -674,15 +720,15 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 轮播图样式 */
+/* 轮播图 */
 .carousel {
   position: relative;
   height: 300px;
   overflow: hidden;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px var(--color-post-card-box-shadow);
-  background: var(--shop-card-bg);
-  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  background: var(--chat-bg-highlight);
+  border: 1px solid var(--chat-border);
 }
 
 .carousel-inner {
@@ -735,11 +781,11 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--shop-card-bg);
-  color: var(--color-text);
-  border: none;
-  width: 50px;
-  height: 50px;
+  background: var(--chat-bg-highlight);
+  color: var(--chat-text);
+  border: 1px solid var(--chat-border);
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -747,14 +793,16 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px var(--color-post-card-box-shadow);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .carousel-control:hover {
-  background: var(--shop-card-bg);
-  transform: translateY(-50%) scale(1.05);
-  box-shadow: 0 4px 12px var(--color-post-card-hover-box-shadow);
+  background: var(--chat-bg-elevated);
+  transform: translateY(-50%) scale(1.04);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
 }
 
 .carousel-control:active {
@@ -804,13 +852,13 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
 }
 
-/* 筛选框样式 */
+/* 筛选 */
 .filter-section {
-  background: var(--shop-filter-bg);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px var(--color-post-card-box-shadow);
-  border: 1px solid var(--color-border);
+  background: var(--chat-bg-highlight);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--chat-border);
   position: relative;
 }
 
@@ -823,8 +871,8 @@ onBeforeUnmount(() => {
 
 .filter-section h3 {
   margin: 0;
-  font-size: 18px;
-  color: var(--color-text);
+  font-size: 1rem;
+  color: var(--chat-text);
   font-weight: 600;
 }
 
@@ -836,23 +884,25 @@ onBeforeUnmount(() => {
 
 .price-label {
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--chat-text-secondary);
   font-size: 14px;
 }
 
 .price-select {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid var(--color-border);
+  border: 1px solid var(--chat-border-strong);
   border-radius: 12px;
-  background: var(--shop-filter-bg);
-  color: var(--color-text);
+  background: var(--chat-bg-main);
+  color: var(--chat-text);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 16px;
@@ -860,15 +910,14 @@ onBeforeUnmount(() => {
 }
 
 .price-select:hover {
-  border-color: var(--color-info);
-  background-color: var(--shop-filter-bg);
-  box-shadow: 0 2px 8px var(--color-hover);
+  border-color: var(--chat-accent);
+  box-shadow: 0 0 0 3px var(--chat-accent-soft);
 }
 
 .price-select:focus {
   outline: none;
-  border-color: var(--color-info);
-  box-shadow: 0 0 0 3px var(--color-hover);
+  border-color: var(--chat-accent);
+  box-shadow: 0 0 0 3px var(--chat-accent-soft);
 }
 
 /* 商品展示区域 */
@@ -897,10 +946,11 @@ onBeforeUnmount(() => {
 
 .layout-toggle {
   display: flex;
-  background: var(--shop-filter-bg);
-  border-radius: 12px;
+  background: var(--chat-bg-main);
+  border-radius: 14px;
   padding: 4px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--chat-border);
+  gap: 2px;
 }
 
 .layout-btn {
@@ -910,105 +960,115 @@ onBeforeUnmount(() => {
   width: 40px;
   height: 40px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
-  color: var(--shop-text-muted);
+  color: var(--chat-text-secondary);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   position: relative;
 }
 
 .layout-btn:hover {
-  background: rgba(34, 139, 34, 0.1);
-  color: #134e13;
-  transform: scale(1.05);
+  background: var(--chat-accent-soft);
+  color: var(--chat-accent);
 }
 
 .layout-btn.active {
-  background: linear-gradient(135deg, #134e13 0%, #0d3d0d 100%);
-  color: white;
+  background: var(--chat-accent);
+  color: #fff;
 }
 
 .layout-btn.active:hover {
-  transform: scale(1.05);
+  filter: brightness(1.05);
 }
 
 .product-list-title {
   margin: 0;
-  font-size: 28px;
-  color: var(--color-text);
-  font-weight: 900;
-  font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1.35rem;
+  color: var(--chat-text);
+  font-weight: 600;
+  letter-spacing: 0.02em;
   position: relative;
 }
 
 .product-list-title::after {
   content: '';
   position: absolute;
-  bottom: -5px;
+  bottom: -6px;
   left: 0;
-  width: 60px;
+  width: 40px;
   height: 3px;
-  background: var(--color-text);
+  background: var(--chat-accent);
   border-radius: 2px;
 }
 
 .product-count {
-  color: var(--color-text);
-  font-size: 14px;
-  background: var(--shop-card-bg);
-  padding: 8px 16px;
-  border-radius: 25px;
-  border: 1px solid var(--color-border);
-  font-weight: 600;
+  color: var(--chat-text-secondary);
+  font-size: 13px;
+  background: var(--chat-bg-main);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--chat-border);
+  font-weight: 500;
 }
 
-/* 空状态样式 */
+/* 空状态 */
 .empty-product-list,
 .empty-filter-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 60px 20px;
-  background: var(--shop-section-bg);
+  padding: 3rem 1.5rem;
+  min-height: 280px;
+  background: var(--chat-bg-highlight);
   border-radius: 16px;
-  box-shadow: 0 4px 15px var(--color-post-card-box-shadow);
-  margin: 20px 0;
+  border: 1px dashed var(--chat-border);
+  margin: 12px 0;
 }
 
 .empty-icon {
   font-size: 48px;
-  margin-bottom: 20px;
-  opacity: 0.6;
+  margin-bottom: 16px;
+  opacity: 0.55;
 }
 
 .empty-product-list h3,
 .empty-filter-results h3 {
-  font-size: 20px;
-  color: var(--color-text);
-  margin-bottom: 12px;
+  font-size: 1.1rem;
+  color: var(--chat-text);
+  margin: 0 0 8px;
   font-weight: 600;
 }
 
 .empty-product-list p,
 .empty-filter-results p {
-  color: var(--shop-text-muted);
-  margin-bottom: 24px;
-  line-height: 1.5;
+  color: var(--chat-text-secondary);
+  margin: 0 0 20px;
+  line-height: 1.55;
+  font-size: 14px;
+  max-width: 320px;
 }
 
 .clear-filter-btn {
   padding: 10px 20px;
-  background: linear-gradient(135deg, #4c8baf 0%, #81b3e9 100%);
-  color: white;
+  background: var(--chat-accent);
+  color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 12px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.3s ease;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+  transition: filter 0.15s ease;
 }
 
 .clear-filter-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(76, 139, 175, 0.3);
+  filter: brightness(1.05);
 }
 
 /* 商品列表容器 */
@@ -1080,19 +1140,5 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     gap: 15px;
   }
-}
-
-/* 空商品列表提示 */
-.empty-product-list {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 300px;
-  color: #666;
-  text-align: center;
-}
-
-.empty-product-list p {
-  font-size: 18px;
 }
 </style>

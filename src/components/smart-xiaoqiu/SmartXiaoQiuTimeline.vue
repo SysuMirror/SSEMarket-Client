@@ -1,0 +1,455 @@
+<script setup lang="ts">
+import MarkdownContainer from '@/components/MarkdownContainer.vue'
+import type {
+  TimelineAssistant,
+  TimelineItem,
+  TimelineStep,
+  TimelineUser,
+} from '@/composables/useOpsAgentStream'
+import { computed, ref } from 'vue'
+
+const props = defineProps<{
+  items: TimelineItem[]
+}>()
+
+const xiaoQiuAvatarUrl = `${import.meta.env.BASE_URL}xiaoqiu-avatar.png`
+
+interface TimelineTurn {
+  id: string
+  user?: TimelineUser
+  steps: TimelineStep[]
+  assistant?: TimelineAssistant
+}
+
+function markdownForAssistant(raw: string) {
+  return raw.replace(/post:\/\/(\d+)/gi, (_, id: string) => `[帖子 #${id}](/postdetail/${id})`)
+}
+
+function stripStepLabel(label: string) {
+  return label.replace(/^【|】$/g, '')
+}
+
+const turns = computed(() => {
+  const out: TimelineTurn[] = []
+  let current: TimelineTurn | null = null
+
+  for (const item of props.items) {
+    if (item.kind === 'meta')
+      continue
+
+    if (item.kind === 'user') {
+      current = { id: item.id, user: item, steps: [] }
+      out.push(current)
+      continue
+    }
+
+    if (!current) {
+      current = { id: `turn-${item.id}`, steps: [] }
+      out.push(current)
+    }
+
+    if (item.kind === 'step')
+      current.steps.push(item)
+    else if (item.kind === 'assistant')
+      current.assistant = item
+  }
+
+  return out
+})
+
+const openStep = ref<Record<string, boolean>>({})
+
+function toggleStep(id: string, collapsed: boolean) {
+  openStep.value = { ...openStep.value, [id]: collapsed ? true : !openStep.value[id] }
+}
+
+function stepExpanded(id: string, collapsed: boolean) {
+  if (collapsed)
+    return openStep.value[id] === true
+  return openStep.value[id] !== false
+}
+
+function isThinking(text: string, status: TimelineAssistant['status']) {
+  return status === 'streaming' && (text === '小秋在想一下…' || text.trim() === '')
+}
+</script>
+
+<template>
+  <div class="timeline">
+    <article
+      v-for="turn in turns"
+      :key="turn.id"
+      class="turn"
+    >
+      <div v-if="turn.user" class="user-row">
+        <div class="user-bubble">
+          <p class="user-text">
+            {{ turn.user.text }}
+          </p>
+        </div>
+        <time class="meta-time">{{ turn.user.time }}</time>
+      </div>
+
+      <div v-if="turn.steps.length || turn.assistant" class="agent-row">
+        <div class="agent-avatar" aria-hidden="true">
+          <img :src="xiaoQiuAvatarUrl" alt="" width="36" height="36">
+        </div>
+
+        <div class="agent-content">
+          <div class="agent-head">
+            <span class="agent-name">小秋</span>
+            <span
+              v-if="turn.assistant?.status === 'streaming' && !isThinking(turn.assistant.text, turn.assistant.status)"
+              class="live-dot"
+            >
+              回复中
+            </span>
+          </div>
+
+          <div
+            v-for="step in turn.steps"
+            :key="step.id"
+            class="step-card"
+            :class="{ streaming: step.status === 'streaming', done: step.status === 'done' }"
+          >
+            <button
+              type="button"
+              class="step-toggle"
+              @click="toggleStep(step.id, step.collapsed)"
+            >
+              <span class="step-icon" aria-hidden="true">
+                <svg v-if="stepExpanded(step.id, step.collapsed)" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </span>
+              <span class="step-label">{{ stripStepLabel(step.label) }}</span>
+              <span class="step-badge" :class="{ live: step.status === 'streaming' }">
+                {{ step.status === 'streaming' ? '处理中' : '中间步骤' }}
+              </span>
+            </button>
+            <div
+              v-show="stepExpanded(step.id, step.collapsed)"
+              class="step-body"
+            >
+              <MarkdownContainer
+                v-if="step.text"
+                variant="chat"
+                :markdown-content="markdownForAssistant(step.text)"
+                open-links-in-new-tab
+              />
+              <span v-else class="placeholder">正在整理信息…</span>
+            </div>
+          </div>
+
+          <div
+            v-if="turn.assistant"
+            class="assistant-bubble"
+            :class="{
+              streaming: turn.assistant.status === 'streaming',
+              error: turn.assistant.status === 'error',
+              thinking: isThinking(turn.assistant.text, turn.assistant.status),
+            }"
+          >
+            <div v-if="isThinking(turn.assistant.text, turn.assistant.status)" class="typing">
+              <span /><span /><span />
+            </div>
+            <MarkdownContainer
+              v-else-if="turn.assistant.text"
+              variant="chat"
+              :markdown-content="markdownForAssistant(turn.assistant.text)"
+              open-links-in-new-tab
+            />
+            <time v-if="turn.assistant.time" class="bubble-time">{{ turn.assistant.time }}</time>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+</template>
+
+<style scoped>
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 4px 0 12px;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* —— 用户消息 —— */
+.user-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-left: auto;
+  max-width: var(--xq-bubble-max);
+  width: 100%;
+}
+
+.user-bubble {
+  width: fit-content;
+  max-width: 100%;
+  padding: 12px 16px;
+  border-radius: 18px 18px 4px 18px;
+  background: var(--xq-user-bg);
+  color: var(--xq-user-text);
+  box-shadow: var(--xq-shadow-user);
+}
+
+.user-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.meta-time,
+.bubble-time {
+  font-size: 11px;
+  color: var(--xq-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.meta-time {
+  padding-right: 4px;
+}
+
+/* —— 助手区域：头像 + 内容列对齐 —— */
+.agent-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  max-width: calc(var(--xq-bubble-max) + 46px);
+}
+
+.agent-avatar img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--xq-surface);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.agent-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agent-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 2px;
+}
+
+.agent-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--xq-text-secondary);
+}
+
+.live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--xq-accent);
+  font-weight: 500;
+}
+
+.live-dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--xq-accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* —— 中间步骤：与主气泡同宽 —— */
+.step-card {
+  width: 100%;
+  max-width: var(--xq-bubble-max);
+  border-radius: 12px;
+  border: 1px solid var(--xq-step-border);
+  background: var(--xq-step-bg);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.step-card.streaming {
+  border-color: var(--xq-accent-border);
+  box-shadow: 0 0 0 3px var(--xq-accent-ring);
+}
+
+.step-card.done {
+  opacity: 0.96;
+}
+
+.step-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--xq-text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.step-icon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--xq-text-muted);
+}
+
+.step-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--xq-accent-deep);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--xq-surface-muted);
+  color: var(--xq-text-muted);
+  font-weight: 500;
+}
+
+.step-badge.live {
+  background: var(--xq-accent-soft);
+  color: var(--xq-accent-deep);
+}
+
+.step-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--xq-step-border);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--xq-text-secondary);
+  word-break: break-word;
+}
+
+.step-body :deep(.markdown-body) {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--xq-text-secondary);
+}
+
+.step-body :deep(.markdown-body a) {
+  color: var(--xq-accent-deep);
+}
+
+.placeholder {
+  color: var(--xq-text-muted);
+  font-size: 13px;
+}
+
+/* —— 主回复气泡 —— */
+.assistant-bubble {
+  position: relative;
+  width: 100%;
+  max-width: var(--xq-bubble-max);
+  padding: 14px 16px;
+  border-radius: 4px 18px 18px 18px;
+  background: var(--xq-surface);
+  border: 1px solid var(--xq-border);
+  box-shadow: var(--xq-shadow);
+  color: var(--xq-text);
+  word-break: break-word;
+}
+
+.assistant-bubble.streaming {
+  border-color: var(--xq-accent-border);
+}
+
+.assistant-bubble.error {
+  border-color: var(--color-error, #ef5350);
+  background: color-mix(in srgb, var(--color-error, #ef5350) 6%, var(--xq-surface));
+}
+
+.assistant-bubble.thinking {
+  padding: 16px 18px;
+  width: fit-content;
+  min-width: 72px;
+}
+
+.assistant-bubble :deep(.markdown-body) {
+  font-size: 15px;
+  line-height: 1.62;
+  color: var(--xq-text);
+}
+
+.assistant-bubble :deep(.markdown-body a) {
+  color: var(--xq-accent-deep);
+  font-weight: 500;
+}
+
+.assistant-bubble :deep(.markdown-body pre) {
+  margin: 0.6em 0;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.bubble-time {
+  display: block;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--xq-border);
+}
+
+/* 打字动画 */
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 12px;
+}
+
+.typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--xq-accent);
+  opacity: 0.35;
+  animation: typing 1.2s ease-in-out infinite;
+}
+
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+</style>

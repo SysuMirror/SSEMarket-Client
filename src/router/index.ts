@@ -93,6 +93,12 @@ const router = createRouter({
           component: () => import('@/views/ChatView.vue'),
         },
         {
+          path: 'smart-xiaoqiu',
+          name: 'SmartXiaoQiu',
+          meta: { layoutFill: true },
+          component: () => import('@/views/SmartXiaoQiuView.vue'),
+        },
+        {
           path: 'shop',
           name: 'ShopLayout',
           component: () => import('@/layouts/ShopLayout.vue'),

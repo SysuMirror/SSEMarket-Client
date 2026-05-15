@@ -8,8 +8,12 @@ import 'prismjs/plugins/autoloader/prism-autoloader'
 import 'github-markdown-css'
 import 'prismjs/themes/prism-tomorrow.css'
 
-const { markdownContent } = defineProps<{
+const { markdownContent, openLinksInNewTab = false, variant = 'default' } = defineProps<{
   markdownContent: string
+  /** 聊天等场景：站内链接在新标签打开，避免 SPA 跳转中断进行中的 SSE */
+  openLinksInNewTab?: boolean
+  /** chat：紧凑排版、去首行缩进、清理空段落（对话气泡） */
+  variant?: 'default' | 'chat'
 }>()
 
 const content = useTemplateRef<HTMLDivElement>('content')
@@ -36,6 +40,22 @@ const md: MarkdownIt = new MarkdownIt({
   trust: true,
 })
 
+const defaultLinkOpen = md.renderer.rules.link_open ?? ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options))
+
+md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+  if (env?.openLinksInNewTab) {
+    const tIdx = tokens[idx].attrIndex('target')
+    if (tIdx < 0)
+      tokens[idx].attrPush(['target', '_blank'])
+    else
+      tokens[idx].attrs![tIdx][1] = '_blank'
+    const rIdx = tokens[idx].attrIndex('rel')
+    if (rIdx < 0)
+      tokens[idx].attrPush(['rel', 'noopener noreferrer'])
+  }
+  return defaultLinkOpen(tokens, idx, options, env, self)
+}
+
 md.renderer.rules.image = (tokens, idx) => {
   const token = tokens[idx]
   const srcIndex = token.attrIndex('src')
@@ -55,9 +75,25 @@ md.renderer.rules.image = (tokens, idx) => {
 /**
  * @description 预处理 markdown 内容，使用 encodeURI 编码图片链接中的 URL
  */
+/** 聊天场景：去掉模型常见的段首全角空格/空行，避免渲染出空白段落 */
+function normalizeChatMarkdown(content: string): string {
+  let s = content.replace(/^\uFEFF/, '')
+  s = s.replace(/^(?:[ \t\u00a0\u3000]*\r?\n)+/, '')
+  s = s.replace(/^[\s\u00a0\u3000]+/, '')
+  s = s.replace(/^[\u3000\u00a0]{1,4}/, '')
+  return s.trim()
+}
+
+function stripLeadingEmptyBlocks(html: string): string {
+  return html.replace(/^(?:\s*<p(?:\s[^>]*)?>\s*(?:<br\s*\/?>)?\s*<\/p>\s*)+/gi, '')
+}
+
 function preprocessMarkdown(content: string): string {
+  let text = content
+  if (variant === 'chat')
+    text = normalizeChatMarkdown(text)
   // 先用正则匹配一下
-  return content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, urlPart) => {
+  return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, urlPart) => {
     const titleIndex = urlPart.lastIndexOf(' "')
     if (titleIndex > 0) {
       return `![${alt}](${encodeURI(urlPart.slice(0, titleIndex))} "${urlPart.slice(titleIndex + 2, -1)}")`
@@ -84,7 +120,9 @@ const safeHTML = computed(() => {
     }
   })
 
-  const rendered = md.render(processedContent)
+  let rendered = md.render(processedContent, { openLinksInNewTab })
+  if (variant === 'chat')
+    rendered = stripLeadingEmptyBlocks(rendered)
   const finalHTML = DOMPurify.sanitize(rendered, {
     ADD_TAGS: [
       'math',
@@ -124,6 +162,7 @@ const safeHTML = computed(() => {
   <div
     ref="content"
     class="markdown-body w-full"
+    :class="{ 'markdown-body--chat': variant === 'chat' }"
     data-theme="light"
     v-html="safeHTML"
   />
@@ -137,6 +176,60 @@ const safeHTML = computed(() => {
 .markdown-body {
   color: var(--color-text);
   background-color: var(--color-bg);
+}
+
+.markdown-body--chat {
+  background-color: transparent;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.markdown-body--chat :deep(p) {
+  margin: 0.35em 0;
+  text-indent: 0 !important;
+}
+
+.markdown-body--chat :deep(p:first-child) {
+  margin-top: 0;
+}
+
+.markdown-body--chat :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-body--chat :deep(p:empty) {
+  display: none;
+  margin: 0;
+}
+
+/*
+ * 表格：github-markdown-light 固定浅色行底，若继承 body 的浅色字（暗色主题）会看不清。
+ * 这里强制「深字 + 浅底 + 清晰边框」，在聊天气泡与帖子页均可读。
+ */
+.markdown-body :deep(table) {
+  color: #1f2328;
+  border-color: #d1d9e0;
+}
+
+.markdown-body :deep(table th),
+.markdown-body :deep(table td) {
+  padding: 6px 12px;
+  color: #1f2328;
+  background-color: #ffffff;
+  border: 1px solid #c9d1d9;
+}
+
+.markdown-body :deep(table th) {
+  font-weight: 600;
+  background-color: #eff2f5;
+}
+
+.markdown-body :deep(table tbody tr:nth-child(even) td) {
+  background-color: #f6f8fa;
+}
+
+.markdown-body :deep(table tbody tr:nth-child(even) th) {
+  background-color: #f6f8fa;
 }
 
 :deep(pre) {

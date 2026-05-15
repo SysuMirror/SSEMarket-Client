@@ -54,6 +54,7 @@ const refreshToken = computed(() => {
 const isLogin = computed(() => {
   return token.value.length > 0 && userInfo.userID > 0
 })
+
 function setToken(newToken: string) {
   const now = new Date()
   tokenInfo.value = newToken
@@ -82,6 +83,9 @@ function setRefreshToken(newToken: string) {
 
 ;(() => {
   try {
+    localStorage.removeItem('oneAPIKey')
+    localStorage.removeItem('oneAPIModel')
+    localStorage.removeItem('oneAPIKeyExpiry')
     const rememberMe = localStorage.getItem('rememberMe')
     if (rememberMe === 'true') {
       const storedRefreshToken = localStorage.getItem('refreshToken')

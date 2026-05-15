@@ -7,7 +7,23 @@ import { uploadPhoto } from '@/api/editPostAndComment/utils'
 import { showMsg } from '@/components/MessageBox'
 import MarkdownContainer from './MarkdownContainer.vue'
 
-defineEmits(['send'])
+const props = withDefaults(
+  defineProps<{
+    /** 提交请求进行中：禁用发送并显示「发送中」 */
+    submitBusy?: boolean
+  }>(),
+  { submitBusy: false },
+)
+
+const emit = defineEmits<{
+  send: []
+}>()
+
+function emitSend() {
+  if (props.submitBusy)
+    return
+  emit('send')
+}
 
 // const route = useRoute()
 
@@ -200,9 +216,10 @@ function editContent(type: EditType) {
     <div class="buttons">
       <div
         class="button"
-        @click="$emit('send')"
+        :class="{ 'button--busy': submitBusy }"
+        @click="emitSend"
       >
-        发送
+        {{ submitBusy ? '发送中…' : '发送' }}
       </div>
       <label
         for="fileInput"
@@ -305,6 +322,12 @@ function editContent(type: EditType) {
     &:hover {
       background-color: #2196f3;
       transform: translateY(-2px);
+    }
+
+    &.button--busy {
+      opacity: 0.75;
+      cursor: wait;
+      pointer-events: none;
     }
   }
 }

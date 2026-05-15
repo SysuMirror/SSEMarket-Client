@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 
@@ -17,6 +17,20 @@ const router = useRouter()
 const sinfo = useTemplateRef('sinfo')
 const { userInfo } = useUserStore()
 const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
+const headerAvatarSrc = ref(defaultAvatar)
+
+watch(
+  () => userInfo.avatarURL,
+  (u) => {
+    headerAvatarSrc.value = (u && u.trim()) ? u : defaultAvatar
+  },
+  { immediate: true },
+)
+
+function onHeaderAvatarError() {
+  if (headerAvatarSrc.value !== defaultAvatar)
+    headerAvatarSrc.value = defaultAvatar
+}
 
 const isMenuOpen = computed({
   get: () => props.menuOpen ?? true,
@@ -132,7 +146,7 @@ function search() {
         </router-link>
         <router-link to="/options">
           <div class="user-avatar-icon">
-            <img :src="userInfo.avatarURL || defaultAvatar" alt="avatar">
+            <img :src="headerAvatarSrc" alt="avatar" @error="onHeaderAvatarError">
           </div>
           <span>{{ userInfo.name }}</span>
         </router-link>

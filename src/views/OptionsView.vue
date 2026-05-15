@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import type { AllInfo } from '@/api/info/getInfo'
 import type { Ref } from 'vue'
-import { inject, onMounted, ref, useTemplateRef } from 'vue'
+import { inject, onMounted, ref, useTemplateRef, watch } from 'vue'
 
 import { useRouter } from 'vue-router'
 import { getAllInfo } from '@/api/info/getInfo'
@@ -139,6 +139,22 @@ function logout() {
   }
 }
 const isPushDisabled = ref()
+const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
+const settingsAvatarSrc = ref(defaultAvatar)
+
+watch(
+  () => allInfo.value?.avatarURL,
+  (u) => {
+    settingsAvatarSrc.value = (u && u.trim()) ? u : defaultAvatar
+  },
+  { immediate: true },
+)
+
+function onSettingsAvatarError() {
+  if (settingsAvatarSrc.value !== defaultAvatar)
+    settingsAvatarSrc.value = defaultAvatar
+}
+
 onMounted(async () => {
   allInfo.value = await getAllInfo(userInfo.phone)
   isPushDisabled.value = allInfo.value.emailpush
@@ -169,7 +185,7 @@ function togglePWAExperience() {
     <h2>设置</h2>
     <div class="data">
       <h3>个人信息</h3>
-      <img :src="allInfo?.avatarURL" alt="头像" style="margin: auto">
+      <img :src="settingsAvatarSrc" alt="头像" style="margin: auto" @error="onSettingsAvatarError">
       <label for="fileInput" class="button custom-file-label fileInput">修改头像</label>
       <input id="fileInput" type="file" accept="image/*" style="display: none" @change="uploadAvatarFunc">
       <div>

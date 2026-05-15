@@ -34,6 +34,7 @@ const root = useTemplateRef('root')
 const commentButtonIsShow = ref(false)
 const commentContent = ref('')
 const showSubComment = ref(false)
+const commentSubmitting = ref(false)
 
 const { userInfo } = useUserStore()
 
@@ -93,14 +94,20 @@ async function handler(type: 'delete' | 'comment') {
       break
     }
     case 'comment':{
-      const result = await sendCommentFunc()
-      if (!result) {
-        showMsg('评论失败')
-        return
+      commentSubmitting.value = true
+      try {
+        const result = await sendCommentFunc()
+        if (!result) {
+          showMsg('评论失败')
+          return
+        }
+        event = new CustomEvent('comment-handle', {
+          bubbles: true,
+        })
       }
-      event = new CustomEvent('comment-handle', {
-        bubbles: true,
-      })
+      finally {
+        commentSubmitting.value = false
+      }
       break
     }
     default:
@@ -177,6 +184,7 @@ async function like() {
       <MarkdownEditor
         v-if="commentButtonIsShow && commentable"
         v-model="commentContent"
+        :submit-busy="commentSubmitting"
         @send="handlerDebounced('comment')"
       />
       <div

@@ -36,5 +36,33 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <router-view />
+  <div class="auth-shell">
+    <div class="auth-shell__inner">
+      <router-view />
+    </div>
+  </div>
 </template>
+
+<style scoped lang="scss">
+/* 顶对齐 + 安全区：避免 flex 垂直居中 + 100vh 在移动浏览器里把底部按钮顶到工具栏/主页条后方且无法滚动到位 */
+.auth-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: 100svh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding:
+    max(1.25rem, env(safe-area-inset-top, 0px))
+    1rem
+    max(2rem, calc(env(safe-area-inset-bottom, 0px) + 1.5rem));
+  background: #f4f5f7;
+  box-sizing: border-box;
+}
+
+.auth-shell__inner {
+  width: 100%;
+  max-width: 28rem;
+  flex-shrink: 0;
+}
+</style>

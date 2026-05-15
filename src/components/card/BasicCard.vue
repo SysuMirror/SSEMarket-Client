@@ -13,7 +13,7 @@
   transition: all 0.5s;
 }
 
-p {
+.card-root p {
   text-indent: 2rem;
 }
 </style>

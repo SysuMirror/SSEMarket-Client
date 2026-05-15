@@ -186,11 +186,8 @@ async function getPostByID(
   userTelephone: string,
   postType: PostType = 'post',
 ): Promise<Post | Rating> {
-  const result = await updateBrowseNum(PostID, userTelephone)
-  if (!result) {
-    console.error('增加浏览量失败')
-  }
   try {
+    // 先拉详情（Browse 来自 Redis INCR），再记首访 Pbrowse，避免与 updateBrowseNum 并行导致展示与 MySQL 竞态
     const res = await requestFunc(
       `/auth/showDetails`,
       {
@@ -206,8 +203,25 @@ async function getPostByID(
       },
       true,
     )
+    const browseOk = await updateBrowseNum(PostID, userTelephone)
+    if (!browseOk) {
+      console.error('增加浏览量失败')
+    }
+    if (!res) {
+      return postType === 'post'
+        ? {
+            ...defaultPost,
+            Title: '网络错误',
+            Content: '网络错误',
+          }
+        : {
+            ...defaultRating,
+            Title: '网络错误',
+            Content: '网络错误',
+          }
+    }
     try {
-      const data = await res!.json()
+      const data = await res.json()
       return data
     }
     catch (e) {

@@ -31,6 +31,7 @@ const MarkdownEditor = defineAsyncComponent(
 
 const commentButtonIsShow = ref(false)
 const commentContent = ref('')
+const commentSubmitting = ref(false)
 
 const { userInfo } = useUserStore()
 const root = useTemplateRef('root')
@@ -60,12 +61,20 @@ async function handler(type: 'comment') {
   let event
   switch (type) {
     case 'comment':{
-      const result = await sendCommentFunc()
-      if (!result)
-        return showMsg('评论失败，请稍后再试')
-      event = new CustomEvent('comment-handle', {
-        bubbles: true,
-      })
+      commentSubmitting.value = true
+      try {
+        const result = await sendCommentFunc()
+        if (!result) {
+          showMsg('评论失败，请稍后再试')
+          return
+        }
+        event = new CustomEvent('comment-handle', {
+          bubbles: true,
+        })
+      }
+      finally {
+        commentSubmitting.value = false
+      }
       break
     }
     default:
@@ -166,6 +175,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
       v-if="commentButtonIsShow"
       v-model="commentContent"
       class="max-w-full"
+      :submit-busy="commentSubmitting"
       @send="handlerDebounce('comment')"
     />
   </BasicCard>

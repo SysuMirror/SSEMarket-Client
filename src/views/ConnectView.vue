@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { OAuth2Info } from '@/api/oauth2/oauth2'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getAllInfo } from '@/api/info/getInfo'
 import { authorizeOAuth2App, checkOAuth2App } from '@/api/oauth2/oauth2'
@@ -156,6 +156,22 @@ function cancelAuthorize() {
   window.location.href = ref
 }
 
+const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
+const oauthUserAvatarSrc = ref(defaultAvatar)
+
+watch(
+  () => userBasicInfo.value.avatarURL,
+  (u) => {
+    oauthUserAvatarSrc.value = (u && u.trim()) ? u : defaultAvatar
+  },
+  { immediate: true },
+)
+
+function onOAuthUserAvatarError() {
+  if (oauthUserAvatarSrc.value !== defaultAvatar)
+    oauthUserAvatarSrc.value = defaultAvatar
+}
+
 onMounted(async () => {
   // 检查用户是否已登录
   if (!isLogin.value) {
@@ -230,8 +246,9 @@ onMounted(async () => {
       <div v-if="oauth2Params.scope === 'read_basic'" class="mb-6 rounded-lg bg-gray-50 p-4">
         <div class="flex items-center space-x-3">
           <img
-            :src="userBasicInfo.avatarURL || '/default-avatar.svg'"
+            :src="oauthUserAvatarSrc"
             class="h-12 w-12 border-2 border-gray-200 rounded-full object-cover"
+            @error="onOAuthUserAvatarError"
           >
           <div class="min-w-0 flex-1">
             <div class="text-m truncate text-gray-900 font-medium">

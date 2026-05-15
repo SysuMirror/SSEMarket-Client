@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { AnnualReportData } from '@/api/info/getAnnualReport'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import type { AnnualReportData, ChatUser } from '@/api/info/getAnnualReport'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAnnualReport } from '@/api/info/getAnnualReport'
 import { levelNameHandler } from '@/utils/level'
@@ -158,6 +158,45 @@ function initAutoPlay() {
 
 // Default avatar fallback
 const defaultAvatar = 'https://ssemarket.cn/new/default-avatar.svg'
+
+const coverAvatarDisplay = ref(defaultAvatar)
+watch(
+  () => reportData.value?.avatarUrl,
+  (u) => {
+    coverAvatarDisplay.value = (u && u.trim()) ? u : defaultAvatar
+  },
+  { immediate: true },
+)
+function onCoverAvatarError() {
+  if (coverAvatarDisplay.value !== defaultAvatar)
+    coverAvatarDisplay.value = defaultAvatar
+}
+
+const partnerAvatarDisplay = ref(defaultAvatar)
+watch(
+  () => reportData.value?.maxSayUser?.avatarURL,
+  (u) => {
+    partnerAvatarDisplay.value = (u && u.trim()) ? u : defaultAvatar
+  },
+  { immediate: true },
+)
+function onPartnerAvatarError() {
+  if (partnerAvatarDisplay.value !== defaultAvatar)
+    partnerAvatarDisplay.value = defaultAvatar
+}
+
+const friendAvatarFallback = ref<Record<number, string>>({})
+watch(reportData, () => {
+  friendAvatarFallback.value = {}
+})
+
+function friendMiniDisplaySrc(user: ChatUser) {
+  return friendAvatarFallback.value[user.userID] || user.avatarURL || defaultAvatar
+}
+
+function onFriendMiniAvatarError(userId: number) {
+  friendAvatarFallback.value = { ...friendAvatarFallback.value, [userId]: defaultAvatar }
+}
 
 const daysJoined = computed(() => {
   if (!reportData.value)
@@ -622,7 +661,7 @@ onMounted(async () => {
 
             <div class="user-profile">
               <div class="avatar-ring">
-                <img :src="reportData?.avatarUrl || defaultAvatar" alt="Avatar" class="avatar">
+                <img :src="coverAvatarDisplay" alt="Avatar" class="avatar" @error="onCoverAvatarError">
               </div>
               <p class="greeting">
                 {{ reportData?.name }}
@@ -841,7 +880,7 @@ onMounted(async () => {
                 年度私信
               </div>
               <div class="partner-info">
-                <img :src="reportData?.maxSayUser?.avatarURL || defaultAvatar" class="partner-avatar">
+                <img :src="partnerAvatarDisplay" class="partner-avatar" @error="onPartnerAvatarError">
                 <div class="partner-details">
                   <span class="partner-name">{{ reportData?.maxSayUser?.name }}</span>
                   <span class="partner-msg">{{ reportData?.maxSayUserCnt }} 条消息</span>
@@ -858,8 +897,9 @@ onMounted(async () => {
                 <img
                   v-for="user in otherFriends"
                   :key="user.userID"
-                  :src="user.avatarURL || defaultAvatar"
+                  :src="friendMiniDisplaySrc(user)"
                   class="mini-avatar"
+                  @error="onFriendMiniAvatarError(user.userID)"
                 >
               </div>
             </div>

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
 
@@ -8,6 +8,21 @@ const IsMain = computed(() => {
   return /^\/shop\/?$/.test(route.fullPath)
 })
 const { userInfo } = useUserStore()
+const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
+const sidebarAvatarSrc = ref(defaultAvatar)
+
+watch(
+  () => userInfo.avatarURL,
+  (u) => {
+    sidebarAvatarSrc.value = (u && u.trim()) ? u : defaultAvatar
+  },
+  { immediate: true },
+)
+
+function onSidebarAvatarError() {
+  if (sidebarAvatarSrc.value !== defaultAvatar)
+    sidebarAvatarSrc.value = defaultAvatar
+}
 </script>
 
 <template>
@@ -17,7 +32,7 @@ const { userInfo } = useUserStore()
       <!-- 用户信息部分 -->
       <div class="user-info">
         <div class="avatar-container">
-          <img :src="userInfo.avatarURL" alt="用户头像" class="avatar">
+          <img :src="sidebarAvatarSrc" alt="用户头像" class="avatar" @error="onSidebarAvatarError">
         </div>
         <div class="user-id">
           {{ userInfo.name }}

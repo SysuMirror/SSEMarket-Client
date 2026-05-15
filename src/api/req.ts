@@ -6,7 +6,7 @@ const apiUrl = import.meta.env.VITE_API_BASE_URL
 
 let refreshPromise: Promise<void> | null = null
 
-async function refreshTokenIfNeeded() {
+export async function refreshTokenIfNeeded() {
   const { refreshToken, setToken, setRefreshToken } = useUserStore()
 
   if (!refreshToken.value) {
@@ -35,6 +35,22 @@ async function refreshTokenIfNeeded() {
 
   setToken(token)
   setRefreshToken(newRefreshToken)
+}
+
+/** 在调用 OpsAgent 等需 Bearer 的接口前调用：已有 access token 直接通过；仅有 refresh 时先静默续期。 */
+export async function ensureAccessToken(): Promise<boolean> {
+  const store = useUserStore()
+  if (store.token.value)
+    return true
+  if (!store.refreshToken.value)
+    return false
+  try {
+    await refreshTokenIfNeeded()
+    return !!store.token.value
+  }
+  catch {
+    return false
+  }
 }
 
 export interface RequestObject {

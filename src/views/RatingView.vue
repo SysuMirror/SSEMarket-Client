@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Condition } from '@/store/postStore'
 import type { Post } from '@/types/post'
+import { Icon } from '@iconify/vue'
 import {
   onActivated,
   onMounted,
@@ -18,7 +19,6 @@ defineOptions({
   name: 'RatingView',
 })
 
-const name = ref('')
 const route = useRoute()
 const { userInfo } = useUserStore()
 const { restorePosts, storePosts } = usePostStore()
@@ -26,7 +26,6 @@ const { posts, update, isLoading, hasMore, initialize } = usePostView()
 
 const isDense = ref(true)
 
-// 保存滚动位置
 const scrollTop = ref(0)
 const hasCache = ref(false)
 const cachePosts = reactive<Post[]>([])
@@ -45,13 +44,10 @@ onMounted(async () => {
   hasCache.value = true
 })
 
-// 组件被激活时
-// 其它页面也可以这样做, 不过这里只弄了主页的缓存, 有需要可以改
 onActivated(async () => {
   if (!hasCache.value)
     return
 
-  // 恢复滚动位置
   document.body.scrollTop = scrollTop.value
   isLoading.value = true
   await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition)
@@ -59,25 +55,19 @@ onActivated(async () => {
 })
 
 onBeforeRouteLeave(() => {
-  // 保存滚动位置
   scrollTop.value = document.body.scrollTop
-  // 清空当前页面的帖子列表
   const data = storePosts()
   cachePosts.splice(0, cachePosts.length, ...data.cachePosts)
   cacheTotalNum.value = data.cacheTotalNum
   Object.assign(cacheCondition, data.cacheConditions)
 })
 
-// 监听路由参数变化，当有refresh参数时重新加载数据
 watch(() => route.query.refresh, async (newRefresh) => {
   if (newRefresh && hasCache.value) {
-    // 重新加载最新数据
     await initialize('打分')
 
-    // 清除refresh参数，避免重复触发
     const newQuery = { ...route.query }
     delete newQuery.refresh
-    // 使用replace避免在历史记录中留下refresh参数
     const queryString = Object.keys(newQuery).length > 0 ? `?${new URLSearchParams(newQuery as Record<string, string>).toString()}` : ''
     window.history.replaceState({}, '', `${route.path}${queryString}`)
   }
@@ -85,8 +75,70 @@ watch(() => route.query.refresh, async (newRefresh) => {
 </script>
 
 <template>
-  <div class="w-full">
-    <h2>{{ name }}</h2>
-    <PostList :posts="posts" post-type="rating" :is-dense="isDense" :is-loading="isLoading" :has-more="hasMore" @bottom="update" />
+  <div class="rating-page">
+    <header class="rating-page__head">
+      <Icon icon="tabler:star" class="rating-page__head-icon" width="22" height="22" aria-hidden="true" />
+      <div>
+        <h1 class="rating-page__title">
+          打分
+        </h1>
+        <p class="rating-page__subtitle">
+          课程评价与交流
+        </p>
+      </div>
+    </header>
+
+    <div class="rating-page__list">
+      <PostList
+        :posts="posts"
+        post-type="rating"
+        :is-dense="isDense"
+        :is-loading="isLoading"
+        :has-more="hasMore"
+        @bottom="update"
+      />
+    </div>
   </div>
 </template>
+
+<style scoped lang="scss">
+.rating-page {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 14px 1.5rem;
+  box-sizing: border-box;
+  color: var(--chat-text);
+}
+
+.rating-page__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.rating-page__head-icon {
+  color: var(--chat-accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.rating-page__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--chat-text);
+}
+
+.rating-page__subtitle {
+  margin: 0.3rem 0 0;
+  font-size: 0.875rem;
+  color: var(--chat-text-secondary);
+}
+
+.rating-page__list {
+  width: 100%;
+}
+</style>

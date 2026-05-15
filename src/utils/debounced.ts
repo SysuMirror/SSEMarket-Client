@@ -16,19 +16,30 @@ export function debounce<T extends (...args: any[]) => void>(
   };
 }
 
-// 异步防抖函数（第一次点击有效）
+// 异步防抖：短间隔内忽略；同一次包装内若有请求尚未结束则拒绝（避免慢网时重复提交）
 export function debounceAsync<T extends (...args: any[]) => Promise<any>>(
   fn: T
-): (...args: Parameters<T>) => Promise<ReturnType<T>> {
-  let lastClickTime = 0;
+): (...args: Parameters<T>) => Promise<ReturnType<T> | undefined> {
+  let lastClickTime = 0
+  let inFlight = false
 
   return async (...args: Parameters<T>) => {
-    const now = Date.now();
-    if (now - lastClickTime < MIN_CLICK_GAP) {
-      showMsg("操作太频繁，请稍后再试");
-      throw new Error("操作太频繁，请稍后再试");
+    if (inFlight) {
+      showMsg('提交中，请稍候…')
+      return undefined
     }
-    lastClickTime = now;
-    return await fn(...args);
-  };
+    const now = Date.now()
+    if (now - lastClickTime < MIN_CLICK_GAP) {
+      showMsg('操作太频繁，请稍后再试')
+      return undefined
+    }
+    lastClickTime = now
+    inFlight = true
+    try {
+      return await fn(...args)
+    }
+    finally {
+      inFlight = false
+    }
+  }
 }

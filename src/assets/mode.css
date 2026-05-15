@@ -50,10 +50,23 @@ body {
   --color-level-undefined-box-shadow: #1e1e1eae;
   --color-level-6-bg: #4545454e;
 
-  --chat-bg-main: #eee;
-  --chat-bg-highlight: #ddd;
-  --chat-text: #888;
-  --chat-text-tips: #383838;
+  /* 私信 / 对话：清新简约（浅底、弱分割、柔和气泡） */
+  --chat-bg-main: #f4f6f8;
+  --chat-bg-highlight: #ffffff;
+  --chat-bg-elevated: #ffffff;
+  --chat-border: rgba(15, 23, 42, 0.08);
+  --chat-border-strong: rgba(15, 23, 42, 0.12);
+  --chat-text: #1e293b;
+  --chat-text-secondary: #64748b;
+  --chat-text-tips: #94a3b8;
+  --chat-accent: #0d9488;
+  --chat-accent-soft: rgba(13, 148, 136, 0.12);
+  --chat-bubble-peer: #ffffff;
+  --chat-bubble-self: #e0f2f1;
+  --chat-bubble-border-peer: rgba(15, 23, 42, 0.06);
+  --chat-bubble-border-self: rgba(13, 148, 136, 0.2);
+  --chat-unread-bg: #0d9488;
+  --chat-unread-text: #ffffff;
 
   --color-success: #4caf50;
   --color-error: #f44336;
@@ -118,10 +131,22 @@ body.dark-mode {
   --color-level-undefined-box-shadow: #9d9d9dde;
   --color-level-6-bg: #a9a9a94e;
 
-  --chat-bg-main: #444;
-  --chat-bg-highlight: #282828;
-  --chat-text: #ccc;
-  --chat-text-tips: #383838;
+  --chat-bg-main: #1a1d21;
+  --chat-bg-highlight: #242830;
+  --chat-bg-elevated: #2a2f38;
+  --chat-border: rgba(255, 255, 255, 0.08);
+  --chat-border-strong: rgba(255, 255, 255, 0.12);
+  --chat-text: #e2e8f0;
+  --chat-text-secondary: #94a3b8;
+  --chat-text-tips: #64748b;
+  --chat-accent: #2dd4bf;
+  --chat-accent-soft: rgba(45, 212, 191, 0.15);
+  --chat-bubble-peer: #2a2f38;
+  --chat-bubble-self: #134e4a;
+  --chat-bubble-border-peer: rgba(255, 255, 255, 0.06);
+  --chat-bubble-border-self: rgba(45, 212, 191, 0.25);
+  --chat-unread-bg: #2dd4bf;
+  --chat-unread-text: #0f172a;
 
   /* 商城相关变量 - 夜间模式 */
   --shop-card-bg: #2e2e2e;

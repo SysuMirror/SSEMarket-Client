@@ -1,21 +1,40 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { levelClassHandler, levelNameHandler } from '@/utils/level'
 import UserIdentityIcon from './UserIdentityIcon.vue'
 
-const { userId = 0, userIdentity = '', userName = '', userScore = 0 } = defineProps<{
-  src: string
-  userId?: number
-  userIdentity?: string
-  userName?: string
-  userScore?: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    src: string
+    userId?: number
+    userIdentity?: string
+    userName?: string
+    userScore?: number
+  }>(),
+  { userId: 0, userIdentity: '', userName: '', userScore: 0 },
+)
 const router = useRouter()
 const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
 
+const displaySrc = ref(defaultAvatar)
+
+watch(
+  () => props.src,
+  (s) => {
+    displaySrc.value = (s && s.trim()) ? s : defaultAvatar
+  },
+  { immediate: true },
+)
+
+function onAvatarError() {
+  if (displaySrc.value !== defaultAvatar)
+    displaySrc.value = defaultAvatar
+}
+
 function navigate() {
-  if (userId > 0) {
-    router.push({ name: 'UserProfile', params: { id: userId } })
+  if (props.userId > 0) {
+    router.push({ name: 'UserProfile', params: { id: props.userId } })
     // stopPropagation()
   }
 }
@@ -25,25 +44,26 @@ function navigate() {
   <div class="user">
     <div
       class="user-avatar"
-      :style="{ cursor: userId ? 'pointer' : '' }"
+      :style="{ cursor: props.userId ? 'pointer' : '' }"
       @click="navigate"
     >
       <img
         class="user-avatar-img"
-        :src="src || defaultAvatar"
+        :src="displaySrc"
         loading="lazy"
-        :alt="userId.toString()"
+        :alt="props.userId.toString()"
+        @error="onAvatarError"
       >
-      <UserIdentityIcon :identity="userIdentity" />
+      <UserIdentityIcon :identity="props.userIdentity" />
     </div>
-    <div v-if="userName" class="relative ml-1 h-full max-w-fit w-full flex flex-col items-center justify-center">
+    <div v-if="props.userName" class="relative ml-1 h-full max-w-fit w-full flex flex-col items-center justify-center">
       <span
-        v-if="userScore"
+        v-if="props.userScore"
         class="absolute left-0 top-0 w-fit whitespace-nowrap text-center text-3"
-        :class="levelClassHandler(userScore)"
-      >{{ levelNameHandler(userScore) }}
+        :class="levelClassHandler(props.userScore)"
+      >{{ levelNameHandler(props.userScore) }}
       </span>
-      <span class="user-name w-fit whitespace-nowrap text-center text-5">{{ userName
+      <span class="user-name w-fit whitespace-nowrap text-center text-5">{{ props.userName
       }}</span>
     </div>
     <slot name="reply" />

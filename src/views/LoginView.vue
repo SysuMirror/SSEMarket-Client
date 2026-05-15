@@ -16,14 +16,14 @@ const { setToken, setRefreshToken, setUserInfo } = useUserStore()
 const form = ref<CustomFormData[]>([
   {
     id: 'email',
-    label: 'email',
+    label: '邮箱',
     value: '',
     type: 'email',
     autocomplete: 'email',
   },
   {
     id: 'password',
-    label: 'password',
+    label: '密码',
     value: '',
     type: 'password',
     autocomplete: 'current-password',
@@ -64,19 +64,80 @@ async function loginHandler() {
 
 <template>
   <FormContainer
-    class="mt-11 w-1/2"
+    title="欢迎回来"
+    subtitle="使用邮箱登录你的账号"
+    form-name="登录"
     :form-data="form"
     :disabled="!correct"
     @submit-form="loginHandler"
   >
-    <input v-model="rememberMe" type="checkbox">记住我
-    <div class="flex flex-row justify-around">
-      <router-link to="/auth/register">
-        还没账号？
+    <label class="auth-row auth-check">
+      <input v-model="rememberMe" type="checkbox" class="auth-check__input">
+      <span class="auth-check__text">记住我</span>
+    </label>
+    <div class="auth-links">
+      <router-link class="auth-link" to="/auth/register">
+        注册账号
       </router-link>
-      <router-link to="/auth/reset">
-        忘记密码了？
+      <span class="auth-links__sep" aria-hidden="true">·</span>
+      <router-link class="auth-link" to="/auth/reset">
+        忘记密码
       </router-link>
     </div>
   </FormContainer>
 </template>
+
+<style scoped lang="scss">
+.auth-row {
+  margin-top: 0.5rem;
+}
+
+.auth-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #636366;
+  user-select: none;
+}
+
+.auth-check__input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #6b6a68;
+  cursor: pointer;
+}
+
+.auth-check__text {
+  line-height: 1.4;
+}
+
+.auth-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.auth-links__sep {
+  color: #c7c7cc;
+  user-select: none;
+}
+
+.auth-link {
+  color: #6b6a68;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.auth-link:hover {
+  color: #3a3a3c;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+</style>

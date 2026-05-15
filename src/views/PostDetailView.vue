@@ -155,11 +155,14 @@ onMounted(async () => {
   try {
     const ID = Number(route.params.id)
     postType.value = await getPostTypeByID(ID)
-    const curPost = await getPostByID(ID, userInfo.phone, postType.value)
-
-    post.value = curPost
-    setTitle(post.value.Title)
-    await getCommentList()
+    await Promise.all([
+      (async () => {
+        const curPost = await getPostByID(ID, userInfo.phone, postType.value)
+        post.value = curPost
+        setTitle(post.value.Title)
+      })(),
+      getCommentList(),
+    ])
     // 从新帖子列表中移除当前帖子ID
     removeNewPostId(ID)
   }

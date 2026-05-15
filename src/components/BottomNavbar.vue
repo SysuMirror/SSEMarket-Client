@@ -148,6 +148,13 @@ function toggleMyMenu() {
         >
           反馈
         </router-link>
+        <router-link
+          class="dropdown-item"
+          :class="{ selected: selected === '/smart-xiaoqiu' }"
+          to="/smart-xiaoqiu"
+        >
+          智能小秋
+        </router-link>
       </div>
     </div>
   </div>

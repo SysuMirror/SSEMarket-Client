@@ -144,37 +144,119 @@ async function registerAction() {
 
 <template>
   <FormContainer
-    class="mt-5 w-full sm:w-1/2"
+    title="创建账号"
+    subtitle="填写信息完成注册，验证码将发送至邮箱"
+    form-name="注册"
     :form-data="registerForm"
     :disabled="!correct"
     @submit-form="registerAction"
   >
-    <!--
-    <span v-if="!passwordIsCorrect" class="text-sm text-red-500">
-      密码至少6位，包含大小写字母、数字和!@#$%^&*? 中的一个
-      <br>
-    </span>
-    <span v-else class="mx-a block text-sm text-green-500">
-      密码符合要求
-    </span>
-     -->
-    <div class="flex flex-row justify-between">
-      <div class="mx-a">
-        <input ref="rememberMe" type="checkbox">
-        <label for="rememberMe">记住我</label>
-        <span class="text-sm text-gray-500">下次自动登录</span>
-      </div>
-      <RouterLink class="mx-a text-purple-800" to="/auth/login">
-        有账号了
+    <div class="reg-toolbar">
+      <label class="auth-check">
+        <input ref="rememberMe" type="checkbox" class="auth-check__input">
+        <span class="auth-check__text">记住我</span>
+        <span class="auth-check__hint">下次自动登录</span>
+      </label>
+      <RouterLink class="auth-link" to="/auth/login">
+        已有账号
       </RouterLink>
     </div>
     <button
       type="button"
       :disabled="!emailIsCorrect"
-      class="mt-5 h-10 w-full flex cursor-pointer items-center justify-center border-0 rounded-[20px] bg-[#eb6b26] text-lg text-white disabled:bg-zinc-600 hover:bg-[#ff7e3b]"
+      class="auth-btn-secondary"
       @click.prevent="sendCodeAction"
     >
-      {{ emailIsCorrect ? '发送验证码' : '请填写正确邮箱' }}
+      {{ emailIsCorrect ? '发送验证码' : '请先填写有效邮箱' }}
     </button>
   </FormContainer>
 </template>
+
+<style scoped lang="scss">
+.reg-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+.auth-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #636366;
+  user-select: none;
+}
+
+.auth-check__input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #6b6a68;
+  cursor: pointer;
+}
+
+.auth-check__text {
+  line-height: 1.4;
+}
+
+.auth-check__hint {
+  width: 100%;
+  flex-basis: 100%;
+  margin-left: 1.5rem;
+  font-size: 0.8125rem;
+  color: #aeaeb2;
+  line-height: 1.35;
+}
+
+.auth-link {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b6a68;
+  text-decoration: none;
+  transition: color 0.2s ease;
+  padding-top: 0.125rem;
+}
+
+.auth-link:hover {
+  color: #3a3a3c;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.auth-btn-secondary {
+  margin-top: 1rem;
+  width: 100%;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d1d6;
+  border-radius: 0.625rem;
+  background: #fff;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #3a3a3c;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.auth-btn-secondary:hover:not(:disabled) {
+  background: #f2f2f7;
+  border-color: #c7c7cc;
+}
+
+.auth-btn-secondary:disabled {
+  color: #aeaeb2;
+  border-color: #e5e5ea;
+  background: #fafafa;
+  cursor: not-allowed;
+}
+</style>

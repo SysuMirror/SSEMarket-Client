@@ -8,6 +8,7 @@ import { delPost } from '@/api/editPostAndComment/editPost'
 import { likePost } from '@/api/SaveAndLike/SaveAndLike'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
+import { debounceAsync } from '@/utils/debounced'
 
 import BasicCard from '../card/BasicCard.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
@@ -29,6 +30,7 @@ const MarkdownEditor = defineAsyncComponent(
 
 const commentButtonIsShow = ref(false)
 const commentContent = ref('')
+const commentSubmitting = ref(false)
 const commentRating = ref(post.UserRating || 0)
 
 const { userInfo } = useUserStore()
@@ -158,7 +160,7 @@ async function currentRatingClick(rating: number) {
 }
 
 // 提交评论（包含评分）
-async function submitComment() {
+async function submitCommentImpl() {
   if (!commentContent.value.trim() && commentRating.value === 0) {
     showMsg('请输入评论内容或选择评分')
     return
@@ -166,6 +168,7 @@ async function submitComment() {
 
   const hasRating = commentRating.value > 0
 
+  commentSubmitting.value = true
   try {
     const success = await sendRComment(
       commentContent.value,
@@ -201,7 +204,12 @@ async function submitComment() {
   catch {
     showMsg('评论提交出错')
   }
+  finally {
+    commentSubmitting.value = false
+  }
 }
+
+const submitComment = debounceAsync(submitCommentImpl)
 
 /**
  * @description 点赞功能
@@ -322,6 +330,7 @@ async function deleteRatingPost() {
       v-if="commentButtonIsShow"
       v-model="commentContent"
       class="comment-editor max-w-full"
+      :submit-busy="commentSubmitting"
       @send="submitComment"
     />
   </BasicCard>
