@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
-import { defineAsyncComponent, ref, useTemplateRef } from 'vue'
+import { computed, defineAsyncComponent, ref, useTemplateRef } from 'vue'
 import { sendComment } from '@/api/editPostAndComment/editComment'
 import { delPost } from '@/api/editPostAndComment/editPost'
 
@@ -15,6 +15,7 @@ import BasicInfo from '../BasicInfo.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
+import CommentToolbar from '../comment/CommentToolbar.vue'
 import BasicCard from './BasicCard.vue'
 
 const { post } = defineProps<{
@@ -34,6 +35,20 @@ const commentContent = ref('')
 const commentSubmitting = ref(false)
 
 const { userInfo } = useUserStore()
+
+type PostWithOwnerKeys = Post & { userID?: number, user_id?: number }
+
+const profileOwnerId = computed(() => {
+  const p = post as PostWithOwnerKeys
+  const n = Number(p.UserID ?? p.userID ?? p.user_id)
+  if (Number.isFinite(n) && n > 0)
+    return n
+  const phone = (p.UserTelephone || '').trim()
+  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
+    return userInfo.userID
+  return 0
+})
+
 const root = useTemplateRef('root')
 /**
  * @description 发送评论
@@ -139,15 +154,22 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
 
 <template>
   <BasicCard class="w-15/16">
-    <div ref="root" class="h-fit flex flex-row items-center">
-      <UserAvatar
-        :src="post.UserAvatar"
-        :user-id="post.UserID"
-        :user-identity="post.UserIdentity"
-        :user-name="post.UserName"
-        :user-score="post.UserScore"
+    <div ref="root" class="detail-card__head flex flex-row flex-wrap items-center justify-between gap-2">
+      <div class="detail-card__profile min-w-0">
+        <UserAvatar
+          :src="post.UserAvatar"
+          :user-id="profileOwnerId"
+          :user-identity="post.UserIdentity"
+          :user-name="post.UserName"
+          :user-score="post.UserScore"
+        />
+      </div>
+      <UserButton
+        class="flex-shrink-0"
+        :is-saved="post.IsSaved"
+        :is-self="post.UserTelephone === userInfo.phone"
+        @user-action="handleUserActionDebounce"
       />
-      <UserButton :is-saved="post.IsSaved" :is-self="post.UserTelephone === userInfo.phone" @user-action="handleUserActionDebounce" />
     </div>
     <div class="extension-slot">
       <slot name="right-extension" />
@@ -166,22 +188,35 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
       <OldImages :photos="post.Photos" />
     </template>
     <BasicInfo :time="post.PostTime" :browse="post.Browse" :comment="post.Comment" :is-like="post.IsLiked" :like="post.Like" @like-change="like" />
-    <div class="commentButton">
-      <button @click="commentButtonIsShow = !commentButtonIsShow">
-        {{ commentButtonIsShow ? '隐藏' : '发评论' }}
-      </button>
-    </div>
-    <MarkdownEditor
-      v-if="commentButtonIsShow"
-      v-model="commentContent"
-      class="max-w-full"
-      :submit-busy="commentSubmitting"
-      @send="handlerDebounce('comment')"
+    <CommentToolbar
+      reply-label="写评论"
+      :reply-open="commentButtonIsShow"
+      :show-sub-toggle="false"
+      @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
     />
+    <div v-if="commentButtonIsShow" class="comment-compose max-w-full">
+      <MarkdownEditor
+        v-model="commentContent"
+        compact
+        placeholder="写下你的评论…"
+        :submit-busy="commentSubmitting"
+        @send="handlerDebounce('comment')"
+      />
+    </div>
   </BasicCard>
 </template>
 
 <style>
+/* 头像区：与按钮同一行，头像区可收缩 */
+.detail-card__head {
+  width: 100%;
+}
+
+.detail-card__profile {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* 扩展插槽定位 */
 .extension-slot {
   position: relative;
@@ -192,28 +227,4 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
   margin-bottom: 8px;
 }
 
-/* 评论按钮样式 - 与普通帖子保持一致 */
-.commentButton {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
-}
-
-.commentButton button {
-  margin-left: 5px;
-  margin-right: 5px;
-  background: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  min-width: 80px;
-}
-
-.commentButton button:hover {
-  background: #357abd;
-}
 </style>

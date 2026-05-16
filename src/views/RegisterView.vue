@@ -188,14 +188,14 @@ async function registerAction() {
   gap: 0.35rem 0.5rem;
   cursor: pointer;
   font-size: 0.875rem;
-  color: #636366;
+  color: var(--chat-text-secondary);
   user-select: none;
 }
 
 .auth-check__input {
   width: 1rem;
   height: 1rem;
-  accent-color: #6b6a68;
+  accent-color: var(--chat-accent);
   cursor: pointer;
 }
 
@@ -208,7 +208,7 @@ async function registerAction() {
   flex-basis: 100%;
   margin-left: 1.5rem;
   font-size: 0.8125rem;
-  color: #aeaeb2;
+  color: var(--chat-text-tips);
   line-height: 1.35;
 }
 
@@ -216,14 +216,14 @@ async function registerAction() {
   flex-shrink: 0;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #6b6a68;
+  color: var(--chat-accent);
   text-decoration: none;
   transition: color 0.2s ease;
   padding-top: 0.125rem;
 }
 
 .auth-link:hover {
-  color: #3a3a3c;
+  color: var(--chat-text);
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -235,12 +235,15 @@ async function registerAction() {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #d1d1d6;
+  border: 1px solid var(--chat-border-strong);
   border-radius: 0.625rem;
-  background: #fff;
+  background: var(--chat-bg-elevated);
   font-size: 0.9375rem;
-  font-weight: 500;
-  color: #3a3a3c;
+  font-weight: 600;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--chat-text);
   cursor: pointer;
   transition:
     background-color 0.2s ease,
@@ -249,14 +252,15 @@ async function registerAction() {
 }
 
 .auth-btn-secondary:hover:not(:disabled) {
-  background: #f2f2f7;
-  border-color: #c7c7cc;
+  background: var(--chat-bg-main);
+  border-color: var(--chat-accent);
+  color: var(--chat-accent);
 }
 
 .auth-btn-secondary:disabled {
-  color: #aeaeb2;
-  border-color: #e5e5ea;
-  background: #fafafa;
+  color: var(--chat-text-tips);
+  border-color: var(--chat-border);
+  background: var(--chat-bg-main);
   cursor: not-allowed;
 }
 </style>

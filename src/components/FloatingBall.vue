@@ -25,8 +25,9 @@ function closeSidebar() {
 <style scoped>
 .floating-ball {
   position: fixed;
-  top: 28px;
-  left: 10px;
+  top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
+  right: max(10px, calc(env(safe-area-inset-right, 0px) + 6px));
+  left: auto;
   width: 60px;
   height: 60px;
   border-radius: 50%;

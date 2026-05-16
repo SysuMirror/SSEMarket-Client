@@ -1,8 +1,8 @@
+import { ref, shallowRef } from 'vue'
 import { opsagentBaseURL } from '@/api/opsagent/baseUrl'
 import { OpsAgentRequestError, parseOpsAgentJsonError } from '@/api/opsagent/errors'
 import { opsagentAuthHeaders } from '@/api/opsagent/headers'
 import { ensureAccessToken } from '@/api/req'
-import { ref, shallowRef } from 'vue'
 
 export type AssistantStatus = 'streaming' | 'done' | 'error'
 
@@ -275,7 +275,7 @@ export function useOpsAgentStream() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
+        'Accept': 'text/event-stream',
         ...opsagentAuthHeaders(),
       },
       body: JSON.stringify(body),

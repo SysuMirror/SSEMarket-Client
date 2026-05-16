@@ -98,14 +98,14 @@ async function loginHandler() {
   gap: 0.5rem;
   cursor: pointer;
   font-size: 0.875rem;
-  color: #636366;
+  color: var(--chat-text-secondary);
   user-select: none;
 }
 
 .auth-check__input {
   width: 1rem;
   height: 1rem;
-  accent-color: #6b6a68;
+  accent-color: var(--chat-accent);
   cursor: pointer;
 }
 
@@ -124,19 +124,19 @@ async function loginHandler() {
 }
 
 .auth-links__sep {
-  color: #c7c7cc;
+  color: var(--chat-border-strong);
   user-select: none;
 }
 
 .auth-link {
-  color: #6b6a68;
+  color: var(--chat-accent);
   text-decoration: none;
   font-weight: 500;
   transition: color 0.2s ease;
 }
 
 .auth-link:hover {
-  color: #3a3a3c;
+  color: var(--chat-text);
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }

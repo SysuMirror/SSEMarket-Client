@@ -2,10 +2,11 @@ import { createApp } from 'vue'
 
 import App from './App.vue'
 import router from './router'
+import { clearStaleNewSSEServiceWorker } from './utils/clearStaleServiceWorker'
 import './assets/main.css'
 import './assets/mode.css'
+import './assets/comment-ui.scss'
 import 'virtual:uno.css'
-import { clearStaleNewSSEServiceWorker } from './utils/clearStaleServiceWorker'
 
 void clearStaleNewSSEServiceWorker()
 

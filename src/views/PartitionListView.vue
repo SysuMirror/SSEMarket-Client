@@ -3,6 +3,15 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+const coverFallback = `${import.meta.env.BASE_URL}icons/image-fallback.svg`
+
+function onPartitionCoverError(e: Event) {
+  const img = e.target as HTMLImageElement
+  if (img.dataset.fallbackApplied === '1')
+    return
+  img.dataset.fallbackApplied = '1'
+  img.src = coverFallback
+}
 const partitions = ref([
   { name: '日常吐槽', description: '言短情长，抒发心声。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/daily.jpg' },
   { name: '优质贴', description: '优质内容，分享交流。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/secondhand.jpg' },
@@ -20,157 +29,177 @@ function sendPartition(p: string) {
 </script>
 
 <template>
-  <div class="root">
-    <h2>选择分区</h2>
-    <div
-      class="partitions"
-      style="margin: auto; margin-top: 10vh;"
-    >
-      <div
+  <div class="picker">
+    <h2 class="picker__title">
+      选择分区
+    </h2>
+    <div class="picker__grid">
+      <article
         v-for="(p, index) in partitions"
         :key="index"
-        class="card"
+        class="picker-card"
       >
-        <img
-          :src="p.src"
-          class="card-img-top"
-          style="height: 60%;"
-        >
-        <div class="card-body">
-          <h5 class="card-title">
-            {{ p.name }}
-          </h5>
-          <p
-            class="card-text"
-            style="font-size: 0.8em; color: grey;"
+        <div class="picker-card__media">
+          <img
+            :src="p.src"
+            class="picker-card__img"
+            :alt="p.name"
+            loading="lazy"
+            decoding="async"
+            @error="onPartitionCoverError"
           >
+        </div>
+        <div class="picker-card__body">
+          <h3 class="picker-card__name">
+            {{ p.name }}
+          </h3>
+          <p class="picker-card__desc">
             {{ p.description }}
           </p>
-          <a
-            class="btn btn-primary"
+          <button
+            type="button"
+            class="picker-card__btn"
             @click="sendPartition(p.name)"
-          >跳转分区</a>
+          >
+            进入分区
+          </button>
         </div>
-      </div>
+      </article>
     </div>
   </div>
 </template>
 
-<style scoped>
-.root {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  position: relative;
-  color: var(--color-text);
+<style scoped lang="scss">
+.picker {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 6px 10px 12px;
+  box-sizing: border-box;
+  color: var(--chat-text, var(--color-text));
 }
 
-.root h2 {
-  font-size: 25px;
-  position: absolute;
-  top: 0;
-  left: 0;
+.picker__title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--chat-text, var(--color-text));
 }
 
-.partitions {
+.picker__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   width: 100%;
-  max-width: 100%;
-  padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 5px;
-  transition: all 0.3s;
 }
 
-.card {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  width: 100%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 10px;
-  border: 1px solid #000;
-  border-radius: 5px;
-  transition: all 0.3s;
+@media screen and (min-width: 520px) {
+  .picker__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media screen and (min-width: 840px) {
+  .picker__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.picker-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  height: 100%;
+  min-width: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--chat-bg-highlight, #fff);
+  border: 1px solid var(--chat-border, #e2e8f0);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: var(--chat-border-strong, #cbd5e1);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+  }
 }
 
-.card-img-top {
-  height: 60%;
+.picker-card__media {
+  position: relative;
   width: 100%;
+  aspect-ratio: 5 / 3;
+  max-height: 88px;
+  background: var(--chat-bg-main, #f1f5f9);
+}
+
+.picker-card__img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-bottom: 1px solid #ddd;
+  display: block;
 }
 
-.card-body {
-  padding: 1rem;
+.picker-card__body {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
-.card-title {
-  font-size: 1.25rem;
-  margin-bottom: 0.75rem;
+.picker-card__name {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--chat-text, var(--color-text));
 }
 
-.card-text {
-  font-size: 0.8em;
-  color: grey;
-  margin-bottom: 1rem;
+.picker-card__desc {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--chat-text-secondary, #64748b);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
 }
 
-.btn-primary {
-  display: inline-block;
-  font-weight: 400;
+.picker-card__btn {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
   color: #fff;
-  text-align: center;
-  vertical-align: middle;
-  user-select: none;
-  background-color: #007bff;
-  border: 1px solid #007bff;
-  padding: 0.375rem 0.75rem;
-  font-size: 1rem;
-  line-height: 1.5;
-  border-radius: 0.25rem;
-  text-decoration: none;
+  background: var(--chat-accent, #2c3d56);
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.btn {
-  display: inline-block;
-  font-weight: 400;
-  text-align: center;
-  white-space: nowrap;
-  vertical-align: middle;
-  user-select: none;
-  border: 1px solid transparent;
-  padding: 0.375rem 0.75rem;
-  font-size: 1rem;
-  line-height: 1.5;
-  border-radius: 0.25rem;
   transition:
-    color 0.15s ease-in-out,
-    background-color 0.15s ease-in-out,
-    border-color 0.15s ease-in-out,
-    box-shadow 0.15s ease-in-out;
+    filter 0.12s ease,
+    transform 0.12s ease;
+
+  &:hover {
+    filter: brightness(1.05);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
-.btn-primary:hover {
-  color: #fff;
-  background-color: #0056b3;
-  border-color: #004085;
+body.dark-mode .picker-card {
+  background: var(--chat-bg-highlight, #1e293b);
+  border-color: var(--chat-border, #334155);
 }
 
-/* 夜间模式 */
-body.dark-mode .card-body {
-  filter: invert(1);
-}
-body.dark-mode .card {
-  background-color: #000;
+body.dark-mode .picker-card__desc {
+  color: var(--chat-text-secondary, #94a3b8);
 }
 </style>

@@ -2,6 +2,7 @@
 import type { Condition, Partitions } from '@/store/postStore'
 import type { Post } from '@/types/post'
 import {
+  nextTick,
   onActivated,
   onMounted,
   reactive,
@@ -13,6 +14,7 @@ import PostList from '@/components/PostList.vue'
 import { usePostView } from '@/composables/usePostView'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
+import { getWindowScrollY, setWindowScrollY } from '@/utils/windowScroll'
 
 defineOptions({
   name: 'PartitionView',
@@ -70,11 +72,14 @@ onMounted(async () => {
 onActivated(async () => {
   if (!hasCache.value)
     return
-  // 恢复滚动位置
-  document.body.scrollTop = scrollTop.value
   isLoading.value = true
   await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition)
   isLoading.value = false
+  await nextTick()
+  requestAnimationFrame(() => {
+    setWindowScrollY(scrollTop.value)
+    requestAnimationFrame(() => setWindowScrollY(scrollTop.value))
+  })
 })
 
 onBeforeRouteUpdate(async () => {
@@ -87,7 +92,7 @@ onBeforeRouteUpdate(async () => {
 
 onBeforeRouteLeave(async () => {
   // 保存滚动位置
-  scrollTop.value = document.body.scrollTop
+  scrollTop.value = getWindowScrollY()
   // 清空当前页面的帖子列表
   const data = storePosts()
   cachePosts.splice(0, cachePosts.length, ...data.cachePosts)
@@ -98,8 +103,21 @@ onBeforeRouteLeave(async () => {
 </script>
 
 <template>
-  <div class="w-full">
-    <h2>{{ name }}</h2>
+  <div class="partition-feed w-full">
+    <h2 class="partition-feed__title">
+      {{ name }}
+    </h2>
     <PostList :posts="posts" :is-dense="isDense" :is-loading="isLoading" :has-more="hasMore" @bottom="update" />
   </div>
 </template>
+
+<style scoped lang="scss">
+.partition-feed__title {
+  margin: 0 0 6px;
+  padding: 0 4px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--chat-text, inherit);
+}
+</style>

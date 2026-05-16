@@ -35,19 +35,41 @@ const comments = ref<Comment[] | RatingComment[]>([])
 
 const postType = ref<PostType>('post')
 
-type SortType = 'time' | 'likes'
-const sortType = ref<SortType>('time')
+/** 主评论时间排序：降序 = 最新在前，升序 = 最早在前 */
+type CommentTimeOrder = 'desc' | 'asc'
+
+function commentTimeMs(c: Comment | RatingComment): number {
+  const raw = c.CommentTime as unknown
+  if (typeof raw === 'number' && Number.isFinite(raw))
+    return raw
+  if (!raw || typeof raw !== 'string')
+    return 0
+  let ms = Date.parse(raw)
+  if (Number.isFinite(ms))
+    return ms
+  const normalized = raw.trim().replace(' ', 'T')
+  ms = Date.parse(normalized)
+  if (Number.isFinite(ms))
+    return ms
+  return 0
+}
+
+const commentTimeOrder = ref<CommentTimeOrder>('desc')
 const sortedComments = computed(() => {
-  // 如果是按时间排序，直接返回原数组
-  if (sortType.value === 'time') {
-    return comments.value
-  }
-  // 只有按点赞数排序时才创建新数组并排序
-  // .slice()是为了不改变原数组
-  return comments.value.slice().sort((a, b) => b.LikeNum - a.LikeNum)
+  const list = [...comments.value]
+  list.sort((a, b) => {
+    const diff = commentTimeMs(b) - commentTimeMs(a)
+    if (diff !== 0)
+      return commentTimeOrder.value === 'desc' ? diff : -diff
+    return commentTimeOrder.value === 'desc'
+      ? b.PcommentID - a.PcommentID
+      : a.PcommentID - b.PcommentID
+  })
+  return list
 })
-function setSortType(type: SortType) {
-  sortType.value = type
+
+function setCommentTimeOrder(order: CommentTimeOrder) {
+  commentTimeOrder.value = order
 }
 
 async function commentHandler() {
@@ -69,9 +91,7 @@ async function getCommentList() {
   try {
     const ID = Number(route.params.id)
     const curComments = await getCommentsByPostID(ID, userInfo.phone, postType.value)
-    if (curComments)
-      curComments.reverse()
-    comments.value = curComments
+    comments.value = curComments ?? []
   }
   catch (e) {
     showMsg(`获取评论失败: ${e}`)
@@ -198,42 +218,70 @@ onMounted(async () => {
     <div v-else>
       loading...
     </div>
-    <div class="mt-5 h-a w-full">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="m-2">
+    <div class="comment-block mx-a mt-5 w-15/16">
+      <div class="comment-sort-header">
+        <h2 class="comment-sort-title">
           评论
         </h2>
-        <div class="flex flex-row gap-2">
-          <div
-            class="sort-btn max-w-30 min-w-25 w-20vw flex cursor-pointer items-center justify-center rounded-1 bg-[#f5f5f5] px-1 py-3 font-500 transition-all duration-300 ease"
-            hover="bg-[#e8d5c4]"
-            active="bg-[#d0b5a0] scale-98"
-            @click="setSortType('time')"
+        <div class="sort-toolbar" role="group" aria-label="评论排序">
+          <button
+            type="button"
+            class="sort-btn sort-btn--desc"
+            :class="{ 'sort-btn--active': commentTimeOrder === 'desc' }"
+            :aria-pressed="commentTimeOrder === 'desc'"
+            aria-label="按时间降序：最新评论在前"
+            @click.stop="setCommentTimeOrder('desc')"
           >
-            <div
-              class="mr-1 h-8 w-8 bg-contain bg-no-repeat"
-              style="background-image: url(https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/src/images/uploads/1729845428749551312_icons8-sort-48.png);"
-            />
-            时间
-          </div>
-          <div
-            class="sort-btn max-w-30 min-w-25 w-20vw flex cursor-pointer items-center justify-center rounded-1 bg-[#f5f5f5] px-1 py-3 font-500 transition-all duration-300 ease"
-            hover="bg-[#e8d5c4]"
-            active="bg-[#d0b5a0] scale-98"
-            @click="setSortType('likes')"
+            <svg
+              class="sort-btn__icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 8v5l2.5 1.5" />
+              <path d="M18 15l-6-6-6 6" />
+            </svg>
+            <span class="sort-btn__label">
+              <span class="sort-btn__text" aria-hidden="true">最新在前</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            class="sort-btn sort-btn--asc"
+            :class="{ 'sort-btn--active': commentTimeOrder === 'asc' }"
+            :aria-pressed="commentTimeOrder === 'asc'"
+            aria-label="按时间升序：最早评论在前"
+            @click.stop="setCommentTimeOrder('asc')"
           >
-            <div
-              class="mr-1 h-8 w-8 bg-contain bg-no-repeat"
-              style="background-image: url(https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/src/images/uploads/1729845524483606271_icons8-sort-49.png);"
-            />
-            热度
-          </div>
+            <svg
+              class="sort-btn__icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 8v5l2.5 1.5" />
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+            <span class="sort-btn__label">
+              <span class="sort-btn__text" aria-hidden="true">最早在前</span>
+            </span>
+          </button>
         </div>
       </div>
       <!-- 这是评论区 -->
       <div
         v-if="post"
-        class="commentList min-w-full w-full"
+        class="commentList min-w-0 w-full"
       >
         <!-- 使用id-评论数作为key使每次评论重新渲染当前评论 -->
         <!-- Post类型固定渲染 -->
@@ -241,7 +289,7 @@ onMounted(async () => {
           <CommentCard
             v-for="comment in sortedComments"
             :key="comment.PcommentID"
-            class="mx-a my-3 w-15/16"
+            class="comment-list-item mx-a w-full"
             :post-id="post.PostID"
             :commentable="true"
             :is-dence="false"
@@ -254,7 +302,7 @@ onMounted(async () => {
           <RatingCommentCard
             v-for="comment in sortedComments"
             :key="comment.PcommentID"
-            class="mx-a my-3 w-15/16"
+            class="mx-a my-3 w-full"
             :post-id="post.PostID"
             :commentable="false"
             :is-dence="false"
@@ -271,21 +319,212 @@ onMounted(async () => {
   color: var(--color-text);
 }
 
+.comment-block {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.comment-list-item {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.comment-list-item:first-child {
+  margin-top: 8px;
+}
+
+.comment-sort-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(14px, 4vw, 28px);
+  margin-bottom: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.comment-sort-title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 2px;
+  font-size: clamp(1.28rem, 4.2vw, 1.48rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  color: var(--chat-text, var(--color-text));
+}
+
+.sort-toolbar {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: clamp(6px, 2vw, 10px);
+}
+
 .sort-btn {
+  flex: 0 0 auto;
+  min-width: clamp(5.5rem, 28vw, 7rem);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(4px, 1.2vw, 6px);
+  min-height: clamp(34px, 9vw, 40px);
+  padding: clamp(6px, 1.5vw, 9px) clamp(8px, 2.2vw, 12px);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: clamp(11px, 2.9vw, 13px);
+  font-weight: 600;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
   cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-body.dark-mode .sort-btn {
-  background-color: var(--color-bg);
-  border: 1px solid whitesmoke;
-  box-shadow: var(--color-post-card-hover-box-shadow) 0px 2px 7px;
+.sort-btn__label {
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
 }
-body.dark-mode .sort-btn:hover {
-  background-color: #2c2c2c;
-  color: white;
+
+.sort-btn__text {
+  display: inline;
 }
-body.dark-mode .sort-btn:active {
-  background-color: #444;
+
+.sort-btn:active {
+  transform: scale(0.98);
+}
+
+.sort-btn__icon {
+  flex-shrink: 0;
+  display: block;
+  width: clamp(14px, 3.8vw, 18px);
+  height: clamp(14px, 3.8vw, 18px);
+  opacity: 0.95;
+}
+
+/* 最新在前 — 浅红系 */
+.sort-btn--desc {
+  background: #fef2f2;
+  border-color: rgba(244, 63, 94, 0.28);
+  color: #9f1239;
+}
+
+.sort-btn--desc .sort-btn__icon {
+  color: #e11d48;
+}
+
+.sort-btn--desc:hover {
+  background: #ffe4e6;
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #881337;
+}
+
+.sort-btn--desc.sort-btn--active {
+  background: #fecdd3;
+  border-color: #fb7185;
+  color: #881337;
+  box-shadow: 0 0 0 1px rgba(251, 113, 133, 0.45);
+}
+
+.sort-btn--desc.sort-btn--active .sort-btn__icon {
+  color: #be123c;
+}
+
+/* 最早在前 — 浅蓝系 */
+.sort-btn--asc {
+  background: #eff6ff;
+  border-color: rgba(59, 130, 246, 0.28);
+  color: #1e40af;
+}
+
+.sort-btn--asc .sort-btn__icon {
+  color: #2563eb;
+}
+
+.sort-btn--asc:hover {
+  background: #dbeafe;
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #1e3a8a;
+}
+
+.sort-btn--asc.sort-btn--active {
+  background: #bfdbfe;
+  border-color: #60a5fa;
+  color: #1e3a8a;
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.5);
+}
+
+.sort-btn--asc.sort-btn--active .sort-btn__icon {
+  color: #1d4ed8;
+}
+
+body.dark-mode .comment-sort-title {
+  color: var(--chat-text, #e2e8f0);
+}
+
+body.dark-mode .sort-btn--desc {
+  background: rgba(136, 19, 55, 0.35);
+  border-color: rgba(251, 113, 133, 0.35);
+  color: #fecdd3;
+}
+
+body.dark-mode .sort-btn--desc .sort-btn__icon {
+  color: #fda4af;
+}
+
+body.dark-mode .sort-btn--desc:hover {
+  background: rgba(136, 19, 55, 0.5);
+  border-color: rgba(251, 113, 133, 0.55);
+  color: #fff1f2;
+}
+
+body.dark-mode .sort-btn--desc.sort-btn--active {
+  background: rgba(190, 18, 60, 0.55);
+  border-color: #fb7185;
+  color: #fff1f2;
+  box-shadow: 0 0 0 1px rgba(251, 113, 133, 0.35);
+}
+
+body.dark-mode .sort-btn--asc {
+  background: rgba(30, 58, 138, 0.4);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #dbeafe;
+}
+
+body.dark-mode .sort-btn--asc .sort-btn__icon {
+  color: #93c5fd;
+}
+
+body.dark-mode .sort-btn--asc:hover {
+  background: rgba(30, 58, 138, 0.55);
+  border-color: rgba(96, 165, 250, 0.55);
+  color: #f0f9ff;
+}
+
+body.dark-mode .sort-btn--asc.sort-btn--active {
+  background: rgba(37, 99, 235, 0.45);
+  border-color: #60a5fa;
+  color: #f0f9ff;
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.4);
 }
 </style>

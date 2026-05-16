@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import MarkdownContainer from '@/components/MarkdownContainer.vue'
 import type {
   TimelineAssistant,
   TimelineItem,
@@ -7,6 +6,7 @@ import type {
   TimelineUser,
 } from '@/composables/useOpsAgentStream'
 import { computed, ref } from 'vue'
+import MarkdownContainer from '@/components/MarkdownContainer.vue'
 
 const props = defineProps<{
   items: TimelineItem[]
@@ -281,8 +281,15 @@ function isThinking(text: string, status: TimelineAssistant['status']) {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.35; transform: scale(0.85); }
-  50% { opacity: 1; transform: scale(1); }
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* —— 中间步骤：与主气泡同宽 —— */
@@ -293,7 +300,9 @@ function isThinking(text: string, status: TimelineAssistant['status']) {
   border: 1px solid var(--xq-step-border);
   background: var(--xq-step-bg);
   overflow: hidden;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .step-card.streaming {
@@ -445,11 +454,23 @@ function isThinking(text: string, status: TimelineAssistant['status']) {
   animation: typing 1.2s ease-in-out infinite;
 }
 
-.typing span:nth-child(2) { animation-delay: 0.15s; }
-.typing span:nth-child(3) { animation-delay: 0.3s; }
+.typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 @keyframes typing {
-  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-3px); }
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
 </style>

@@ -3,6 +3,7 @@ import type { Condition } from '@/store/postStore'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
 import {
+  nextTick,
   onActivated,
   onMounted,
   reactive,
@@ -14,6 +15,7 @@ import PostList from '@/components/PostList.vue'
 import { usePostView } from '@/composables/usePostView'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
+import { getWindowScrollY, setWindowScrollY } from '@/utils/windowScroll'
 
 defineOptions({
   name: 'RatingView',
@@ -48,14 +50,18 @@ onActivated(async () => {
   if (!hasCache.value)
     return
 
-  document.body.scrollTop = scrollTop.value
   isLoading.value = true
   await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition)
   isLoading.value = false
+  await nextTick()
+  requestAnimationFrame(() => {
+    setWindowScrollY(scrollTop.value)
+    requestAnimationFrame(() => setWindowScrollY(scrollTop.value))
+  })
 })
 
 onBeforeRouteLeave(() => {
-  scrollTop.value = document.body.scrollTop
+  scrollTop.value = getWindowScrollY()
   const data = storePosts()
   cachePosts.splice(0, cachePosts.length, ...data.cachePosts)
   cacheTotalNum.value = data.cacheTotalNum

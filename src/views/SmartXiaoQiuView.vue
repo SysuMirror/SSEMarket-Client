@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { BootstrapMessage } from '@/api/opsagent/conversation'
+import type { TimelineItem } from '@/composables/useOpsAgentStream'
+import { nextTick, onMounted, ref, useTemplateRef } from 'vue'
 import { closeConversation, fetchConversationBootstrap } from '@/api/opsagent/conversation'
 import { OpsAgentRequestError, shouldRebootstrapAfterTaskError } from '@/api/opsagent/errors'
-import SmartXiaoQiuTimeline from '@/components/smart-xiaoqiu/SmartXiaoQiuTimeline.vue'
 import { showMsg } from '@/components/MessageBox'
-import { useOpsAgentStream, type TimelineItem } from '@/composables/useOpsAgentStream'
-import { nextTick, onMounted, ref, useTemplateRef } from 'vue'
+import SmartXiaoQiuTimeline from '@/components/smart-xiaoqiu/SmartXiaoQiuTimeline.vue'
+import { useOpsAgentStream } from '@/composables/useOpsAgentStream'
 
 const draft = ref('')
 const historyDiv = useTemplateRef('historyDiv')
@@ -181,7 +182,7 @@ onMounted(() => {
       </button>
     </header>
 
-    <main ref="historyDiv" class="chat-scroll lite-scrollbar">
+    <main ref="historyDiv" class="lite-scrollbar chat-scroll">
       <div class="chat-inner">
         <SmartXiaoQiuTimeline :items="timeline" />
       </div>
@@ -365,7 +366,10 @@ onMounted(() => {
   font-size: 13px;
   cursor: pointer;
   box-shadow: var(--xq-shadow);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .ghost-btn:hover:not(:disabled) {
@@ -436,12 +440,16 @@ onMounted(() => {
   background: var(--xq-surface);
   border: 1px solid var(--xq-border);
   box-shadow: var(--xq-shadow);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .composer:focus-within {
   border-color: var(--xq-accent-border);
-  box-shadow: 0 0 0 4px var(--xq-accent-ring), var(--xq-shadow);
+  box-shadow:
+    0 0 0 4px var(--xq-accent-ring),
+    var(--xq-shadow);
 }
 
 .composer-input {
@@ -484,7 +492,10 @@ onMounted(() => {
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  transition: transform 0.12s ease, opacity 0.12s ease, background 0.15s ease;
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease,
+    background 0.15s ease;
 }
 
 .icon-btn.stop {

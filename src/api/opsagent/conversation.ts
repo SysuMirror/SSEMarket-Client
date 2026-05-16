@@ -23,7 +23,7 @@ interface ApiEnvelope<T> {
 }
 
 /** 后端原始 data：兼容历史字段 `closed`。 */
-type BootstrapPayload = {
+interface BootstrapPayload {
   session_id?: string
   segment_seq?: number
   archived?: boolean
@@ -81,7 +81,7 @@ export async function closeConversation(sessionId: string): Promise<void> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Accept: 'application/json',
+      'Accept': 'application/json',
       ...opsagentAuthHeaders(),
     },
     body: JSON.stringify({ session_id: sessionId }),

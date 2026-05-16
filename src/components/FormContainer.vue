@@ -68,13 +68,19 @@ defineEmits(['submitForm'])
 <style scoped lang="scss">
 .auth-card {
   width: 100%;
-  background: #fff;
-  border: 1px solid #e8eaed;
+  background: var(--chat-bg-highlight);
+  border: 1px solid var(--chat-border);
   border-radius: 1rem;
   box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 4px 24px rgba(15, 23, 42, 0.06);
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 12px 40px rgba(15, 23, 42, 0.08);
   padding: 2rem 1.75rem calc(2.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+body.dark-mode .auth-card {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 12px 40px rgba(0, 0, 0, 0.45);
 }
 
 @media (min-width: 640px) {
@@ -93,7 +99,7 @@ defineEmits(['submitForm'])
   font-size: 1.375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: #1a1a1a;
+  color: var(--chat-text);
   line-height: 1.35;
 }
 
@@ -101,7 +107,7 @@ defineEmits(['submitForm'])
   margin: 0.5rem 0 0;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #8e8e93;
+  color: var(--chat-text-secondary);
 }
 
 .auth-card__form {
@@ -122,26 +128,31 @@ defineEmits(['submitForm'])
   border: none;
   border-radius: 0.625rem;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition:
     background-color 0.2s ease,
     color 0.2s ease,
+    filter 0.2s ease,
     opacity 0.2s ease;
 }
 
 .auth-btn--primary {
-  background: #6b6a68;
-  color: #fff;
+  background: var(--chat-accent);
+  color: var(--chat-unread-text);
 }
 
 .auth-btn--primary:hover:not(:disabled) {
-  background: #5a5957;
+  filter: brightness(1.06);
 }
 
 .auth-btn--primary:disabled {
-  background: #c7c7cc;
-  color: #f2f2f7;
+  background: var(--chat-border-strong);
+  color: var(--chat-text-secondary);
   cursor: not-allowed;
+  opacity: 0.92;
 }
 </style>

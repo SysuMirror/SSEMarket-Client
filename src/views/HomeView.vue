@@ -2,7 +2,9 @@
 import type { Condition } from '@/store/postStore'
 
 import type { Post } from '@/types/post'
+import { Icon } from '@iconify/vue'
 import {
+  nextTick,
   onActivated,
   onMounted,
   reactive,
@@ -15,6 +17,7 @@ import { usePostView } from '@/composables/usePostView'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
+import { getWindowScrollY, setWindowScrollY } from '@/utils/windowScroll'
 
 defineOptions({
   name: 'HomeView',
@@ -24,7 +27,6 @@ const { userInfo } = useUserStore()
 const { restorePosts, storePosts } = usePostStore()
 const { posts, isLoading, hasMore, update, initialize } = usePostView()
 const { initNewPostsCache, newPostsNotification } = useNewPostsStore()
-// 保存滚动位置
 const scrollTop = ref(0)
 const hasCache = ref(false)
 const cachePosts = reactive<Post[]>([])
@@ -40,51 +42,45 @@ const cacheCondition = reactive<Condition>({
 
 onMounted(async () => {
   await initialize('主页')
-  await initNewPostsCache() // 初始化新帖子缓存
+  await initNewPostsCache()
   hasCache.value = true
 })
 
-// 组件被激活时
-// 其它页面也可以这样做, 不过这里只弄了主页的缓存, 有需要可以改
 onActivated(async () => {
   if (!hasCache.value)
     return
 
-  // 如果有新帖子通知，重新加载最新数据
   if (newPostsNotification.isVisible) {
     await initialize('主页')
-    await initNewPostsCache() // 重新初始化缓存
+    await initNewPostsCache()
   }
   else {
-    // 恢复滚动位置
-    document.body.scrollTop = scrollTop.value
     isLoading.value = true
     await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition)
     isLoading.value = false
+    await nextTick()
+    requestAnimationFrame(() => {
+      setWindowScrollY(scrollTop.value)
+      requestAnimationFrame(() => setWindowScrollY(scrollTop.value))
+    })
   }
 })
 
 onBeforeRouteLeave(() => {
-  // 保存滚动位置
-  scrollTop.value = document.body.scrollTop
-  // 清空当前页面的帖子列表
+  scrollTop.value = getWindowScrollY()
   const data = storePosts()
   cachePosts.splice(0, cachePosts.length, ...data.cachePosts)
   cacheTotalNum.value = data.cacheTotalNum
   Object.assign(cacheCondition, data.cacheConditions)
 })
 
-// 监听路由参数变化，当有refresh参数时重新加载数据
 watch(() => route.query.refresh, async (newRefresh) => {
   if (newRefresh && hasCache.value) {
-    // 重新加载最新数据
     await initialize('主页')
-    await initNewPostsCache() // 重新初始化缓存
+    await initNewPostsCache()
 
-    // 清除refresh参数，避免重复触发
     const newQuery = { ...route.query }
     delete newQuery.refresh
-    // 使用replace避免在历史记录中留下refresh参数
     const queryString = Object.keys(newQuery).length > 0 ? `?${new URLSearchParams(newQuery as Record<string, string>).toString()}` : ''
     window.history.replaceState({}, '', `${route.path}${queryString}`)
   }
@@ -92,8 +88,18 @@ watch(() => route.query.refresh, async (newRefresh) => {
 </script>
 
 <template>
-  <div class="w-full">
-    <h2>主页</h2>
+  <div class="home-page">
+    <header class="home-page__head">
+      <div class="home-page__title-row">
+        <Icon icon="tabler:home" class="home-page__title-icon" width="22" height="22" aria-hidden="true" />
+        <h1 class="home-page__title">
+          主页
+        </h1>
+      </div>
+      <p class="home-page__subtitle">
+        最新帖子与动态
+      </p>
+    </header>
     <PostList
       :posts="posts"
       :is-loading="isLoading"
@@ -103,3 +109,47 @@ watch(() => route.query.refresh, async (newRefresh) => {
     />
   </div>
 </template>
+
+<style scoped lang="scss">
+.home-page {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 12px 1rem;
+  box-sizing: border-box;
+  color: var(--chat-text);
+  background: var(--chat-bg-elevated);
+  border: 1px solid var(--chat-border);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.home-page__head {
+  margin-bottom: 0.75rem;
+}
+
+.home-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.home-page__title-icon {
+  color: var(--chat-accent);
+  flex-shrink: 0;
+}
+
+.home-page__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--chat-text);
+}
+
+.home-page__subtitle {
+  margin: 0.3rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--chat-text-secondary);
+}
+</style>

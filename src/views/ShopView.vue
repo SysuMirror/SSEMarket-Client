@@ -276,7 +276,7 @@ onBeforeUnmount(() => {
 
     <!-- 实际内容 -->
     <template v-else>
-      <div class="shop-page-wrap flex w-full flex-row">
+      <div class="shop-page-wrap w-full flex flex-row">
         <div class="shop-page">
           <header class="shop-page__intro">
             <Icon icon="tabler:shopping-bag" class="shop-page__intro-icon" width="22" height="22" aria-hidden="true" />

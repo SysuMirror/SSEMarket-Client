@@ -2,7 +2,7 @@
 import type { AllInfo } from '@/api/info/getInfo'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
-import { computed, onBeforeMount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeMount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getUserProfilePostNum, getUserProfilePosts } from '@/api/browse/getUserProfilePosts'
 import { getInfoById } from '@/api/info/getInfo'
@@ -10,6 +10,7 @@ import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { useUserStore } from '@/store/userStore'
 import { levelClassHandler, levelNameHandler } from '@/utils/level'
+import { setWindowScrollY } from '@/utils/windowScroll'
 
 const PAGE_SIZE = 15
 
@@ -131,6 +132,13 @@ onBeforeMount(() => {
     })
 })
 
+watch(
+  () => route.params.id,
+  () => {
+    void nextTick(() => setWindowScrollY(0))
+  },
+)
+
 function navigateChat() {
   if (user.value && user.value.userID > 0) {
     router.push({ name: 'Chat', query: { user: user.value.userID } })
@@ -214,7 +222,7 @@ function onAvatarError(e: Event) {
         <span v-if="profileTotal > 0" class="profile-posts__count">{{ profileTotal }} 条</span>
       </div>
 
-      <div class="profile-feed-wrap lite-scrollbar">
+      <div class="lite-scrollbar profile-feed-wrap">
         <div v-if="postsEmpty" class="profile-feed-empty">
           <Icon icon="tabler:notes-off" class="profile-feed-empty__icon" width="44" height="44" aria-hidden="true" />
           <p class="profile-feed-empty__title">
@@ -262,12 +270,7 @@ function onAvatarError(e: Event) {
   box-sizing: border-box;
   min-height: 100%;
   color: var(--chat-text);
-  background: linear-gradient(
-    180deg,
-    var(--chat-accent-soft) 0%,
-    var(--chat-bg-main) 140px,
-    var(--chat-bg-main) 100%
-  );
+  background: linear-gradient(180deg, var(--chat-accent-soft) 0%, var(--chat-bg-main) 140px, var(--chat-bg-main) 100%);
 }
 
 .profile-page__head {
@@ -506,12 +509,12 @@ function onAvatarError(e: Event) {
     max-width: 100% !important;
   }
 
-  :deep(.my-3) {
+  :deep(.my-2) {
     margin-top: 6px !important;
     margin-bottom: 6px !important;
   }
 
-  :deep(.my-3:first-child) {
+  :deep(.my-2:first-child) {
     margin-top: 2px !important;
   }
 

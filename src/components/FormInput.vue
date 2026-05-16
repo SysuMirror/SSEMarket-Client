@@ -25,9 +25,6 @@ const info = defineModel({
 </template>
 
 <style scoped lang="scss">
-$accent: #6b6a68;
-$accent-muted: #8e8d8b;
-
 .field {
   position: relative;
   margin-bottom: 1.25rem;
@@ -39,11 +36,11 @@ $accent-muted: #8e8d8b;
   height: 2.75rem;
   width: 100%;
   border: none;
-  border-bottom: 1px solid #e5e5ea;
+  border-bottom: 1px solid var(--chat-border-strong);
   border-radius: 0;
   background: transparent;
   font-size: 1rem;
-  color: #1a1a1a;
+  color: var(--chat-text);
   padding: 0.5rem 0 0.25rem;
   outline: none;
   transition: border-color 0.2s ease;
@@ -63,7 +60,7 @@ $accent-muted: #8e8d8b;
   left: 0;
   height: 2px;
   width: 100%;
-  background: $accent;
+  background: var(--chat-accent);
   transform: scaleX(0);
   transform-origin: left center;
   transition: transform 0.25s ease;
@@ -79,7 +76,7 @@ $accent-muted: #8e8d8b;
   left: 0;
   bottom: 0.625rem;
   font-size: 1rem;
-  color: #8e8e93;
+  color: var(--chat-text-tips);
   transition:
     transform 0.2s ease,
     font-size 0.2s ease,
@@ -91,7 +88,7 @@ $accent-muted: #8e8d8b;
 .field__input:valid ~ .field__label {
   transform: translateY(-1.35rem) scale(0.85);
   transform-origin: left top;
-  color: $accent-muted;
+  color: var(--chat-accent);
   font-weight: 500;
   font-size: 0.875rem;
 }
@@ -103,7 +100,7 @@ $accent-muted: #8e8d8b;
 .peer:-webkit-autofill ~ .field__label {
   transform: translateY(-1.35rem) scale(0.85);
   transform-origin: left top;
-  color: $accent-muted;
+  color: var(--chat-accent);
   font-weight: 500;
   font-size: 0.875rem;
 }

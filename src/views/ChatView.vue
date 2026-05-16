@@ -217,7 +217,7 @@ onUnmounted(() => {
         <Icon icon="tabler:message-circle" class="contact-aside__head-icon" aria-hidden="true" />
         <span class="contact-aside__title">消息</span>
       </div>
-      <div class="contact-aside__scroll lite-scrollbar">
+      <div class="lite-scrollbar contact-aside__scroll">
         <div
           v-for="entry in contacts"
           :key="entry.userID"
@@ -270,7 +270,7 @@ onUnmounted(() => {
           </div>
         </header>
 
-        <div ref="historyDiv" class="thread-body lite-scrollbar">
+        <div ref="historyDiv" class="lite-scrollbar thread-body">
           <div v-for="(entry, i) in chatHistory" :key="entry.chatMsgID" class="thread-msg-group">
             <div v-if="getTimeShow(i)" class="thread-time">
               {{ getTimeShow(i) }}
@@ -325,7 +325,7 @@ onUnmounted(() => {
           <div class="thread-composer__bar">
             <textarea
               v-model="draft"
-              class="thread-composer__input lite-scrollbar"
+              class="lite-scrollbar thread-composer__input"
               placeholder="发消息…"
               rows="1"
               maxlength="8000"

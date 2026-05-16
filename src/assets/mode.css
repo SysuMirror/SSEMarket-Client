@@ -2,7 +2,8 @@
 /* 子元素使用css变量 */
 
 body {
-  --color-bg: #fafafa;
+  /* 与卡片白底拉开一点层次，避免整屏灰度过于接近 */
+  --color-bg: #eef2f6;
   background-color: var(--color-bg);
 
   --color-scroll: rgba(0, 0, 0, 0.1);
@@ -51,21 +52,22 @@ body {
   --color-level-6-bg: #4545454e;
 
   /* 私信 / 对话：清新简约（浅底、弱分割、柔和气泡） */
-  --chat-bg-main: #f4f6f8;
+  --chat-bg-main: #e6edf4;
   --chat-bg-highlight: #ffffff;
-  --chat-bg-elevated: #ffffff;
-  --chat-border: rgba(15, 23, 42, 0.08);
-  --chat-border-strong: rgba(15, 23, 42, 0.12);
+  --chat-bg-elevated: #fafcfd;
+  --chat-border: rgba(15, 23, 42, 0.1);
+  --chat-border-strong: rgba(15, 23, 42, 0.14);
   --chat-text: #1e293b;
   --chat-text-secondary: #64748b;
   --chat-text-tips: #94a3b8;
-  --chat-accent: #0d9488;
-  --chat-accent-soft: rgba(13, 148, 136, 0.12);
+  /* 藏青强调：比顶栏 #0f172a 略浅一线，减少「死黑」感 */
+  --chat-accent: #2c3d56;
+  --chat-accent-soft: rgba(44, 61, 86, 0.11);
   --chat-bubble-peer: #ffffff;
-  --chat-bubble-self: #e0f2f1;
+  --chat-bubble-self: #f1f4f9;
   --chat-bubble-border-peer: rgba(15, 23, 42, 0.06);
-  --chat-bubble-border-self: rgba(13, 148, 136, 0.2);
-  --chat-unread-bg: #0d9488;
+  --chat-bubble-border-self: rgba(44, 61, 86, 0.14);
+  --chat-unread-bg: #2c3d56;
   --chat-unread-text: #ffffff;
 
   --color-success: #4caf50;
@@ -131,22 +133,23 @@ body.dark-mode {
   --color-level-undefined-box-shadow: #9d9d9dde;
   --color-level-6-bg: #a9a9a94e;
 
-  --chat-bg-main: #1a1d21;
+  --chat-bg-main: #12151a;
   --chat-bg-highlight: #242830;
-  --chat-bg-elevated: #2a2f38;
-  --chat-border: rgba(255, 255, 255, 0.08);
-  --chat-border-strong: rgba(255, 255, 255, 0.12);
+  --chat-bg-elevated: #2a3038;
+  --chat-border: rgba(255, 255, 255, 0.1);
+  --chat-border-strong: rgba(255, 255, 255, 0.14);
   --chat-text: #e2e8f0;
   --chat-text-secondary: #94a3b8;
   --chat-text-tips: #64748b;
-  --chat-accent: #2dd4bf;
-  --chat-accent-soft: rgba(45, 212, 191, 0.15);
+  /* 暗底强调再略提亮，避免和背景糊成一片 */
+  --chat-accent: #d8e0ea;
+  --chat-accent-soft: rgba(216, 224, 234, 0.16);
   --chat-bubble-peer: #2a2f38;
-  --chat-bubble-self: #134e4a;
+  --chat-bubble-self: #243044;
   --chat-bubble-border-peer: rgba(255, 255, 255, 0.06);
-  --chat-bubble-border-self: rgba(45, 212, 191, 0.25);
-  --chat-unread-bg: #2dd4bf;
-  --chat-unread-text: #0f172a;
+  --chat-bubble-border-self: rgba(186, 199, 216, 0.3);
+  --chat-unread-bg: #d8e0ea;
+  --chat-unread-text: #1e293b;
 
   /* 商城相关变量 - 夜间模式 */
   --shop-card-bg: #2e2e2e;

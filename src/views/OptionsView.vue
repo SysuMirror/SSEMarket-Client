@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { AllInfo } from '@/api/info/getInfo'
 import type { Ref } from 'vue'
-import { computed, inject, onMounted, ref, useTemplateRef, watch } from 'vue'
+import type { AllInfo } from '@/api/info/getInfo'
 import { Icon } from '@iconify/vue'
+import { computed, inject, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAllInfo } from '@/api/info/getInfo'
 import { updateEmailPush, updateUserInfo, uploadAvatar } from '@/api/info/updateInfo'
@@ -199,7 +199,11 @@ async function togglePush() {
       return
     await updateEmailPush(allInfo.value.userID)
     isPushDisabled.value = !isPushDisabled.value
-    showMsg(`邮件推送已${isPushDisabled.value ? '启用' : '禁用'}`)
+    showMsg(
+      isPushDisabled.value
+        ? '已禁用邮箱推送，将不再接收系统邮件'
+        : '已允许邮箱推送，将恢复接收系统邮件',
+    )
   }
   catch (e) {
     console.error(e)
@@ -337,7 +341,7 @@ async function toggleHideProfile() {
         </button>
       </div>
 
-      <button type="button" class="options-btn options-btn--primary options-btn--full" @click="updateUserInfoFunc">
+      <button type="button" class="options-btn options-btn--full options-btn--primary" @click="updateUserInfoFunc">
         <Icon icon="tabler:device-floppy" width="18" height="18" aria-hidden="true" />
         保存资料
       </button>
@@ -372,8 +376,11 @@ async function toggleHideProfile() {
 
     <!-- 偏好 -->
     <section class="options-sheet options-sheet--compact" aria-label="通知与显示">
-      <div class="options-row-toggle">
-        <span class="options-row-toggle__title">邮件推送</span>
+      <div class="options-row-toggle" role="group" aria-label="邮箱通知">
+        <div class="options-row-toggle__text">
+          <span class="options-row-toggle__title">禁用邮箱推送</span>
+          <span class="options-row-toggle__hint">开启后将不再接收系统发送的邮件通知</span>
+        </div>
         <button
           type="button"
           class="options-switch"
@@ -400,7 +407,7 @@ async function toggleHideProfile() {
       </div>
     </section>
 
-    <button type="button" class="options-btn options-btn--danger options-btn--full" @click="logout">
+    <button type="button" class="options-btn options-btn--full options-btn--danger" @click="logout">
       <Icon icon="tabler:logout" width="18" height="18" aria-hidden="true" />
       退出登录
     </button>
@@ -416,12 +423,7 @@ async function toggleHideProfile() {
   box-sizing: border-box;
   min-height: 100%;
   color: var(--chat-text);
-  background: linear-gradient(
-    180deg,
-    var(--chat-accent-soft) 0%,
-    var(--chat-bg-main) 120px,
-    var(--chat-bg-main) 100%
-  );
+  background: linear-gradient(180deg, var(--chat-accent-soft) 0%, var(--chat-bg-main) 120px, var(--chat-bg-main) 100%);
 }
 
 .options-page__head {
@@ -697,7 +699,9 @@ async function toggleHideProfile() {
   border: 1px solid var(--chat-border);
   border-radius: 12px;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 
   &::placeholder {
     color: var(--chat-text-tips);
@@ -757,7 +761,9 @@ async function toggleHideProfile() {
   background: var(--chat-bg-main);
   box-shadow: inset 0 0 0 1px var(--chat-border-strong);
   cursor: pointer;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 
   &--on {

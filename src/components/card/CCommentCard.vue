@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SubComment } from '@/types/comment'
-import { defineAsyncComponent, ref, useTemplateRef } from 'vue'
+import { computed, defineAsyncComponent, ref, useTemplateRef } from 'vue'
 import {
   delCcomment,
   sendPComment,
@@ -16,6 +16,7 @@ import MarkdownContainer from '../MarkdownContainer.vue'
 
 import { showMsg } from '../MessageBox'
 import UserAvatar from '../UserAvatar.vue'
+import CommentToolbar from '../comment/CommentToolbar.vue'
 import BasicCard from './BasicCard.vue'
 
 const { subComment, pCommentId, postId } = defineProps<{
@@ -33,6 +34,18 @@ const commentContent = ref('')
 const commentSubmitting = ref(false)
 
 const { userInfo } = useUserStore()
+
+const subCommentAuthorProfileId = computed(() => {
+  const s = subComment as SubComment & { AuthorID?: number, author_id?: number }
+  const n = Number(s.authorID ?? s.AuthorID ?? s.author_id)
+  if (Number.isFinite(n) && n > 0)
+    return n
+  const phone = (s.authorTelephone || '').trim()
+  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
+    return userInfo.userID
+  return 0
+})
+
 const root = useTemplateRef('root')
 
 /**
@@ -141,57 +154,81 @@ async function like() {
 <template>
   <BasicCard>
     <div ref="root">
-      <div class="flex flex-row">
-        <UserAvatar
-          :src="subComment.authorAvatar"
-          :user-id="subComment.authorID"
-          :user-identity="subComment.authorIdentity"
-          :user-name="subComment.author"
-          :user-score="subComment.authorScore"
-        >
-          <template #reply>
-            <span v-if="subComment.hasOwnProperty('userTargetName')" class="w-full">回复{{ subComment.userTargetName || '层主' }}</span>
-          </template>
-        </UserAvatar>
+      <div class="c-comment-card__head flex flex-row flex-wrap items-start justify-between gap-2">
+        <div class="c-comment-card__profile min-w-0">
+          <UserAvatar
+            :src="subComment.authorAvatar"
+            :user-id="subCommentAuthorProfileId"
+            :user-identity="subComment.authorIdentity"
+            :user-name="subComment.author"
+            :user-score="subComment.authorScore"
+          >
+            <template #reply>
+              <span
+                v-if="subComment.hasOwnProperty('userTargetName')"
+                class="c-comment-card__reply-label"
+              >回复{{ subComment.userTargetName || '层主' }}</span>
+            </template>
+          </UserAvatar>
+        </div>
         <template v-if="subComment.authorTelephone === userInfo.phone">
-          <UserButton :no-save="true" :is-self="subComment.authorTelephone === userInfo.phone" @user-action="handlerDebounced" />
+          <UserButton
+            class="flex-shrink-0"
+            :no-save="true"
+            :is-self="subComment.authorTelephone === userInfo.phone"
+            @user-action="handlerDebounced"
+          />
         </template>
       </div>
       <MarkdownContainer
         :markdown-content="subComment.content || 'loading'"
       />
-      <BasicInfo :time="subComment.commentTime" :is-like="subComment.isLiked" :like="subComment.likeNum" @like-change="like" />
-      <div class="commentButton">
-        <button @click="commentButtonIsShow = !commentButtonIsShow">
-          {{ commentButtonIsShow ? '算了' : '评论' }}
-        </button>
-        <slot name="showComment" />
-      </div>
-      <MarkdownEditor
-        v-if="commentButtonIsShow"
-        v-model="commentContent"
-        :submit-busy="commentSubmitting"
-        @send="handlerDebounced('comment')"
+      <BasicInfo
+        layout="inline"
+        :time="subComment.commentTime"
+        :is-like="subComment.isLiked"
+        :like="subComment.likeNum"
+        nocomment
+        @like-change="like"
       />
+      <CommentToolbar
+        :reply-open="commentButtonIsShow"
+        :show-sub-toggle="false"
+        @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+      />
+      <div v-if="commentButtonIsShow" class="comment-compose">
+        <MarkdownEditor
+          v-model="commentContent"
+          compact
+          placeholder="回复 TA…"
+          :submit-busy="commentSubmitting"
+          @send="handlerDebounced('comment')"
+        />
+      </div>
+      <slot name="showComment" />
     </div>
   </BasicCard>
 </template>
 
 <style scoped>
-.commentButton {
-  display: flex;
-  margin-top: 10px;
-  button {
-    margin-left: 5px;
-    margin-right: 5px;
-  }
+.c-comment-card__head {
+  width: 100%;
 }
 
-@media screen and (max-width: 768px) {
-  .commentButton {
-    width: 100%;
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-  }
+.c-comment-card__profile {
+  flex: 1 1 auto;
+  min-width: 0;
 }
+
+.c-comment-card__reply-label {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--chat-text-secondary);
+  background: var(--chat-accent-soft);
+  word-break: break-word;
+}
+
 </style>

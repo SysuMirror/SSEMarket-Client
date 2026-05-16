@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const router = useRouter()
 
-type Chunk = { type: 'text' | 'link'; value: string }
+interface Chunk { type: 'text' | 'link', value: string }
 
 const parts = computed<Chunk[]>(() => {
   const s = props.text

@@ -70,7 +70,7 @@ onUnmounted(() => {
       :is="cardComponent"
       v-for="post in posts"
       :key="post.PostID"
-      class="mx-a my-3 w-15/16"
+      class="mx-a my-2 w-15/16"
       :is-dense="isDense"
       :is-new="newPostIds.includes(post.PostID)"
       :post="post"
@@ -105,5 +105,9 @@ onUnmounted(() => {
 
 .bottomDiv {
   text-align: center;
+  padding: 12px 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--chat-text-tips);
 }
 </style>

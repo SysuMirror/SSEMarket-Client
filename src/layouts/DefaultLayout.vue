@@ -67,13 +67,10 @@ function updateWidth() {
   windowWidth.value = window.innerWidth
 }
 
+/** 首页 / 分区流 / 打分区：显示顶部分区横条（含「打分」入口） */
 const isHomePage = computed(() => {
-  const url = route.path.split('/')[1]
-  const allows = ['', 'partition']
-  if (allows.includes(url)) {
-    return true
-  }
-  return false
+  const seg = route.path.split('/').filter(Boolean)[0] ?? ''
+  return seg === '' || seg === 'partition' || seg === 'rating'
 })
 
 /** 子页占满顶栏与主区域之间剩余高度，禁止整页滚动（如智能小秋） */
@@ -266,7 +263,7 @@ header {
 
 .content {
   width: 100%;
-  padding-bottom: 80px;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -350,7 +347,7 @@ header {
 
 @media screen and (max-width: 767px) {
   .root.root--layout-fill .content.content--layout-fill {
-    padding-bottom: 80px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
 }
 </style>

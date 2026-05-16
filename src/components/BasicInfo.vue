@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-const { isDense, browse, comment, isLike = false, like = 0 } = defineProps<{
+const { isDense, browse, comment, isLike = false, like = 0, layout = 'default' } = defineProps<{
   isDense?: boolean
   browse?: number
   comment?: number
@@ -7,6 +7,8 @@ const { isDense, browse, comment, isLike = false, like = 0 } = defineProps<{
   isLike?: boolean
   like?: number
   time: string
+  /** inline：评论卡片底部紧凑统计行 */
+  layout?: 'default' | 'inline'
 }>()
 const emit = defineEmits(['likeChange'])
 
@@ -16,9 +18,9 @@ function LikeChange() {
 </script>
 
 <template>
-  <div>
-    <div v-show="!isDense">
-      <span class="text-3">{{
+  <div class="basic-info" :class="`basic-info--${layout}`">
+    <div v-show="!isDense" class="basic-info__time">
+      <span>{{
         new Date(time).toLocaleString('zh-CN', {
           year: 'numeric',
           month: '2-digit',
@@ -29,7 +31,7 @@ function LikeChange() {
         })
       }}</span>
     </div>
-    <div class="mt-3 flex justify-around">
+    <div class="basic-info__stats">
       <span v-if="browse || browse === 0">
         {{ browse }}
         <svg
@@ -96,9 +98,53 @@ function LikeChange() {
   </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
+.basic-info__time {
+  margin-bottom: 4px;
+
+  span {
+    font-size: 12px;
+    color: var(--chat-text-tips);
+  }
+}
+
+.basic-info__stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--chat-border);
+  font-size: 13px;
+  color: var(--chat-text-secondary);
+  gap: 12px;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  svg {
+    opacity: 0.75;
+  }
+}
+
+.basic-info--inline {
+  .basic-info__time {
+    margin-bottom: 6px;
+  }
+
+  .basic-info__stats {
+    justify-content: flex-start;
+    margin-top: 6px;
+    padding-top: 0;
+    border-top: none;
+  }
+}
+
 .like {
-  color: #ff0000;
-  transition: all 0.3s ease;
+  color: #e11d48;
+  transition: color 0.2s ease;
 }
 </style>

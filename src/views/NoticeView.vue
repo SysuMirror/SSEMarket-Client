@@ -124,7 +124,7 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div class="notice-list lite-scrollbar">
+    <div class="lite-scrollbar notice-list">
       <template v-if="activeList.length">
         <article
           v-for="notice in activeList"
@@ -274,7 +274,9 @@ onMounted(async () => {
   text-transform: none;
   letter-spacing: 0;
   font-family: inherit;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 
   &--active {

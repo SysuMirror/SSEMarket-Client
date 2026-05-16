@@ -52,11 +52,10 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding:
-    max(1.25rem, env(safe-area-inset-top, 0px))
-    1rem
-    max(2rem, calc(env(safe-area-inset-bottom, 0px) + 1.5rem));
-  background: #f4f5f7;
+  padding: max(1.25rem, env(safe-area-inset-top, 0px)) 1rem max(2rem, calc(env(safe-area-inset-bottom, 0px) + 1.5rem));
+  background:
+    radial-gradient(120% 85% at 50% -25%, var(--chat-accent-soft), transparent 52%),
+    linear-gradient(165deg, var(--chat-bg-elevated) 0%, var(--chat-bg-main) 38%, var(--chat-bg-main) 100%);
   box-sizing: border-box;
 }
 

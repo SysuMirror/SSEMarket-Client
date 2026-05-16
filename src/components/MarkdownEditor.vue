@@ -11,8 +11,15 @@ const props = withDefaults(
   defineProps<{
     /** 提交请求进行中：禁用发送并显示「发送中」 */
     submitBusy?: boolean
+    /** 评论区等场景：更紧凑的工具栏与输入框 */
+    compact?: boolean
+    placeholder?: string
   }>(),
-  { submitBusy: false },
+  {
+    submitBusy: false,
+    compact: false,
+    placeholder: '请输入正文',
+  },
 )
 
 const emit = defineEmits<{
@@ -36,8 +43,9 @@ const modelValue = defineModel({
 })
 
 function autoResize() {
-  textarea.value!.style.height = '450px'
-  textarea.value!.style.height = `${textarea.value!.scrollHeight}px`
+  const minHeight = props.compact ? 96 : 450
+  textarea.value!.style.height = `${minHeight}px`
+  textarea.value!.style.height = `${Math.max(minHeight, textarea.value!.scrollHeight)}px`
 }
 
 function handleInput(event: Event) {
@@ -164,47 +172,49 @@ function editContent(type: EditType) {
 <template>
   <div
     id="mdRoot"
+    class="md-editor"
+    :class="{ 'md-editor--compact': compact }"
   >
-    <div class="editorButton">
-      <button @click="editContent('标题')">
+    <div class="md-editor__toolbar">
+      <button type="button" @click="editContent('标题')">
         标题
       </button>
-      <button @click="editContent('粗体')">
+      <button type="button" @click="editContent('粗体')">
         粗体
       </button>
-      <button @click="editContent('斜体')">
+      <button type="button" @click="editContent('斜体')">
         斜体
       </button>
-      <button @click="editContent('删除线')">
+      <button type="button" @click="editContent('删除线')">
         删除线
       </button>
-      <button @click="editContent('引用')">
+      <button type="button" @click="editContent('引用')">
         引用
       </button>
-      <button @click="editContent('无序列表')">
+      <button type="button" @click="editContent('无序列表')">
         无序列表
       </button>
-      <button @click="editContent('有序列表')">
+      <button type="button" @click="editContent('有序列表')">
         有序列表
       </button>
-      <button @click="editContent('表格')">
+      <button type="button" @click="editContent('表格')">
         表格
       </button>
-      <button @click="editContent('分割线')">
+      <button type="button" @click="editContent('分割线')">
         分割线
       </button>
-      <button @click="editContent('代码块')">
+      <button type="button" @click="editContent('代码块')">
         代码块
       </button>
-      <button @click="isPreview = !isPreview">
-        {{ isPreview ? '不想看了' : '看看效果' }}
+      <button type="button" class="md-editor__toolbar-preview" @click="isPreview = !isPreview">
+        {{ isPreview ? '编辑' : '预览' }}
       </button>
     </div>
-    <div class="container">
+    <div class="md-editor__body">
       <textarea
         ref="textarea"
         :value="modelValue"
-        placeholder="请输入正文"
+        :placeholder="placeholder"
         @input="handleInput"
         @paste="handlePaste"
       />
@@ -213,18 +223,21 @@ function editContent(type: EditType) {
         :markdown-content="modelValue"
       />
     </div>
-    <div class="buttons">
+    <div class="md-editor__actions">
       <div
-        class="button"
-        :class="{ 'button--busy': submitBusy }"
+        class="md-editor__action md-editor__action--primary"
+        :class="{ 'md-editor__action--busy': submitBusy }"
+        role="button"
+        tabindex="0"
         @click="emitSend"
+        @keydown.enter="emitSend"
       >
         {{ submitBusy ? '发送中…' : '发送' }}
       </div>
       <label
         for="fileInput"
-        class="button"
-      >选择图片</label>
+        class="md-editor__action"
+      >图片</label>
       <input
         id="fileInput"
         type="file"
@@ -236,152 +249,181 @@ function editContent(type: EditType) {
   </div>
 </template>
 
-<style scoped>
-#mdRoot {
+<style scoped lang="scss">
+.md-editor {
   width: 100%;
-  margin-left: 0;
-  margin-right: 0;
-  margin-top: 0;
 }
-.container {
-  margin-top: 0;
+
+.md-editor__toolbar {
   display: flex;
-  flex-direction: row;
-  /* align-items: center; */
-  justify-content: center;
-  width: 100%;
-  height: auto;
-  div {
-    width: 100%;
-    min-height: 100%;
-    border-radius: 5px;
-    padding: 10px;
-    height: auto;
-    overflow-y: hidden;
-  }
-  textarea {
-    width: 100%;
-    height: 450px;
-    border: 1px solid #d1d1d1;
-    border-radius: 5px;
-    padding: 10px;
-    font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 16px;
-    resize: none;
-    transition: border-color 0.3s;
-    overflow: hidden;
-  }
-}
-.editorButton {
-  margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+
   button {
-    background-color: #66bb6a;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 10px 15px;
-    margin-right: 10px;
-    margin-top: 10px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
+    margin: 0;
+    padding: 5px 10px;
+    min-height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--chat-border);
+    background: var(--chat-bg-main);
+    color: var(--chat-text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    font-family: inherit;
     transition:
-      background-color 0.3s,
-      transform 0.2s;
+      background 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+
     &:hover {
-      background-color: #4caf50;
-      transform: translateY(-2px);
+      background: var(--chat-accent-soft);
+      border-color: var(--chat-border-strong);
+      color: var(--chat-accent);
     }
   }
 }
 
-.buttons {
+.md-editor__toolbar-preview {
+  margin-left: auto;
+}
+
+.md-editor__body {
   display: flex;
   flex-direction: row;
+  width: 100%;
+  gap: 10px;
+
+  :deep(div) {
+    flex: 1;
+    min-width: 0;
+    border-radius: 10px;
+    padding: 10px;
+    background: var(--chat-bg-highlight);
+    border: 1px solid var(--chat-border);
+  }
+
+  textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 96px;
+    border: 1px solid var(--chat-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--chat-bg-highlight);
+    color: var(--chat-text);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: none;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &::placeholder {
+      color: var(--chat-text-tips);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--chat-accent);
+      box-shadow: 0 0 0 2px var(--chat-accent-soft);
+    }
+  }
+}
+
+.md-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.md-editor__action {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: auto;
-  padding: 10px;
-  border-radius: 5px;
-  .button {
-    width: 20vw;
-    max-width: 100px;
-    margin-right: 20px;
-    margin-top: 20px;
-    padding: 10px;
-    border-radius: 8px;
-    background-color: #42a5f5;
-    color: white;
-    text-align: center;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition:
-      background-color 0.3s,
-      transform 0.2s;
+  min-width: 72px;
+  min-height: 34px;
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--chat-border);
+  background: var(--chat-bg-main);
+  color: var(--chat-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+
+  &:hover {
+    background: var(--chat-accent-soft);
+    border-color: var(--chat-border-strong);
+    color: var(--chat-accent);
+  }
+
+  &--primary {
+    background: var(--chat-accent);
+    border-color: var(--chat-accent);
+    color: var(--chat-bg-highlight);
 
     &:hover {
-      background-color: #2196f3;
-      transform: translateY(-2px);
+      opacity: 0.92;
+      color: var(--chat-bg-highlight);
     }
+  }
 
-    &.button--busy {
-      opacity: 0.75;
-      cursor: wait;
-      pointer-events: none;
-    }
+  &--busy {
+    opacity: 0.7;
+    cursor: wait;
+    pointer-events: none;
   }
 }
 
-@media screen and (min-width: 768px) {
-  button {
-    margin-left: 5px;
-    margin-right: 5px;
+.md-editor--compact {
+  .md-editor__toolbar button:not(.md-editor__toolbar-preview) {
+    display: none;
+  }
+
+  .md-editor__toolbar {
+    margin-bottom: 8px;
+  }
+
+  .md-editor__body textarea {
+    min-height: 88px;
+    font-size: 14px;
   }
 }
 
 @media screen and (max-width: 768px) {
-  .editorButton {
+  .md-editor__toolbar {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    width: 100%;
-    gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
   }
-  .buttons .button {
-    padding: 6px;
-    height: 4vh;
-    margin: 0 8px;
-  }
-}
 
-/* 深色模式 */
-body.dark-mode {
-  .editorButton {
-    button {
-      background-color: darkorange;
-      color: #ffffff;
-      &:hover {
-        background-color: orange;
-        transform: translateY(-2px);
-      }
-    }
+  .md-editor__toolbar-preview {
+    grid-column: span 2;
+    margin-left: 0;
   }
-  .container {
-    textarea {
-      background-color: #333333;
-      color: #ffffff;
-      border: 1px solid #555555;
-      &:focus {
-        border-color: #00eeff;
-        outline: none;
-      }
-    }
+
+  .md-editor--compact .md-editor__toolbar {
+    display: flex;
+    justify-content: flex-end;
   }
-  .button {
-    background-color: #2196f3;
-    color: #ffffff;
-    &:hover {
-      background-color: #1976d2;
-    }
+
+  .md-editor__actions {
+    justify-content: stretch;
+  }
+
+  .md-editor__action {
+    flex: 1;
   }
 }
 </style>

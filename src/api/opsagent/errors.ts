@@ -6,7 +6,7 @@ interface ParsedOpsAgentError {
 export function parseOpsAgentJsonError(text: string): ParsedOpsAgentError {
   const raw = text || ''
   try {
-    const j = JSON.parse(raw) as { code?: number; msg?: string; message?: string }
+    const j = JSON.parse(raw) as { code?: number, msg?: string, message?: string }
     const msg = (j.msg || j.message || raw).trim() || '请求失败'
     const code = typeof j.code === 'number' ? j.code : undefined
     return { code, msg }

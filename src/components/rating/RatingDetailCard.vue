@@ -2,7 +2,7 @@
 // 因为不会覆写sendcommentfunc所以复制了一遍
 // 继承自DetailCard
 import type { Rating } from '@/types/post'
-import { defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, triggerRef, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, triggerRef, watch } from 'vue'
 import { getAverageRating, getStarsDistribution, getUserPostRating, sendRComment, submitRating } from '@/api/editPostAndComment/editComment'
 import { delPost } from '@/api/editPostAndComment/editPost'
 import { likePost } from '@/api/SaveAndLike/SaveAndLike'
@@ -10,6 +10,7 @@ import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
 import { debounceAsync } from '@/utils/debounced'
 
+import CommentToolbar from '../comment/CommentToolbar.vue'
 import BasicCard from '../card/BasicCard.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
 import UserAvatar from '../UserAvatar.vue'
@@ -34,6 +35,19 @@ const commentSubmitting = ref(false)
 const commentRating = ref(post.UserRating || 0)
 
 const { userInfo } = useUserStore()
+
+type RatingWithOwnerKeys = Rating & { userID?: number, user_id?: number }
+
+const profileOwnerId = computed(() => {
+  const p = post as RatingWithOwnerKeys
+  const n = Number(p.UserID ?? p.userID ?? p.user_id)
+  if (Number.isFinite(n) && n > 0)
+    return n
+  const phone = (p.UserTelephone || '').trim()
+  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
+    return userInfo.userID
+  return 0
+})
 
 const currRatingList = ref(post.Stars || [0, 0, 0, 0, 0])
 const currRating = ref(post.UserRating || 0)
@@ -244,14 +258,16 @@ async function deleteRatingPost() {
 
 <template>
   <BasicCard class="w-15/16">
-    <div class="h-fit flex flex-row items-center">
-      <UserAvatar
-        :src="post.UserAvatar"
-        :user-id="post.UserID"
-        :user-identity="post.UserIdentity"
-        :user-name="post.UserName"
-        :user-score="post.UserScore"
-      />
+    <div class="h-fit flex flex-row flex-wrap items-center justify-between gap-2">
+      <div class="rating-detail-card__profile min-w-0">
+        <UserAvatar
+          :src="post.UserAvatar"
+          :user-id="profileOwnerId"
+          :user-identity="post.UserIdentity"
+          :user-name="post.UserName"
+          :user-score="post.UserScore"
+        />
+      </div>
       <div v-if="isMobile">
         <UserButton :no-save="true" :is-saved="post.IsSaved" :is-self="post.UserTelephone === userInfo.phone" @user-action="deleteRatingPost" />
       </div>
@@ -312,11 +328,13 @@ async function deleteRatingPost() {
           <span class="like-icon">{{ post.IsLiked ? '❤️' : '🤍' }}</span>
           <span class="like-count">{{ post.Like }}</span>
         </button>
-        <div class="commentButton">
-          <button @click="commentButtonIsShow = !commentButtonIsShow">
-            {{ commentButtonIsShow ? '隐藏' : '发评论' }}
-          </button>
-        </div>
+        <CommentToolbar
+          inline
+          reply-label="写评论"
+          :reply-open="commentButtonIsShow"
+          :show-sub-toggle="false"
+          @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+        />
       </div>
     </div>
 
@@ -326,17 +344,24 @@ async function deleteRatingPost() {
       </button>
     </div>
 
-    <MarkdownEditor
-      v-if="commentButtonIsShow"
-      v-model="commentContent"
-      class="comment-editor max-w-full"
-      :submit-busy="commentSubmitting"
-      @send="submitComment"
-    />
+    <div v-if="commentButtonIsShow" class="comment-compose comment-editor max-w-full">
+      <MarkdownEditor
+        v-model="commentContent"
+        compact
+        placeholder="写下你的评论…"
+        :submit-busy="commentSubmitting"
+        @send="submitComment"
+      />
+    </div>
   </BasicCard>
 </template>
 
 <style scoped>
+.rating-detail-card__profile {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* 确保卡片容器有相对定位 */
 .w-15\/16 {
   position: relative;

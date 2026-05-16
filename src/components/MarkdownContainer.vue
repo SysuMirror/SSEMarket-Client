@@ -78,14 +78,14 @@ md.renderer.rules.image = (tokens, idx) => {
 /** 聊天场景：去掉模型常见的段首全角空格/空行，避免渲染出空白段落 */
 function normalizeChatMarkdown(content: string): string {
   let s = content.replace(/^\uFEFF/, '')
-  s = s.replace(/^(?:[ \t\u00a0\u3000]*\r?\n)+/, '')
-  s = s.replace(/^[\s\u00a0\u3000]+/, '')
-  s = s.replace(/^[\u3000\u00a0]{1,4}/, '')
+  s = s.replace(/^(?:[ \t\u00A0\u3000]*\r?\n)+/, '')
+  s = s.replace(/^\s+/, '')
+  s = s.replace(/^[\u3000\u00A0]{1,4}/, '')
   return s.trim()
 }
 
 function stripLeadingEmptyBlocks(html: string): string {
-  return html.replace(/^(?:\s*<p(?:\s[^>]*)?>\s*(?:<br\s*\/?>)?\s*<\/p>\s*)+/gi, '')
+  return html.replace(/^(?:\s*<p(?:\s[^>]*)?>\s*(?:<br\s*\/?>\s*)?<\/p>\s*)+/gi, '')
 }
 
 function preprocessMarkdown(content: string): string {
@@ -175,7 +175,8 @@ const safeHTML = computed(() => {
 
 .markdown-body {
   color: var(--color-text);
-  background-color: var(--color-bg);
+  /* 与卡片底色一致：勿再铺一层 page 灰底，避免正文区「加深一块」 */
+  background-color: transparent;
 }
 
 .markdown-body--chat {

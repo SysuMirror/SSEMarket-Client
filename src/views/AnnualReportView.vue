@@ -157,7 +157,7 @@ function initAutoPlay() {
 }
 
 // Default avatar fallback
-const defaultAvatar = 'https://ssemarket.cn/new/default-avatar.svg'
+const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
 
 const coverAvatarDisplay = ref(defaultAvatar)
 watch(
@@ -940,7 +940,7 @@ onMounted(async () => {
               <button class="tech-btn outline" @click.stop="restart">
                 再看一次
               </button>
-              <button class="tech-btn outline export-btn" @click.stop="exportReport">
+              <button class="tech-btn export-btn outline" @click.stop="exportReport">
                 导出图片
               </button>
               <button class="tech-btn solid" @click.stop="goHome">

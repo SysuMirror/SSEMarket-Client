@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Comment } from '@/types/comment'
-import { defineAsyncComponent, ref, useTemplateRef } from 'vue'
+import { computed, defineAsyncComponent, ref, useTemplateRef } from 'vue'
 import { delComment, sendPComment } from '@/api/editPostAndComment/editComment'
 
 import {
@@ -14,6 +14,7 @@ import MarkdownContainer from '../MarkdownContainer.vue'
 import { showMsg } from '../MessageBox'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
+import CommentToolbar from '../comment/CommentToolbar.vue'
 import BasicCard from './BasicCard.vue'
 
 const { comment, postId, commentable = true, isDense = false } = defineProps<{
@@ -37,6 +38,19 @@ const showSubComment = ref(false)
 const commentSubmitting = ref(false)
 
 const { userInfo } = useUserStore()
+
+type CommentWithAuthorKeys = Comment & { authorID?: number, author_id?: number }
+
+const commentAuthorProfileId = computed(() => {
+  const c = comment as CommentWithAuthorKeys
+  const n = Number(c.AuthorID ?? c.authorID ?? c.author_id)
+  if (Number.isFinite(n) && n > 0)
+    return n
+  const phone = (c.AuthorTelephone || '').trim()
+  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
+    return userInfo.userID
+  return 0
+})
 
 /**
  * @description 发送评论
@@ -146,15 +160,22 @@ async function like() {
 <template>
   <BasicCard>
     <div ref="root">
-      <div v-if="!isDense" class="flex flex-row">
-        <UserAvatar
-          :src="comment.AuthorAvatar"
-          :user-id="comment.AuthorID"
-          :user-identity="comment.AuthorIdentity"
-          :user-name="comment.Author"
-          :user-score="comment.AuthorScore"
+      <div v-if="!isDense" class="comment-card__head flex flex-row flex-wrap items-center justify-between gap-2">
+        <div class="comment-card__profile min-w-0">
+          <UserAvatar
+            :src="comment.AuthorAvatar"
+            :user-id="commentAuthorProfileId"
+            :user-identity="comment.AuthorIdentity"
+            :user-name="comment.Author"
+            :user-score="comment.AuthorScore"
+          />
+        </div>
+        <UserButton
+          class="flex-shrink-0"
+          :no-save="true"
+          :is-self="userInfo.phone === comment.AuthorTelephone"
+          @user-action="handlerDebounced"
         />
-        <UserButton :no-save="true" :is-self="userInfo.phone === comment.AuthorTelephone" @user-action="handlerDebounced" />
       </div>
       <!-- 评分显示区域 -->
       <div v-if="$slots['right-extension']" class="rating-display-area">
@@ -163,38 +184,44 @@ async function like() {
       <MarkdownContainer
         :markdown-content="comment.Content || 'loading'"
       />
-      <BasicInfo :time="comment.CommentTime" :comment="comment.SubComments.length" :nocomment="!commentable" :is-like="comment.IsLiked" :like="comment.LikeNum" @like-change="like" />
-      <div v-if="commentable" class="commentButton mb-3">
-        <button @click="commentButtonIsShow = !commentButtonIsShow">
-          {{ commentButtonIsShow ? '算了' : '评论' }}
-        </button>
-        <button
-          v-if="comment.SubComments.length"
-          @click="
-            showSubComment = !showSubComment;
-          "
-        >
-          {{
-            showSubComment
-              ? '不想看了'
-              : '让我看看'
-          }}
-        </button>
-      </div>
-      <MarkdownEditor
-        v-if="commentButtonIsShow && commentable"
-        v-model="commentContent"
-        :submit-busy="commentSubmitting"
-        @send="handlerDebounced('comment')"
+      <BasicInfo
+        layout="inline"
+        :time="comment.CommentTime"
+        :comment="comment.SubComments.length"
+        :nocomment="!commentable"
+        :is-like="comment.IsLiked"
+        :like="comment.LikeNum"
+        @like-change="like"
       />
+      <CommentToolbar
+        v-if="commentable"
+        :reply-open="commentButtonIsShow"
+        :sub-count="comment.SubComments.length"
+        :sub-open="showSubComment"
+        @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+        @toggle-sub="showSubComment = !showSubComment"
+      />
+      <div
+        v-if="commentButtonIsShow && commentable"
+        class="comment-compose"
+      >
+        <MarkdownEditor
+          v-model="commentContent"
+          compact
+          placeholder="写下你的回复…"
+          :submit-busy="commentSubmitting"
+          @send="handlerDebounced('comment')"
+        />
+      </div>
       <div
         v-if="comment.SubComments && comment.SubComments.length > 0"
         v-show="showSubComment"
+        class="sub-comments-thread"
       >
         <CCommentCard
           v-for="subComment in comment.SubComments"
           :key="subComment.ccommentID"
-          class="my-3 w-full"
+          class="w-full"
           :p-comment-id="comment.PcommentID"
           :sub-comment="subComment"
           :post-id="postId"
@@ -205,6 +232,15 @@ async function like() {
 </template>
 
 <style scoped>
+.comment-card__head {
+  width: 100%;
+}
+
+.comment-card__profile {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* 评分显示区域 */
 .rating-display-area {
   margin: 8px 0;
@@ -212,34 +248,6 @@ async function like() {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.commentButton {
-  display: flex;
-  margin-top: 10px;
-  button {
-    margin-left: 5px;
-    margin-right: 5px;
-  }
-}
-
-@media screen and (min-width: 768px) {
-  .postDetail {
-    width: 100%;
-    margin-left: 0;
-    margin-right: auto;
-    padding: 1%;
-    border-radius: 5px;
-    box-sizing: border-box;
-  }
-}
-
-@media screen and (max-width: 768px) {
-  .commentButton {
-    width: 100%;
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 body.dark-mode .default-avatar {

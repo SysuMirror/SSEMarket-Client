@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
-import { defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 
 import { delPost } from '@/api/editPostAndComment/editPost'
 import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
@@ -21,16 +21,25 @@ const { isDense, post, isNew, noSave = false } = defineProps<{
   noSave?: boolean
 }>()
 
+type PostWithOwnerKeys = Post & { userID?: number, user_id?: number }
+
 const { updatePost } = usePostStore()
 const OldImages = defineAsyncComponent(() => import('@/components/OldImages.vue'))
 
 const { userInfo } = useUserStore()
 
-/**
- * @description 点赞。懒得装防抖
- */
+const profileOwnerId = computed(() => {
+  const p = post as PostWithOwnerKeys
+  const n = Number(p.UserID ?? p.userID ?? p.user_id)
+  if (Number.isFinite(n) && n > 0)
+    return n
+  const phone = (p.UserTelephone || '').trim()
+  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
+    return userInfo.userID
+  return 0
+})
+
 async function like() {
-  // 后端没有返回数据，不要赋值后再更新
   try {
     await likePost(post.PostID, userInfo.phone)
     useCustomEvent('like')
@@ -43,7 +52,6 @@ async function like() {
 
 const handleUserActionDebounce = debounceAsync(handleUserAction)
 async function handleUserAction(type: 'delete' | 'save') {
-  // 后端没有返回数据，不要赋值后再更新
   switch (type) {
     case 'save': {
       try {
@@ -78,31 +86,34 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
 </script>
 
 <template>
-  <!-- 紧凑布局下不显示用户信息、时间等 -->
-  <BasicCard :class="[isDense ? '' : 'min-h-37', { 'new-post': isNew }]">
-    <div v-show="!isDense" class="h-fit flex flex-row items-start">
+  <BasicCard class="post-card" :class="[{ 'post-card--dense': isDense, 'new-post': isNew }]">
+    <div v-show="!isDense" class="post-card__head">
       <UserAvatar
         :src="post.UserAvatar"
-        :user-id="post.UserID"
+        :user-id="profileOwnerId"
         :user-identity="post.UserIdentity"
         :user-name="post.UserName"
         :user-score="post.UserScore"
+        :user-phone="post.UserTelephone"
       />
-      <UserButton :is-saved="post.IsSaved" :is-self="userInfo.phone === post.UserTelephone" :no-save="noSave" @user-action="handleUserActionDebounce" />
+      <UserButton
+        class="post-card__toolbar"
+        :is-saved="post.IsSaved"
+        :is-self="userInfo.phone === post.UserTelephone"
+        :no-save="noSave"
+        @user-action="handleUserActionDebounce"
+      />
     </div>
-    <!-- 添加具名插槽用于扩展内容 -->
     <div class="extension-slot">
       <slot name="right-extension" />
     </div>
-    <RouterLink :to="`/postdetail/${post.PostID}`">
-      <div
-        class="mt-1"
-      >
-        <h3>
+    <RouterLink class="post-card__link" :to="`/postdetail/${post.PostID}`">
+      <div class="post-card__title-wrap">
+        <h3 class="post-card__title">
           {{ post.Title || '' }}
         </h3>
       </div>
-      <p v-show="!isDense">
+      <p v-show="!isDense" class="post-card__excerpt">
         {{ post.Content.slice(0, 15) || 'loading' }}
       </p>
       <template v-if="post.Photos">
@@ -124,13 +135,52 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
   </BasicCard>
 </template>
 
-<style scoped>
-p::after {
+<style scoped lang="scss">
+.post-card__head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.post-card__toolbar {
+  flex-shrink: 0;
+}
+
+.post-card__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.post-card__title-wrap {
+  margin-top: 2px;
+}
+
+.post-card__title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--chat-text);
+}
+
+.post-card__excerpt {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--chat-text-secondary);
+}
+
+.post-card__excerpt::after {
   content: '...';
 }
 
-a {
-  display: block;
+.post-card--dense .post-card__title-wrap {
+  margin-top: 0;
 }
 
 /* 新帖子 */
@@ -142,7 +192,7 @@ a {
 .new-post::before {
   content: 'NEW';
   position: absolute;
-  top: 6px;
+  top: 4px;
   left: 50%;
   transform: translate(-50%, 0);
   background: var(--color-info);
@@ -151,18 +201,17 @@ a {
   padding: 2px 6px;
   border-radius: 10px;
   z-index: 10;
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
-/* 扩展插槽定位 */
 .extension-slot {
   position: relative;
 }
 
 @media screen and (min-width: 768px) {
-  .card-root:hover {
-    box-shadow: var(--color-post-card-hover-box-shadow) 0px 5px 15px;
-    transform: scale(1.03);
+  .post-card:hover {
+    box-shadow: var(--color-post-card-hover-box-shadow) 0 4px 12px;
+    transform: scale(1.01);
   }
 }
 </style>
