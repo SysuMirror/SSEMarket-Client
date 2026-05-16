@@ -331,6 +331,7 @@ async function deleteRatingPost() {
         <CommentToolbar
           inline
           reply-label="写评论"
+          reply-align-end
           :reply-open="commentButtonIsShow"
           :show-sub-toggle="false"
           @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
@@ -903,24 +904,6 @@ async function deleteRatingPost() {
     color: #fca5a5;
   }
 
-  /* 评论功能深色模式 */
-  .commentButton button {
-    background: #60a5fa;
-  }
-
-  .commentButton button:hover {
-    background: #3b82f6;
-  }
-
-  /* 评论功能深色模式 */
-  .deleteButton button {
-    background: rgb(255, 21, 21);
-  }
-
-  .deleteButton button:hover {
-    background: rgb(255, 51, 51);
-  }
-
   .rating-selector {
     background: #1f2937;
     border-color: #374151;
@@ -946,60 +929,6 @@ async function deleteRatingPost() {
   .rating-hint {
     color: #9ca3af;
   }
-}
-
-/* 浮动评论按钮样式 */
-.commentButton {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0;
-}
-
-/* 评论编辑器样式 */
-.comment-editor {
-  margin-top: 10px;
-  clear: both;
-}
-
-.commentButton button {
-  margin-left: 5px;
-  margin-right: 5px;
-  background: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  min-width: 80px;
-}
-
-.commentButton button:hover {
-  background: #357abd;
-}
-
-/* 评论按钮样式 - 与普通帖子保持一致 */
-.deleteButton {
-  display: flex;
-  margin-top: 10px;
-}
-
-.deleteButton button {
-  margin-left: 5px;
-  margin-right: 5px;
-  background: rgb(255, 50, 50);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.deleteButton button:hover {
-  background: rgb(255, 25, 25);
 }
 
 /* 评分选择器样式 */

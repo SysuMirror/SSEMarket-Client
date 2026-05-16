@@ -6,6 +6,7 @@ import { clearStaleNewSSEServiceWorker } from './utils/clearStaleServiceWorker'
 import './assets/main.css'
 import './assets/mode.css'
 import './assets/comment-ui.scss'
+import './assets/post-feed.scss'
 import 'virtual:uno.css'
 
 void clearStaleNewSSEServiceWorker()

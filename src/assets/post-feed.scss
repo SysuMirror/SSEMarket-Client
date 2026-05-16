@@ -1,0 +1,58 @@
+/* 主页 / 分区等信息流帖子卡片 */
+
+.feed-card {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.post-card__head {
+  align-items: center;
+}
+
+.post-card__title {
+  color: var(--chat-text);
+}
+
+.post-card__excerpt {
+  color: var(--chat-text-secondary);
+}
+
+/* 新帖标记：藏青强调 */
+.post-card.new-post {
+  border-left: 4px solid var(--chat-accent) !important;
+}
+
+.post-card.new-post::before {
+  background: var(--chat-accent);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.feed-list__item {
+  display: block;
+  width: 93.75%;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.feed-list__footer {
+  text-align: center;
+  padding: 14px 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--chat-text-secondary);
+}
+
+@media screen and (min-width: 768px) {
+  .feed-card.post-card:hover {
+    border-color: var(--chat-border-strong);
+    box-shadow: 0 6px 18px rgba(44, 61, 86, 0.1);
+    transform: translateY(-1px);
+  }
+}

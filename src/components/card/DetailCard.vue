@@ -190,6 +190,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
     <BasicInfo :time="post.PostTime" :browse="post.Browse" :comment="post.Comment" :is-like="post.IsLiked" :like="post.Like" @like-change="like" />
     <CommentToolbar
       reply-label="写评论"
+      reply-align-end
       :reply-open="commentButtonIsShow"
       :show-sub-toggle="false"
       @toggle-reply="commentButtonIsShow = !commentButtonIsShow"

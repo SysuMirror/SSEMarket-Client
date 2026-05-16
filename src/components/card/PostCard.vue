@@ -86,7 +86,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
 </script>
 
 <template>
-  <BasicCard class="post-card" :class="[{ 'post-card--dense': isDense, 'new-post': isNew }]">
+  <BasicCard class="post-card feed-card" :class="[{ 'post-card--dense': isDense, 'new-post': isNew }]">
     <div v-show="!isDense" class="post-card__head">
       <UserAvatar
         :src="post.UserAvatar"
@@ -183,35 +183,26 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
   margin-top: 0;
 }
 
-/* 新帖子 */
+/* 新帖子角标 */
 .new-post {
   position: relative;
-  border-left: 4px solid var(--color-info) !important;
 }
 
 .new-post::before {
   content: 'NEW';
   position: absolute;
-  top: 4px;
-  left: 50%;
-  transform: translate(-50%, 0);
-  background: var(--color-info);
-  color: var(--color-bg);
+  top: 6px;
+  right: 10px;
+  left: auto;
+  transform: none;
   font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
   z-index: 10;
-  opacity: 0.85;
+  opacity: 0.95;
 }
 
 .extension-slot {
   position: relative;
-}
-
-@media screen and (min-width: 768px) {
-  .post-card:hover {
-    box-shadow: var(--color-post-card-hover-box-shadow) 0 4px 12px;
-    transform: scale(1.01);
-  }
 }
 </style>

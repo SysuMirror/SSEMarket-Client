@@ -70,7 +70,7 @@ onUnmounted(() => {
       :is="cardComponent"
       v-for="post in posts"
       :key="post.PostID"
-      class="mx-a my-2 w-15/16"
+      class="feed-list__item"
       :is-dense="isDense"
       :is-new="newPostIds.includes(post.PostID)"
       :post="post"
@@ -79,13 +79,13 @@ onUnmounted(() => {
       <div
         v-if="!isLoading"
         ref="bottom"
-        class="bottomDiv"
+        class="feed-list__footer"
       >
         loading...
       </div>
     </template>
     <template v-else>
-      <div class="bottomDiv">
+      <div class="feed-list__footer">
         暂无更多
       </div>
     </template>
@@ -103,11 +103,4 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-.bottomDiv {
-  text-align: center;
-  padding: 12px 0 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--chat-text-tips);
-}
 </style>

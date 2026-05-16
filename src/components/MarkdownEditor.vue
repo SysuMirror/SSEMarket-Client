@@ -34,8 +34,24 @@ function emitSend() {
 
 // const route = useRoute()
 
+type EditType = '标题' | '粗体' | '斜体' | '删除线' | '引用' | '无序列表' | '有序列表' | '表格' | '分割线' | '代码块'
+
 const isPreview = ref(false)
+const formatExpanded = ref(false)
 const textarea = useTemplateRef<HTMLTextAreaElement>('textarea')
+
+const formatActions: { type: EditType, label: string }[] = [
+  { type: '标题', label: '标题' },
+  { type: '粗体', label: '粗体' },
+  { type: '斜体', label: '斜体' },
+  { type: '删除线', label: '删除线' },
+  { type: '引用', label: '引用' },
+  { type: '无序列表', label: '无序列表' },
+  { type: '有序列表', label: '有序列表' },
+  { type: '表格', label: '表格' },
+  { type: '分割线', label: '分割线' },
+  { type: '代码块', label: '代码块' },
+]
 
 const modelValue = defineModel({
   type: String,
@@ -101,7 +117,6 @@ async function handlePaste(event: ClipboardEvent) {
   }
 }
 
-type EditType = '标题' | '粗体' | '斜体' | '删除线' | '引用' | '无序列表' | '有序列表' | '表格' | '分割线' | '代码块'
 function editContent(type: EditType) {
   let insertion = ''
   let cursorOffset = 0
@@ -176,36 +191,29 @@ function editContent(type: EditType) {
     :class="{ 'md-editor--compact': compact }"
   >
     <div class="md-editor__toolbar">
-      <button type="button" @click="editContent('标题')">
-        标题
+      <button
+        v-if="compact"
+        type="button"
+        class="md-editor__toolbar-format-toggle"
+        :class="{ 'md-editor__toolbar-format-toggle--open': formatExpanded }"
+        :aria-expanded="formatExpanded"
+        @click="formatExpanded = !formatExpanded"
+      >
+        {{ formatExpanded ? '收起格式' : '格式' }}
       </button>
-      <button type="button" @click="editContent('粗体')">
-        粗体
-      </button>
-      <button type="button" @click="editContent('斜体')">
-        斜体
-      </button>
-      <button type="button" @click="editContent('删除线')">
-        删除线
-      </button>
-      <button type="button" @click="editContent('引用')">
-        引用
-      </button>
-      <button type="button" @click="editContent('无序列表')">
-        无序列表
-      </button>
-      <button type="button" @click="editContent('有序列表')">
-        有序列表
-      </button>
-      <button type="button" @click="editContent('表格')">
-        表格
-      </button>
-      <button type="button" @click="editContent('分割线')">
-        分割线
-      </button>
-      <button type="button" @click="editContent('代码块')">
-        代码块
-      </button>
+      <div
+        class="md-editor__format-group"
+        :class="{ 'md-editor__format-group--collapsed': compact && !formatExpanded }"
+      >
+        <button
+          v-for="action in formatActions"
+          :key="action.type"
+          type="button"
+          @click="editContent(action.type)"
+        >
+          {{ action.label }}
+        </button>
+      </div>
       <button type="button" class="md-editor__toolbar-preview" @click="isPreview = !isPreview">
         {{ isPreview ? '编辑' : '预览' }}
       </button>
@@ -284,6 +292,28 @@ function editContent(type: EditType) {
       color: var(--chat-accent);
     }
   }
+}
+
+.md-editor__format-group {
+  display: contents;
+}
+
+.md-editor__format-group--collapsed {
+  display: none !important;
+}
+
+.md-editor--compact .md-editor__format-group:not(.md-editor__format-group--collapsed) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.md-editor__toolbar-format-toggle--open {
+  background: var(--chat-accent-soft);
+  border-color: var(--chat-accent);
+  color: var(--chat-accent);
 }
 
 .md-editor__toolbar-preview {
@@ -388,12 +418,9 @@ function editContent(type: EditType) {
 }
 
 .md-editor--compact {
-  .md-editor__toolbar button:not(.md-editor__toolbar-preview) {
-    display: none;
-  }
-
   .md-editor__toolbar {
     margin-bottom: 8px;
+    align-items: center;
   }
 
   .md-editor__body textarea {

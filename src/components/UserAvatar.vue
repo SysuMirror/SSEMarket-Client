@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useSlots, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { getAllInfo } from '@/api/info/getInfo'
 import { levelClassHandler, levelNameHandler } from '@/utils/level'
 import UserIdentityIcon from './UserIdentityIcon.vue'
@@ -32,19 +32,9 @@ const resolvedUserId = computed(() => {
   return Number.isFinite(n) && n > 0 ? n : 0
 })
 
-const profileLinkTo = computed(() => ({
-  name: 'UserProfile' as const,
-  params: { id: String(resolvedUserId.value) },
-}))
-
-/** 内置跳转：有 userId 且未要求外层独占链接时，使用 RouterLink（与帖子正文区 RouterLink 一致） */
-const useInternalProfileLink = computed(
-  () => !props.noProfileLink && resolvedUserId.value > 0,
-)
-
-/** 是否有手机号但 userId 无效，需要通过手机号解析 */
-const needsPhoneResolution = computed(
-  () => !props.noProfileLink && resolvedUserId.value <= 0 && props.userPhone,
+/** 可进入个人主页：有 userId，或可通过手机号解析（所有人同一套逻辑） */
+const profileNavigable = computed(
+  () => !props.noProfileLink && (resolvedUserId.value > 0 || !!(props.userPhone?.trim())),
 )
 
 const phoneResolutionCache = new Map<string, number>()
@@ -62,44 +52,78 @@ function onAvatarError() {
     displaySrc.value = defaultAvatar
 }
 
-async function handleAvatarClickWithPhoneResolution() {
-  if (!props.userPhone)
-    return
-
-  const phone = props.userPhone.trim()
-  if (!phone)
-    return
-
+async function resolveUserIdByPhone(phone: string): Promise<number> {
   if (phoneResolutionCache.has(phone)) {
-    const cachedId = phoneResolutionCache.get(phone)!
-    if (cachedId > 0) {
-      router.push({ name: 'UserProfile', params: { id: String(cachedId) } })
-    }
-    return
+    const cached = phoneResolutionCache.get(phone)!
+    return cached > 0 ? cached : 0
   }
 
   try {
     const userInfo = await getAllInfo(phone)
-    if (userInfo.userID > 0) {
-      phoneResolutionCache.set(phone, userInfo.userID)
-      router.push({ name: 'UserProfile', params: { id: String(userInfo.userID) } })
-    }
+    const id = userInfo.userID > 0 ? userInfo.userID : -1
+    phoneResolutionCache.set(phone, id)
+    return userInfo.userID > 0 ? userInfo.userID : 0
   }
   catch (e) {
     console.error('Failed to resolve user by phone:', e)
     phoneResolutionCache.set(phone, -1)
+    return 0
+  }
+}
+
+async function goToProfile() {
+  if (!profileNavigable.value)
+    return
+
+  if (resolvedUserId.value > 0) {
+    await router.push({
+      name: 'UserProfile',
+      params: { id: String(resolvedUserId.value) },
+    })
+    return
+  }
+
+  const phone = props.userPhone?.trim()
+  if (!phone)
+    return
+
+  const id = await resolveUserIdByPhone(phone)
+  if (id > 0) {
+    await router.push({
+      name: 'UserProfile',
+      params: { id: String(id) },
+    })
+  }
+}
+
+function onProfileClick(event: MouseEvent) {
+  if (!profileNavigable.value)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  void goToProfile()
+}
+
+function onProfileKeydown(event: KeyboardEvent) {
+  if (!profileNavigable.value)
+    return
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    event.stopPropagation()
+    void goToProfile()
   }
 }
 </script>
 
 <template>
   <div class="user" :class="{ 'user--has-reply': hasReplySlot }">
-    <component
-      :is="useInternalProfileLink ? RouterLink : 'div'"
-      v-bind="useInternalProfileLink ? { to: profileLinkTo } : {}"
+    <div
       class="user__cluster"
-      :class="{ 'user__cluster--link': useInternalProfileLink || needsPhoneResolution }"
-      @click="needsPhoneResolution ? handleAvatarClickWithPhoneResolution() : undefined"
+      :class="{ 'user__cluster--link': profileNavigable }"
+      :role="profileNavigable ? 'link' : undefined"
+      :tabindex="profileNavigable ? 0 : undefined"
+      @click="onProfileClick"
+      @keydown="onProfileKeydown"
     >
       <div class="user-avatar">
         <img
@@ -124,7 +148,7 @@ async function handleAvatarClickWithPhoneResolution() {
         <span class="user-name w-fit whitespace-nowrap text-5">{{ props.userName
         }}</span>
       </div>
-    </component>
+    </div>
     <div v-if="hasReplySlot" class="user__reply">
       <slot name="reply" />
     </div>
@@ -167,6 +191,18 @@ async function handleAvatarClickWithPhoneResolution() {
 
   &--link {
     cursor: pointer;
+    outline: none;
+
+    &:hover,
+    &:active,
+    &:focus-visible {
+      background: transparent;
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 2px var(--chat-accent-soft, rgba(44, 61, 86, 0.2));
+      border-radius: 8px;
+    }
   }
 
   .user-name {

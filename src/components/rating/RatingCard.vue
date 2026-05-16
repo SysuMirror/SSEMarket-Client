@@ -76,19 +76,12 @@ function getTotalRatings() {
 .rating-number {
   font-size: 20px;
   font-weight: 800;
-  color: #2563eb;
-  text-shadow: 0 2px 4px rgba(37, 99, 235, 0.15);
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--chat-accent);
 }
 
 .rating-stars {
   font-size: 18px;
-  color: #4a90e2;
-  filter: drop-shadow(0 2px 4px rgba(74, 144, 226, 0.3));
-  animation: twinkle 2s ease-in-out infinite alternate;
+  color: var(--chat-accent);
 }
 
 @keyframes twinkle {
@@ -102,12 +95,8 @@ function getTotalRatings() {
 
 .total-ratings {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--chat-text-secondary);
   font-weight: 500;
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 /* 响应式设计 */
@@ -143,24 +132,13 @@ function getTotalRatings() {
     background: linear-gradient(135deg, rgba(31, 41, 55, 0.98) 0%, rgba(17, 24, 39, 0.95) 100%);
   }
 
-  .rating-number {
-    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 2px 4px rgba(96, 165, 250, 0.15);
-  }
-
+  .rating-number,
   .rating-stars {
-    color: #60a5fa;
-    filter: drop-shadow(0 2px 4px rgba(96, 165, 250, 0.3));
+    color: #93b4d9;
   }
 
   .total-ratings {
-    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--chat-text-secondary);
   }
 }
 </style>
