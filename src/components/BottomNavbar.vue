@@ -12,9 +12,9 @@ const route = useRoute()
 const path = computed(() => route.path)
 
 const isHome = computed(() => path.value === '/' || path.value === '/partition' || path.value.startsWith('/partition/'))
-const isShop = computed(() => path.value.startsWith('/shop') || path.value.startsWith('/myproducts'))
 const isNotice = computed(() => path.value === '/notice')
 const isChat = computed(() => path.value === '/chat')
+const isRanking = computed(() => path.value === '/ranking')
 const isSmartXiaoQiu = computed(() => path.value === '/smart-xiaoqiu' || path.value.startsWith('/smart-xiaoqiu/'))
 const myRoutes = ['/options', '/save', '/history', '/feedback']
 const isMySection = computed(() => myRoutes.some(p => path.value === p || path.value.startsWith(`${p}/`)))
@@ -67,16 +67,6 @@ onUnmounted(() => {
       </RouterLink>
 
       <RouterLink
-        class="bottom-nav__item"
-        :class="{ 'bottom-nav__item--active': isShop }"
-        to="/shop"
-        @click="closeMyMenu"
-      >
-        <Icon icon="tabler:shopping-bag" class="bottom-nav__icon bottom-nav__icon--shop" width="24" height="24" aria-hidden="true" />
-        <span class="bottom-nav__text">商城</span>
-      </RouterLink>
-
-      <RouterLink
         class="bottom-nav__item bottom-nav__item--badge-wrap"
         :class="{ 'bottom-nav__item--active': isNotice }"
         to="/notice"
@@ -100,6 +90,16 @@ onUnmounted(() => {
           <Icon icon="tabler:message-circle" class="bottom-nav__icon bottom-nav__icon--chat" width="24" height="24" aria-hidden="true" />
         </span>
         <span class="bottom-nav__text">私信</span>
+      </RouterLink>
+
+      <RouterLink
+        class="bottom-nav__item"
+        :class="{ 'bottom-nav__item--active': isRanking }"
+        to="/ranking"
+        @click="closeMyMenu"
+      >
+        <Icon icon="tabler:trophy" class="bottom-nav__icon bottom-nav__icon--ranking" width="24" height="24" aria-hidden="true" />
+        <span class="bottom-nav__text">排行榜</span>
       </RouterLink>
 
       <RouterLink
@@ -152,7 +152,7 @@ onUnmounted(() => {
   right: 0;
   bottom: 0;
   z-index: 1000;
-  padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 0;
   pointer-events: none;
 }
 
@@ -162,15 +162,15 @@ onUnmounted(() => {
   align-items: stretch;
   justify-content: space-between;
   gap: 4px;
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 8px 6px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
   background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
-  border-radius: 20px;
-  box-shadow:
-    0 -4px 24px rgba(15, 23, 42, 0.06),
-    0 1px 3px rgba(15, 23, 42, 0.04);
+  border: none;
+  border-top: 1px solid var(--chat-border);
+  border-radius: 0;
+  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
 }
 
 .bottom-nav__item {
@@ -211,8 +211,8 @@ onUnmounted(() => {
   }
 
   &--active:not(.bottom-nav__item--my) {
-    background: linear-gradient(180deg, rgba(59, 130, 246, 0.16) 0%, rgba(44, 61, 86, 0.1) 100%);
-    box-shadow: inset 0 0 0 1px rgba(44, 61, 86, 0.14);
+    background: transparent;
+    box-shadow: none;
 
     .bottom-nav__text {
       color: var(--chat-accent);
@@ -269,8 +269,8 @@ onUnmounted(() => {
 }
 
 .bottom-nav__item--active.bottom-nav__item--my .bottom-nav__my-trigger {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.16) 0%, rgba(44, 61, 86, 0.1) 100%);
-  box-shadow: inset 0 0 0 1px rgba(44, 61, 86, 0.14);
+  background: transparent;
+  box-shadow: none;
 
   .bottom-nav__text {
     color: var(--chat-accent);
@@ -297,6 +297,9 @@ onUnmounted(() => {
 .bottom-nav__icon--chat {
   color: #2563eb;
 }
+.bottom-nav__icon--ranking {
+  color: #eab308;
+}
 .bottom-nav__icon--xiaoqiu {
   color: #7c3aed;
 }
@@ -314,8 +317,8 @@ body.dark-mode .bottom-nav__item:not(.bottom-nav__item--my):hover {
 }
 
 body.dark-mode .bottom-nav__item--active:not(.bottom-nav__item--my) {
-  background: linear-gradient(180deg, rgba(96, 165, 250, 0.18) 0%, rgba(44, 61, 86, 0.35) 100%);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.28);
+  background: transparent;
+  box-shadow: none;
 
   .bottom-nav__text {
     color: var(--chat-accent);
@@ -332,8 +335,8 @@ body.dark-mode .bottom-nav__my-trigger:hover {
 }
 
 body.dark-mode .bottom-nav__item--active.bottom-nav__item--my .bottom-nav__my-trigger {
-  background: linear-gradient(180deg, rgba(96, 165, 250, 0.2) 0%, rgba(44, 61, 86, 0.4) 100%);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.3);
+  background: transparent;
+  box-shadow: none;
 
   .bottom-nav__text {
     color: var(--chat-accent);
@@ -351,6 +354,9 @@ body.dark-mode .bottom-nav__icon--notice {
 }
 body.dark-mode .bottom-nav__icon--chat {
   color: #60a5fa;
+}
+body.dark-mode .bottom-nav__icon--ranking {
+  color: #fbbf24;
 }
 body.dark-mode .bottom-nav__icon--xiaoqiu {
   color: #c4b5fd;

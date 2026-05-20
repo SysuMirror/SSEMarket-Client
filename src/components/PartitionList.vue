@@ -38,6 +38,16 @@ const partitions: { name: string, icon: string, key: string }[] = [
         <span class="partition-chip__label">打分</span>
       </RouterLink>
       <RouterLink
+        to="/shop"
+        class="partition-chip partition-chip--shop"
+        role="listitem"
+      >
+        <span class="partition-chip__icon-wrap">
+          <Icon icon="tabler:shopping-bag" class="partition-chip__ico" width="18" height="18" aria-hidden="true" />
+        </span>
+        <span class="partition-chip__label">商城</span>
+      </RouterLink>
+      <RouterLink
         v-for="p in partitions"
         :key="p.name"
         :to="`/partition/${encodeURIComponent(p.name)}`"
@@ -132,6 +142,9 @@ const partitions: { name: string, icon: string, key: string }[] = [
 .partition-chip--rating .partition-chip__ico {
   color: #ca8a04;
 }
+.partition-chip--shop .partition-chip__ico {
+  color: #059669;
+}
 .partition-chip--quality .partition-chip__ico {
   color: #ca8a04;
 }
@@ -164,6 +177,9 @@ body.dark-mode .partition-chip--rating .partition-chip__ico,
 body.dark-mode .partition-chip--quality .partition-chip__ico {
   color: #fcd34d;
 }
+body.dark-mode .partition-chip--shop .partition-chip__ico {
+  color: #34d399;
+}
 body.dark-mode .partition-chip--course .partition-chip__ico {
   color: #93c5fd;
 }
@@ -187,15 +203,16 @@ body.dark-mode .partition-chip--misc .partition-chip__ico {
 }
 
 .partition-chip__icon-wrap {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--chat-bg-main);
-  border: 1px solid var(--chat-border);
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
 }
 
 .partition-chip__ico {

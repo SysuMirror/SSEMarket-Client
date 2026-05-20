@@ -110,24 +110,15 @@ async function refreshPostData() {
 }
 
 /**
- *
- * @description 复制代码和展示图片。直接绑定根容器
+ * @description 帖子详情内点击图片预览（代码复制由 MarkdownContainer 处理）
  */
 async function clickHandler(event: MouseEvent) {
-  /**
-   * 在css里已经去除了pre标签的点击，只保留了pre::before的点击
-   */
   const el = event.target as HTMLElement
   if (!el)
     return
-  if (el.tagName === 'CODE') {
-    const code = el.textContent
-    if (!code)
-      return
-    await navigator.clipboard.writeText(code)
-    showMsg('代码已复制')
-  }
-  else if (el.tagName === 'IMG') {
+  if (el.closest('.md-code-block__copy'))
+    return
+  if (el.tagName === 'IMG') {
     // 拿到图片的src
     const src = (el as HTMLImageElement).src
     // 如果class名为user-avatar，直接不展示

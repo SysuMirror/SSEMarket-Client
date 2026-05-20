@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent, ref, useTemplateRef } from 'vue'
+import { RouterLink } from 'vue-router'
+import { votePageRoute } from '@/api/vote/vote'
 import { sendComment } from '@/api/editPostAndComment/editComment'
 import { delPost } from '@/api/editPostAndComment/editPost'
 
@@ -194,7 +196,16 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
       :reply-open="commentButtonIsShow"
       :show-sub-toggle="false"
       @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
-    />
+    >
+      <template #leading>
+        <RouterLink
+          class="comment-toolbar__link-muted comment-toolbar__link-vote"
+          :to="votePageRoute(post.Title)"
+        >
+          投票
+        </RouterLink>
+      </template>
+    </CommentToolbar>
     <div v-if="commentButtonIsShow" class="comment-compose max-w-full">
       <MarkdownEditor
         v-model="commentContent"

@@ -42,6 +42,9 @@ const cacheCondition = reactive<Condition>({
   searchsort: 'home',
   searchinfo: '',
   tag: '',
+  orderBy: 'time_desc',
+  timeFrom: '',
+  timeTo: '',
 })
 
 onMounted(async () => {

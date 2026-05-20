@@ -1,6 +1,14 @@
 import type { Post, PostType, Rating } from '@/types/post'
 import { requestFunc } from '../req'
 
+export type HomeOrderBy =
+  | 'time_desc'
+  | 'time_asc'
+  | 'like_desc'
+  | 'like_asc'
+  | 'comment_desc'
+  | 'comment_asc'
+
 export interface getPostsObject {
   limit: number
   offset: number
@@ -9,6 +17,9 @@ export interface getPostsObject {
   searchinfo: string
   userTelephone: string
   tag: string
+  orderBy?: HomeOrderBy | string
+  timeFrom?: string
+  timeTo?: string
 }
 
 const defaultPost: Post = {
@@ -96,6 +107,8 @@ export interface getPostsNumObject {
   searchinfo: string
   tag: string
   userTelephone: string
+  timeFrom?: string
+  timeTo?: string
 }
 
 export interface getPostsNumResponse {

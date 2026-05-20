@@ -16,8 +16,10 @@ const props = withDefaults(
     noProfileLink?: boolean
     /** 用户手机号，用于当 userId 无效时尝试通过手机号获取用户信息并跳转 */
     userPhone?: string
+    /** compact：评论区等窄场景，缩小头像与字号 */
+    size?: 'default' | 'compact'
   }>(),
-  { userId: 0, userIdentity: '', userName: '', userScore: 0, noProfileLink: false, userPhone: undefined },
+  { userId: 0, userIdentity: '', userName: '', userScore: 0, noProfileLink: false, userPhone: undefined, size: 'default' },
 )
 
 const slots = useSlots()
@@ -116,7 +118,7 @@ function onProfileKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="user" :class="{ 'user--has-reply': hasReplySlot }">
+  <div class="user" :class="{ 'user--has-reply': hasReplySlot, 'user--compact': props.size === 'compact' }">
     <div
       class="user__cluster"
       :class="{ 'user__cluster--link': profileNavigable }"
@@ -166,24 +168,42 @@ function onProfileKeydown(event: KeyboardEvent) {
   box-sizing: border-box;
   font-size: 1.2rem;
   font-weight: bold;
-  height: var(--userImage);
+  height: auto;
+  min-height: var(--userImage);
 
   &--has-reply {
     height: auto;
     min-height: var(--userImage);
+  }
+
+  &--compact {
+    --userImage: 40px;
+    width: auto;
+    height: auto;
+    min-height: var(--userImage);
+    font-size: 1rem;
+
+    .user-name {
+      font-size: 0.9375rem;
+      line-height: 1.25;
+    }
+
+    .user-level {
+      font-size: 0.6875rem;
+      line-height: 1.2;
+    }
   }
 }
 
 .user__cluster {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   box-sizing: border-box;
   flex: 0 1 auto;
   width: fit-content;
   max-width: 100%;
   min-width: 0;
-  height: var(--userImage);
   min-height: var(--userImage);
   text-decoration: none;
   color: inherit;
@@ -212,16 +232,31 @@ function onProfileKeydown(event: KeyboardEvent) {
   .user-avatar {
     position: relative;
     flex-shrink: 0;
-    width: 3.4rem;
-    height: 3.4rem;
+    width: var(--userImage);
+    height: var(--userImage);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     .user-avatar-img {
-      width: var(--userImage);
-      height: var(--userImage);
+      display: block;
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
+      object-fit: cover;
       background: #fff;
     }
   }
+}
+
+.user--compact .user__cluster {
+  align-items: center;
+  gap: 0;
+}
+
+.user--compact .user-meta {
+  margin-left: 8px;
+  justify-content: center;
 }
 
 .user__reply {

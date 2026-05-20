@@ -3,6 +3,8 @@
 // 继承自DetailCard
 import type { Rating } from '@/types/post'
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, triggerRef, watch } from 'vue'
+import { RouterLink } from 'vue-router'
+import { votePageRoute } from '@/api/vote/vote'
 import { getAverageRating, getStarsDistribution, getUserPostRating, sendRComment, submitRating } from '@/api/editPostAndComment/editComment'
 import { delPost } from '@/api/editPostAndComment/editPost'
 import { likePost } from '@/api/SaveAndLike/SaveAndLike'
@@ -328,16 +330,24 @@ async function deleteRatingPost() {
           <span class="like-icon">{{ post.IsLiked ? '❤️' : '🤍' }}</span>
           <span class="like-count">{{ post.Like }}</span>
         </button>
-        <CommentToolbar
-          inline
-          reply-label="写评论"
-          reply-align-end
-          :reply-open="commentButtonIsShow"
-          :show-sub-toggle="false"
-          @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
-        />
       </div>
     </div>
+    <CommentToolbar
+      reply-label="写评论"
+      reply-align-end
+      :reply-open="commentButtonIsShow"
+      :show-sub-toggle="false"
+      @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+    >
+      <template #leading>
+        <RouterLink
+          class="comment-toolbar__link-muted comment-toolbar__link-vote"
+          :to="votePageRoute(post.Title)"
+        >
+          投票
+        </RouterLink>
+      </template>
+    </CommentToolbar>
 
     <div v-if="post.UserTelephone === userInfo.phone && !isMobile" class="deleteButton">
       <button @click="deleteRatingPost()">

@@ -7,6 +7,14 @@ import { getPosts, getPostsNum } from '@/api/browse/getPost'
 export const Partitions = ['主页', '收藏', '历史', '课程专区', '优质贴', '课程交流', '日常吐槽', '打听求助', '学习交流', '院务', '求职招募', '其他', '打分'] as const
 export const SearchSort = ['home', 'save', 'history', 'rating'] as const
 
+export type HomeOrderBy =
+  | 'time_desc'
+  | 'time_asc'
+  | 'like_desc'
+  | 'like_asc'
+  | 'comment_desc'
+  | 'comment_asc'
+
 export interface Condition {
   limit: number
   offset: number
@@ -14,6 +22,9 @@ export interface Condition {
   searchsort: typeof SearchSort[number]
   searchinfo: string
   tag: string
+  orderBy: HomeOrderBy
+  timeFrom: string
+  timeTo: string
 }
 
 const totalNum = ref(0)
@@ -27,6 +38,9 @@ const conditions = reactive<Condition>({
   searchsort: 'home',
   searchinfo: '',
   tag: '',
+  orderBy: 'time_desc',
+  timeFrom: '',
+  timeTo: '',
 })
 
 /**
@@ -58,6 +72,9 @@ async function restorePosts(userTelephone: string, cachePosts: Post[], cacheTota
   conditions.searchsort = cacheConditions.searchsort
   conditions.searchinfo = cacheConditions.searchinfo
   conditions.tag = cacheConditions.tag
+  conditions.orderBy = cacheConditions.orderBy || 'time_desc'
+  conditions.timeFrom = cacheConditions.timeFrom || ''
+  conditions.timeTo = cacheConditions.timeTo || ''
   await getNewPosts(userTelephone)
 }
 
@@ -68,7 +85,23 @@ function storePosts() {
   return { cachePosts, cacheTotalNum, cacheConditions }
 }
 
-function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'rating' | 'comment') {
+/** 在列表外（如个人主页）持有的帖子对象上同步点赞/收藏状态 */
+export function applyPostMutation(
+  post: Pick<Post, 'IsLiked' | 'Like' | 'IsSaved'>,
+  type: 'like' | 'save',
+) {
+  switch (type) {
+    case 'like':
+      post.IsLiked = !post.IsLiked
+      post.Like += post.IsLiked ? 1 : -1
+      break
+    case 'save':
+      post.IsSaved = !post.IsSaved
+      break
+  }
+}
+
+function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'rating' | 'comment'): boolean {
   // 二分查找
   let left = 0
   let right = posts.length - 1
@@ -88,14 +121,13 @@ function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'rating' | 'c
   }
   const post = posts[target]
   if (!post)
-    return
+    return false
   switch (type) {
     case 'like':
-      post.IsLiked = !post.IsLiked
-      post.Like += post.IsLiked ? 1 : -1
+      applyPostMutation(post, 'like')
       break
     case 'save':
-      post.IsSaved = !post.IsSaved
+      applyPostMutation(post, 'save')
       break
     case 'delete':
       posts.splice(target, 1)
@@ -106,6 +138,7 @@ function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'rating' | 'c
       totalNum.value--
       break
   }
+  return true
 }
 
 async function updateNum(userTelephone: string) {
@@ -139,6 +172,17 @@ function refreshPosts() {
   conditions.searchinfo = ''
   conditions.searchsort = 'home'
   conditions.tag = ''
+  conditions.orderBy = 'time_desc'
+}
+
+function setHomeOrder(orderBy: HomeOrderBy) {
+  if (conditions.orderBy === orderBy)
+    return false
+  conditions.orderBy = orderBy
+  posts.splice(0, posts.length)
+  conditions.offset = 0
+  totalNum.value = 0
+  return true
 }
 
 function changeTo(p: typeof Partitions[number], tag: string = '') {
@@ -178,9 +222,16 @@ function changeTo(p: typeof Partitions[number], tag: string = '') {
 
 function search(sinfo: string, p?: typeof Partitions[number]) {
   conditions.searchinfo = sinfo
+  conditions.timeFrom = ''
+  conditions.timeTo = ''
   if (p) {
     conditions.partition = p
   }
+}
+
+function setSearchTimeRange(timeFrom: string, timeTo: string) {
+  conditions.timeFrom = timeFrom.trim()
+  conditions.timeTo = timeTo.trim()
 }
 
 function initLimit() {
@@ -200,5 +251,8 @@ export function usePostStore() {
     changeTo,
     refreshPosts,
     search,
+    setSearchTimeRange,
+    setHomeOrder,
+    conditions,
   }
 }

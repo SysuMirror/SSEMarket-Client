@@ -48,6 +48,7 @@ const router = createRouter({
         {
           path: 'post',
           name: 'Post',
+          meta: { layoutFill: true },
           component: () => import('@/views/PostView.vue'),
         },
         {
@@ -71,6 +72,16 @@ const router = createRouter({
           path: 'heat',
           name: 'Heat',
           component: () => import('@/views/HeatView.vue'),
+        },
+        {
+          path: 'vote',
+          name: 'Vote',
+          component: () => import('@/views/VoteView.vue'),
+        },
+        {
+          path: 'ranking',
+          name: 'Ranking',
+          component: () => import('@/views/RankingView.vue'),
         },
         {
           path: 'feedback',

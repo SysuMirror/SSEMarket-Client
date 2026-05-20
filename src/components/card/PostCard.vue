@@ -5,7 +5,7 @@ import { computed, defineAsyncComponent } from 'vue'
 import { delPost } from '@/api/editPostAndComment/editPost'
 import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
 import { showMsg } from '@/components/MessageBox'
-import { usePostStore } from '@/store/postStore'
+import { applyPostMutation, usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
 import { debounceAsync } from '@/utils/debounced'
 
@@ -81,7 +81,9 @@ async function handleUserAction(type: 'delete' | 'save') {
 }
 
 function useCustomEvent(type: 'delete' | 'save' | 'like') {
-  updatePost(post.PostID, type)
+  const synced = updatePost(post.PostID, type)
+  if (!synced && (type === 'like' || type === 'save'))
+    applyPostMutation(post, type)
 }
 </script>
 
@@ -139,10 +141,22 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
 .post-card__head {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 4px;
+
+  :deep(.user) {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    min-height: var(--userImage, 50px);
+  }
+
+  :deep(.user__cluster) {
+    align-items: center;
+  }
 }
 
 .post-card__toolbar {

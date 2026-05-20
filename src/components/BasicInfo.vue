@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-const { isDense, browse, comment, isLike = false, like = 0, layout = 'default' } = defineProps<{
+const { isDense, browse, comment, isLike = false, like = 0, layout = 'default', hideTime = false } = defineProps<{
   isDense?: boolean
   browse?: number
   comment?: number
@@ -9,6 +9,8 @@ const { isDense, browse, comment, isLike = false, like = 0, layout = 'default' }
   time: string
   /** inline：评论卡片底部紧凑统计行 */
   layout?: 'default' | 'inline'
+  /** 时间由卡片头部展示时设为 true */
+  hideTime?: boolean
 }>()
 const emit = defineEmits(['likeChange'])
 
@@ -19,7 +21,7 @@ function LikeChange() {
 
 <template>
   <div class="basic-info" :class="`basic-info--${layout}`">
-    <div v-show="!isDense" class="basic-info__time">
+    <div v-show="!isDense && !hideTime" class="basic-info__time">
       <span>{{
         new Date(time).toLocaleString('zh-CN', {
           year: 'numeric',
@@ -147,9 +149,24 @@ function LikeChange() {
 
   .basic-info__stats {
     justify-content: flex-start;
-    margin-top: 6px;
+    gap: 18px;
+    margin-top: 0;
     padding-top: 0;
     border-top: none;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .basic-info__stat {
+    gap: 6px;
+  }
+
+  .basic-info__icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 1;
   }
 }
 </style>

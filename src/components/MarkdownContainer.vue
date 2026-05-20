@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import Prism from 'prismjs'
 import { computed, nextTick, useTemplateRef } from 'vue'
+import { showMsg } from '@/components/MessageBox'
 import 'prismjs/plugins/autoloader/prism-autoloader'
 import 'github-markdown-css'
 import 'prismjs/themes/prism-tomorrow.css'
@@ -54,6 +55,22 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
       tokens[idx].attrPush(['rel', 'noopener noreferrer'])
   }
   return defaultLinkOpen(tokens, idx, options, env, self)
+}
+
+md.renderer.rules.fence = (tokens, idx) => {
+  const token = tokens[idx]
+  const lang = token.info ? md.utils.escapeHtml(token.info.trim().split(/\s+/g)[0]) : ''
+  const langClass = lang ? ` class="language-${lang}"` : ''
+  const code = md.utils.escapeHtml(token.content)
+  return (
+    `<div class="md-code-block">`
+    + `<button type="button" class="md-code-block__copy" aria-label="复制代码" title="复制代码">`
+    + `<svg class="md-code-block__copy-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false" fill="currentColor">`
+    + `<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 14h-7.5A1.75 1.75 0 0 1 0 12.25v-5.5z"/>`
+    + `<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 10h-7.5A1.75 1.75 0 0 1 5 8.25v-7.5zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5z"/>`
+    + `</svg><span class="md-code-block__copy-text">复制</span></button>`
+    + `<pre><code${langClass}>${code}</code></pre></div>`
+  )
 }
 
 md.renderer.rules.image = (tokens, idx) => {
@@ -137,6 +154,9 @@ const safeHTML = computed(() => {
       'msup',
       'msub',
       'span',
+      'button',
+      'svg',
+      'path',
     ],
     ADD_ATTR: [
       'xmlns',
@@ -156,6 +176,29 @@ const safeHTML = computed(() => {
 
   return finalHTML
 })
+
+async function handleMarkdownClick(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  const copyBtn = target.closest('.md-code-block__copy')
+  if (!copyBtn)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  const block = copyBtn.closest('.md-code-block')
+  const codeEl = block?.querySelector('code')
+  const text = codeEl?.textContent?.trim()
+  if (!text) {
+    showMsg('没有可复制的内容')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    showMsg('代码已复制')
+  }
+  catch {
+    showMsg('复制失败，请重试')
+  }
+}
 </script>
 
 <template>
@@ -165,6 +208,7 @@ const safeHTML = computed(() => {
     :class="{ 'markdown-body--chat': variant === 'chat' }"
     data-theme="light"
     v-html="safeHTML"
+    @click="handleMarkdownClick"
   />
 </template>
 
@@ -233,55 +277,55 @@ const safeHTML = computed(() => {
   background-color: #f6f8fa;
 }
 
-:deep(pre) {
-  padding: 10px;
+.markdown-body :deep(.md-code-block) {
+  position: relative;
+  margin: 10px 0;
+}
+
+.markdown-body :deep(.md-code-block pre) {
+  margin: 0;
+  padding: 10px 12px 10px;
+  padding-top: 36px;
   position: relative;
   overflow: auto;
 }
 
-:deep(pre code) {
-  display: block;
-  position: relative;
-}
-
-:deep(pre code)::after {
-  content: '';
-  background-image: url('/PhCopy.webp');
-  background-size: cover;
-  display: block;
-  position: sticky;
-  filter: invert(1);
-  z-index: 10;
-  width: 20px;
-  height: 20px;
-  bottom: calc(100% - 20px);
-  left: calc(100% - 20px);
-  margin-top: -20px;
+.markdown-body :deep(.md-code-block__copy) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.35);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  pointer-events: auto;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #fff;
+  }
 }
 
-/* :deep(pre) {
-  padding: 10px;
-  z-index: 0;
-  position: relative;
+.markdown-body :deep(.md-code-block__copy-icon) {
+  flex-shrink: 0;
 }
-:deep(code)::after {
-  content: '';
-  background-image: url('/PhCopy.webp');
-  background-size: cover;
+
+.markdown-body :deep(.md-code-block pre code) {
   display: block;
-  position: sticky;
-  float: right;
-  filter: invert(1);
-  z-index: 1;
-  width: 20px;
-  height: 20px;
-  top: 5px;
-  right: 0;
-  transform: translateZ(0);
-  background-attachment: local;
-  cursor: pointer;
-} */
+}
 </style>

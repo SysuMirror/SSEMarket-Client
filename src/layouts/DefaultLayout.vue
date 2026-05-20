@@ -263,7 +263,7 @@ header {
 
 .content {
   width: 100%;
-  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -347,7 +347,7 @@ header {
 
 @media screen and (max-width: 767px) {
   .root.root--layout-fill .content.content--layout-fill {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 }
 </style>

@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/html-self-closing -->
 <script setup lang="ts">
-import { nextTick, ref, useTemplateRef } from 'vue'
+import { nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 
 import { uploadPhoto } from '@/api/editPostAndComment/utils'
 
@@ -13,11 +13,14 @@ const props = withDefaults(
     submitBusy?: boolean
     /** 评论区等场景：更紧凑的工具栏与输入框 */
     compact?: boolean
+    /** 发帖页：占满父容器剩余高度 */
+    fill?: boolean
     placeholder?: string
   }>(),
   {
     submitBusy: false,
     compact: false,
+    fill: false,
     placeholder: '请输入正文',
   },
 )
@@ -59,9 +62,15 @@ const modelValue = defineModel({
 })
 
 function autoResize() {
-  const minHeight = props.compact ? 96 : 450
-  textarea.value!.style.height = `${minHeight}px`
-  textarea.value!.style.height = `${Math.max(minHeight, textarea.value!.scrollHeight)}px`
+  const minHeight = props.compact ? 96 : props.fill ? 280 : 450
+  if (!textarea.value)
+    return
+  if (props.fill) {
+    textarea.value.style.height = '100%'
+    return
+  }
+  textarea.value.style.height = `${minHeight}px`
+  textarea.value.style.height = `${Math.max(minHeight, textarea.value.scrollHeight)}px`
 }
 
 function handleInput(event: Event) {
@@ -182,13 +191,27 @@ function editContent(type: EditType) {
     )
   })
 }
+
+onMounted(() => {
+  if (props.fill)
+    nextTick(autoResize)
+})
+
+watch(() => props.fill, () => {
+  nextTick(autoResize)
+})
+
+watch(isPreview, (preview) => {
+  if (!preview)
+    nextTick(autoResize)
+})
 </script>
 
 <template>
   <div
     id="mdRoot"
     class="md-editor"
-    :class="{ 'md-editor--compact': compact }"
+    :class="{ 'md-editor--compact': compact, 'md-editor--fill': fill }"
   >
     <div class="md-editor__toolbar">
       <button
@@ -218,8 +241,9 @@ function editContent(type: EditType) {
         {{ isPreview ? '编辑' : '预览' }}
       </button>
     </div>
-    <div class="md-editor__body">
+    <div class="md-editor__body" :class="{ 'md-editor__body--preview': isPreview }">
       <textarea
+        v-show="!isPreview"
         ref="textarea"
         :value="modelValue"
         :placeholder="placeholder"
@@ -228,7 +252,8 @@ function editContent(type: EditType) {
       />
       <MarkdownContainer
         v-show="isPreview"
-        :markdown-content="modelValue"
+        class="md-editor__preview-pane"
+        :markdown-content="modelValue || ''"
       />
     </div>
     <div class="md-editor__actions">
@@ -322,18 +347,9 @@ function editContent(type: EditType) {
 
 .md-editor__body {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 100%;
-  gap: 10px;
-
-  :deep(div) {
-    flex: 1;
-    min-width: 0;
-    border-radius: 10px;
-    padding: 10px;
-    background: var(--chat-bg-highlight);
-    border: 1px solid var(--chat-border);
-  }
+  gap: 0;
 
   textarea {
     flex: 1;
@@ -361,6 +377,28 @@ function editContent(type: EditType) {
       box-shadow: 0 0 0 2px var(--chat-accent-soft);
     }
   }
+}
+
+.md-editor__body--preview {
+  .md-editor__preview-pane {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 96px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--chat-bg-highlight);
+    border: 1px solid var(--chat-border);
+    box-sizing: border-box;
+    overflow: auto;
+  }
+}
+
+.md-editor--fill .md-editor__body--preview .md-editor__preview-pane {
+  min-height: 240px;
+}
+
+.md-editor--compact .md-editor__body--preview .md-editor__preview-pane {
+  min-height: 88px;
 }
 
 .md-editor__actions {
@@ -414,6 +452,35 @@ function editContent(type: EditType) {
     opacity: 0.7;
     cursor: wait;
     pointer-events: none;
+  }
+}
+
+.md-editor--fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+
+  .md-editor__body {
+    flex: 1 1 auto;
+    min-height: 240px;
+    flex-direction: column;
+
+    textarea {
+      flex: 1 1 auto;
+      min-height: 240px;
+      height: 100% !important;
+      resize: vertical;
+      overflow: auto;
+    }
+  }
+
+  .md-editor__body--preview .md-editor__preview-pane {
+    flex: 1 1 auto;
+    min-height: 240px;
+    height: 100%;
+    overflow: auto;
   }
 }
 

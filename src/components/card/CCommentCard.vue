@@ -46,6 +46,21 @@ const subCommentAuthorProfileId = computed(() => {
   return 0
 })
 
+const formattedTime = computed(() => {
+  return new Date(subComment.commentTime).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+})
+
+const replyTargetLabel = computed(() => {
+  if (!subComment.hasOwnProperty('userTargetName'))
+    return ''
+  return subComment.userTargetName || '层主'
+})
+
 const root = useTemplateRef('root')
 
 /**
@@ -154,48 +169,58 @@ async function like() {
 <template>
   <BasicCard>
     <div ref="root">
-      <div class="c-comment-card__head flex flex-row flex-wrap items-start justify-between gap-2">
-        <div class="c-comment-card__profile min-w-0">
+      <header class="c-comment-card__header">
+        <div class="c-comment-card__identity">
           <UserAvatar
+            class="c-comment-card__avatar"
+            size="compact"
             :src="subComment.authorAvatar"
             :user-id="subCommentAuthorProfileId"
+            :user-phone="subComment.authorTelephone"
             :user-identity="subComment.authorIdentity"
             :user-name="subComment.author"
             :user-score="subComment.authorScore"
-          >
-            <template #reply>
-              <span
-                v-if="subComment.hasOwnProperty('userTargetName')"
-                class="c-comment-card__reply-label"
-              >回复{{ subComment.userTargetName || '层主' }}</span>
-            </template>
-          </UserAvatar>
+          />
         </div>
         <template v-if="subComment.authorTelephone === userInfo.phone">
           <UserButton
-            class="flex-shrink-0"
+            compact
+            class="c-comment-card__actions"
             :no-save="true"
-            :is-self="subComment.authorTelephone === userInfo.phone"
+            :is-self="true"
             @user-action="handlerDebounced"
           />
         </template>
+      </header>
+      <div class="c-comment-card__meta">
+        <span v-if="replyTargetLabel" class="c-comment-card__reply-label">
+          回复 {{ replyTargetLabel }}
+        </span>
+        <span class="c-comment-card__time">{{ formattedTime }}</span>
       </div>
       <MarkdownContainer
+        class="c-comment-card__body"
         :markdown-content="subComment.content || 'loading'"
       />
-      <BasicInfo
-        layout="inline"
-        :time="subComment.commentTime"
-        :is-like="subComment.isLiked"
-        :like="subComment.likeNum"
-        nocomment
-        @like-change="like"
-      />
       <CommentToolbar
+        inline
+        reply-align-end
         :reply-open="commentButtonIsShow"
         :show-sub-toggle="false"
         @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
-      />
+      >
+        <template #leading>
+          <BasicInfo
+            hide-time
+            layout="inline"
+            :time="subComment.commentTime"
+            :is-like="subComment.isLiked"
+            :like="subComment.likeNum"
+            nocomment
+            @like-change="like"
+          />
+        </template>
+      </CommentToolbar>
       <div v-if="commentButtonIsShow" class="comment-compose">
         <MarkdownEditor
           v-model="commentContent"
@@ -210,25 +235,63 @@ async function like() {
   </BasicCard>
 </template>
 
-<style scoped>
-.c-comment-card__head {
+<style scoped lang="scss">
+.c-comment-card__header {
+  --comment-avatar-size: 40px;
+  --comment-avatar-gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
 }
 
-.c-comment-card__profile {
-  flex: 1 1 auto;
+.c-comment-card__identity {
+  flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.c-comment-card__avatar {
+  flex: 0 0 auto;
+}
+
+.c-comment-card__avatar :deep(.user) {
+  width: auto;
+  max-width: 100%;
+}
+
+.c-comment-card__actions {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.c-comment-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding-left: calc(var(--comment-avatar-size) + var(--comment-avatar-gap));
 }
 
 .c-comment-card__reply-label {
   display: inline-block;
-  margin-top: 2px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  color: var(--chat-text-secondary);
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--chat-accent);
   background: var(--chat-accent-soft);
-  word-break: break-word;
 }
 
+.c-comment-card__time {
+  font-size: 11px;
+  color: var(--chat-text-tips);
+}
+
+.c-comment-card__body {
+  margin-bottom: 2px;
+}
 </style>

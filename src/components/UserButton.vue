@@ -1,8 +1,10 @@
 <script lang="ts" setup>
-const { noSave = false } = defineProps<{
+const { noSave = false, compact = false } = defineProps<{
   noSave?: boolean
   isSaved?: boolean
   isSelf: boolean
+  /** 评论区等场景：更小按钮 */
+  compact?: boolean
 }>()
 const emits = defineEmits(['userAction'])
 function handleSave() {
@@ -14,7 +16,7 @@ function handleDelete() {
 </script>
 
 <template>
-  <div class="user-buttons">
+  <div class="user-buttons" :class="{ 'user-buttons--compact': compact }">
     <button
       v-if="!noSave"
       type="button"
@@ -56,7 +58,7 @@ function handleDelete() {
       aria-label="删除"
       @click.stop.prevent="handleDelete"
     >
-      删除
+      <span class="user-buttons__delete-label">删除</span>
     </button>
   </div>
 </template>
@@ -65,6 +67,7 @@ function handleDelete() {
 .user-buttons {
   display: flex;
   flex-shrink: 0;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
 }
@@ -122,6 +125,41 @@ function handleDelete() {
   white-space: nowrap;
 }
 
+.user-buttons__delete {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.user-buttons__delete-label {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.user-buttons--compact {
+  gap: 6px;
+
+  .user-buttons__save {
+    min-height: 26px;
+    padding: 3px 8px;
+    font-size: 11px;
+    border-radius: 6px;
+  }
+
+  .user-buttons__save-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  :deep(.user-buttons__delete),
+  .user-buttons__delete {
+    min-width: auto;
+    min-height: 26px;
+    padding: 3px 10px !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
+  }
+}
+
 @media screen and (max-width: 420px) {
   .user-buttons__save-label {
     display: none;
@@ -131,6 +169,12 @@ function handleDelete() {
     width: 34px;
     min-width: 34px;
     padding: 5px;
+  }
+
+  .user-buttons--compact .user-buttons__save {
+    width: 26px;
+    min-width: 26px;
+    padding: 3px;
   }
 }
 </style>

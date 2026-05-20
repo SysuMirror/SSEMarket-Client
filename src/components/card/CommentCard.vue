@@ -52,6 +52,15 @@ const commentAuthorProfileId = computed(() => {
   return 0
 })
 
+const formattedTime = computed(() => {
+  return new Date(comment.CommentTime).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+})
+
 /**
  * @description 发送评论
  */
@@ -160,46 +169,70 @@ async function like() {
 <template>
   <BasicCard>
     <div ref="root">
-      <div v-if="!isDense" class="comment-card__head flex flex-row flex-wrap items-center justify-between gap-2">
-        <div class="comment-card__profile min-w-0">
+      <header v-if="!isDense" class="comment-card__header">
+        <div class="comment-card__identity">
           <UserAvatar
+            class="comment-card__avatar"
+            size="compact"
             :src="comment.AuthorAvatar"
             :user-id="commentAuthorProfileId"
+            :user-phone="comment.AuthorTelephone"
             :user-identity="comment.AuthorIdentity"
             :user-name="comment.Author"
             :user-score="comment.AuthorScore"
           />
         </div>
         <UserButton
-          class="flex-shrink-0"
+          compact
+          class="comment-card__actions"
           :no-save="true"
           :is-self="userInfo.phone === comment.AuthorTelephone"
           @user-action="handlerDebounced"
         />
-      </div>
+      </header>
+      <p v-if="!isDense" class="comment-card__time">
+        {{ formattedTime }}
+      </p>
       <!-- 评分显示区域 -->
       <div v-if="$slots['right-extension']" class="rating-display-area">
         <slot name="right-extension" />
       </div>
       <MarkdownContainer
+        class="comment-card__body"
         :markdown-content="comment.Content || 'loading'"
-      />
-      <BasicInfo
-        layout="inline"
-        :time="comment.CommentTime"
-        :comment="comment.SubComments.length"
-        :nocomment="!commentable"
-        :is-like="comment.IsLiked"
-        :like="comment.LikeNum"
-        @like-change="like"
       />
       <CommentToolbar
         v-if="commentable"
+        inline
+        reply-align-end
         :reply-open="commentButtonIsShow"
         :sub-count="comment.SubComments.length"
         :sub-open="showSubComment"
         @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
         @toggle-sub="showSubComment = !showSubComment"
+      >
+        <template #leading>
+          <BasicInfo
+            hide-time
+            layout="inline"
+            :time="comment.CommentTime"
+            :comment="comment.SubComments.length"
+            :nocomment="!commentable"
+            :is-like="comment.IsLiked"
+            :like="comment.LikeNum"
+            @like-change="like"
+          />
+        </template>
+      </CommentToolbar>
+      <BasicInfo
+        v-else
+        hide-time
+        layout="inline"
+        :time="comment.CommentTime"
+        nocomment
+        :is-like="comment.IsLiked"
+        :like="comment.LikeNum"
+        @like-change="like"
       />
       <div
         v-if="commentButtonIsShow && commentable"
@@ -231,20 +264,53 @@ async function like() {
   </BasicCard>
 </template>
 
-<style scoped>
-.comment-card__head {
+<style scoped lang="scss">
+.comment-card__header {
+  --comment-avatar-size: 40px;
+  --comment-avatar-gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
 }
 
-.comment-card__profile {
-  flex: 1 1 auto;
+.comment-card__identity {
+  flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
-/* 评分显示区域 */
+.comment-card__avatar {
+  flex: 0 0 auto;
+}
+
+.comment-card__avatar :deep(.user) {
+  width: auto;
+  max-width: 100%;
+}
+
+.comment-card__actions {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.comment-card__time {
+  margin: 0 0 8px;
+  padding-left: calc(var(--comment-avatar-size) + var(--comment-avatar-gap));
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--chat-text-tips);
+}
+
+.comment-card__body {
+  margin-bottom: 2px;
+}
+
 .rating-display-area {
-  margin: 8px 0;
-  padding: 4px 0;
+  margin: 6px 0;
+  padding: 2px 0;
   display: flex;
   align-items: center;
   gap: 8px;
