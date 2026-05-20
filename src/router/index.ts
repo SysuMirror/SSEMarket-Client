@@ -36,6 +36,27 @@ const router = createRouter({
           component: () => import('@/views/RatingView.vue'),
         },
         {
+          path: 'resume',
+          name: 'Resume',
+          component: () => import('@/views/ResumeView.vue'),
+        },
+        {
+          path: 'resume/my',
+          name: 'ResumeMy',
+          component: () => import('@/views/ResumeView.vue'),
+        },
+        {
+          path: 'resume/upload',
+          name: 'ResumeUpload',
+          component: () => import('@/views/ResumeUploadView.vue'),
+        },
+        {
+          path: 'resume/:id',
+          name: 'ResumeDetail',
+          component: () => import('@/views/ResumeDetailView.vue'),
+          props: true,
+        },
+        {
           path: 'search',
           name: 'Search',
           component: () => import('@/views/SearchView.vue'),
@@ -101,6 +122,7 @@ const router = createRouter({
         {
           path: 'chat',
           name: 'Chat',
+          meta: { layoutFill: true },
           component: () => import('@/views/ChatView.vue'),
         },
         {

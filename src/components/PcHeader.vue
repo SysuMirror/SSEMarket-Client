@@ -102,6 +102,16 @@ function search() {
         />
         打分
       </router-link>
+      <router-link to="/smart-xiaoqiu" class="link-xiaoqiu">
+        <div
+          class="icon"
+          style="
+              background-image: url(https://img.icons8.com/?size=100&id=59695&format=png&color=000000);
+              background-size: 90% 90%;
+            "
+        />
+        智能小秋
+      </router-link>
     </div>
     <form class="search" @submit.prevent="search">
       <input
@@ -183,10 +193,11 @@ function search() {
   display: flex;
   background: #ffffffa0;
   backdrop-filter: blur(2px);
-  height: 3em;
+  min-height: var(--layout-nav-h, 2.125rem);
+  height: var(--layout-nav-h, 2.125rem);
   color: #444;
   align-items: center;
-  padding: 0 1em;
+  padding: 0 0.65em;
   box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
   transition: box-shadow 0.3s ease;
   margin-bottom: 0px;
@@ -197,7 +208,8 @@ function search() {
     a {
       position: relative;
       display: inline-block;
-      padding: 0.25em 0.5em;
+      padding: 0.12em 0.38em;
+      font-size: 13px;
       border-radius: 4px;
       margin-right: 0.2em;
       text-decoration: none;
@@ -236,14 +248,15 @@ function search() {
 
   .search {
     flex: 1;
-    margin: 0 1em;
+    margin: 0 0.5em;
     text-align: center;
 
     input {
       width: 100%;
       max-width: 48em;
-      height: 2em;
-      padding: 0 2em 0 0.75em;
+      height: 1.55em;
+      padding: 0 1.6em 0 0.5em;
+      font-size: 12px;
       border: 1px solid #ccc;
       border-radius: 5px;
       line-height: 0.8;

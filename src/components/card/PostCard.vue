@@ -12,6 +12,7 @@ import { debounceAsync } from '@/utils/debounced'
 import BasicInfo from '../BasicInfo.vue'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
+import VoteLink from '../VoteLink.vue'
 import BasicCard from './BasicCard.vue'
 
 const { isDense, post, isNew, noSave = false } = defineProps<{
@@ -133,7 +134,11 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
       :is-like="post.IsLiked"
       :like="post.Like"
       @like-change="like"
-    />
+    >
+      <template v-if="!isDense" #stats-trailing>
+        <VoteLink :post-i-d="post.PostID" variant="muted" />
+      </template>
+    </BasicInfo>
   </BasicCard>
 </template>
 
@@ -219,4 +224,5 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
 .extension-slot {
   position: relative;
 }
+
 </style>

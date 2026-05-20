@@ -191,6 +191,14 @@ function onProfileKeydown(event: KeyboardEvent) {
     .user-level {
       font-size: 0.6875rem;
       line-height: 1.2;
+      overflow: hidden;
+
+      /* 评论区紧凑布局：Lv7/Lv8 倒影会与下方内容重叠 */
+      &.level-7::before,
+      &.level-8::before {
+        display: none;
+        content: none;
+      }
     }
   }
 }

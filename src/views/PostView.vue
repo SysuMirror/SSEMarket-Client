@@ -35,6 +35,7 @@ const teachers = ref<Tag[]>([])
 const teacher = ref('')
 
 const draftsOpen = ref(false)
+const submitting = ref(false)
 
 let autoSaveTimer: number | null = null
 
@@ -89,7 +90,7 @@ function discardDraft() {
 }
 
 async function submitPost() {
-  if (!title.value)
+  if (!title.value || submitting.value)
     return
   let postTitle = title.value.value
   const content = postContent.value
@@ -101,20 +102,26 @@ async function submitPost() {
     showMsg('请填写完整信息')
     return
   }
-  const res = await sendPost(
-    content,
-    postPartition,
-    '',
-    teacher.value,
-    postTitle,
-    userInfo.phone,
-  )
-  if (!res || typeof res.msg !== 'string') {
-    showMsg('发帖失败，请检查网络后重试')
-    return
+  submitting.value = true
+  try {
+    const res = await sendPost(
+      content,
+      postPartition,
+      '',
+      teacher.value,
+      postTitle,
+      userInfo.phone,
+    )
+    if (!res || typeof res.msg !== 'string') {
+      showMsg('发帖失败，请检查网络后重试')
+      return
+    }
+    showMsg(res.msg)
+    router.push('/')
   }
-  showMsg(res.msg)
-  router.push('/')
+  finally {
+    submitting.value = false
+  }
 }
 
 onMounted(async () => {
@@ -153,143 +160,155 @@ onUnmounted(() => {
 
 <template>
   <div class="post-page">
-    <div class="post-page__grid">
-      <section class="post-page__compose" aria-label="发帖内容">
-        <header class="post-page__head">
-          <h1 class="post-page__title">
-            发帖
-          </h1>
-          <p class="post-page__hint">
-            填写标题与正文，支持 Markdown
-          </p>
+    <div class="post-page__layout">
+      <!-- 主编辑区 -->
+      <article class="post-page__card" aria-label="发帖内容">
+        <header class="post-page__header">
+          <div class="post-page__header-text">
+            <h1 class="post-page__heading">
+              发帖
+            </h1>
+            <p class="post-page__desc">
+              支持 Markdown · 图片可粘贴或从工具栏插入
+            </p>
+          </div>
+          <button
+            type="button"
+            class="post-page__submit"
+            :class="{ 'post-page__submit--busy': submitting }"
+            :disabled="submitting"
+            @click="submitPost"
+          >
+            {{ submitting ? '发送中…' : '发送' }}
+          </button>
         </header>
 
-        <label class="post-page__field">
-          <span class="post-page__label">标题</span>
-          <input
-            ref="title"
-            type="text"
-            class="post-page__input"
-            placeholder="请输入标题"
-            maxlength="20"
-          >
-        </label>
+        <div class="post-page__form">
+          <label class="post-page__field post-page__field--title">
+            <span class="post-page__field-label">标题</span>
+            <input
+              ref="title"
+              type="text"
+              class="post-page__control"
+              placeholder="写一个吸引人的标题（最多 20 字）"
+              maxlength="20"
+            >
+          </label>
 
-        <div class="post-page__field-row">
-          <label class="post-page__field post-page__field--grow">
-            <span class="post-page__label">分区</span>
-            <select v-model="partition" class="post-page__select">
-              <option
-                v-for="(p, index) in partitions"
-                :key="index"
-                :value="p"
-              >
-                {{ p }}
-              </option>
-            </select>
-          </label>
-          <label
-            v-if="partition === '课程专区'"
-            class="post-page__field post-page__field--grow"
-          >
-            <span class="post-page__label">课程标签</span>
-            <select v-model="teacher" class="post-page__select">
-              <option
-                v-for="t in teachers"
-                :key="t.TagID"
-                :value="t.Name"
-              >
-                {{ t.Name }}
-              </option>
-            </select>
-          </label>
+          <div class="post-page__field-row">
+            <label class="post-page__field">
+              <span class="post-page__field-label">分区</span>
+              <select v-model="partition" class="post-page__control">
+                <option
+                  v-for="(p, index) in partitions"
+                  :key="index"
+                  :value="p"
+                >
+                  {{ p }}
+                </option>
+              </select>
+            </label>
+            <label
+              v-if="partition === '课程专区'"
+              class="post-page__field"
+            >
+              <span class="post-page__field-label">课程标签</span>
+              <select v-model="teacher" class="post-page__control">
+                <option
+                  v-for="t in teachers"
+                  :key="t.TagID"
+                  :value="t.Name"
+                >
+                  {{ t.Name }}
+                </option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div class="post-page__editor">
-          <span class="post-page__label post-page__label--editor">正文</span>
-          <div class="post-page__editor-box">
-            <MarkdownEditor
-              v-model="postContent"
-              fill
-              @send="submitPost"
-            />
-          </div>
+          <MarkdownEditor
+            v-model="postContent"
+            fill
+            placeholder="在这里写下正文…"
+          />
         </div>
-      </section>
+      </article>
 
-      <aside class="post-page__aside" aria-label="草稿">
+      <!-- 草稿箱 -->
+      <aside class="post-page__drafts" aria-label="草稿箱">
         <div
-          class="post-page__drafts-sheet"
-          :class="{ 'post-page__drafts-sheet--open': draftsOpen }"
+          class="post-page__drafts-card"
+          :class="{ 'post-page__drafts-card--open': draftsOpen }"
         >
-          <div
-            id="post-drafts-expand"
-            class="post-page__drafts-expand"
-          >
-            <div class="post-page__drafts-expand-inner">
-              <p class="post-page__drafts-tip">
-                手动保存一次后，每 20 秒自动保存
-              </p>
-              <div class="post-page__drafts-actions">
-            <button type="button" class="post-page__btn" @click="discardDraft">
-              不用草稿
-            </button>
-            <button type="button" class="post-page__btn" @click="autoSaveDraft">
-              更新
-            </button>
-            <button type="button" class="post-page__btn post-page__btn--primary" @click="saveDraft">
-              保存
-            </button>
-          </div>
-
-          <div v-if="drafts.length === 0" class="post-page__drafts-empty">
-            暂无草稿
-          </div>
-          <ul v-else class="post-page__draft-list">
-            <li
-              v-for="draft in drafts"
-              :key="draft.id"
-              class="post-page__draft-item"
-              :class="{ 'post-page__draft-item--active': draft.id === current.id }"
-            >
-              <button
-                type="button"
-                class="post-page__draft-load"
-                @click="loadDraft(draft.id!)"
-              >
-                <span class="post-page__draft-title">{{ draft.title || '无标题' }}</span>
-                <span class="post-page__draft-preview">{{ draft.content.slice(0, 40) }}{{ draft.content.length > 40 ? '…' : '' }}</span>
-              </button>
-              <button
-                type="button"
-                class="post-page__draft-delete"
-                aria-label="删除草稿"
-                @click.stop="removeDraft(draft.id!)"
-              >
-                删除
-              </button>
-            </li>
-          </ul>
-            </div>
-          </div>
-
           <button
             type="button"
-            class="post-page__drafts-handle"
+            class="post-page__drafts-toggle"
             :aria-expanded="draftsOpen"
-            aria-controls="post-drafts-expand"
+            aria-controls="post-drafts-body"
             @click="draftsOpen = !draftsOpen"
           >
-            <span class="post-page__drafts-handle-label">草稿箱</span>
-            <span class="post-page__drafts-count">{{ drafts.length }}</span>
+            <span class="post-page__drafts-toggle-label">
+              <Icon icon="tabler:file-text" width="18" height="18" aria-hidden="true" />
+              草稿箱
+            </span>
+            <span class="post-page__drafts-badge">{{ drafts.length }}</span>
             <Icon
-              icon="tabler:chevron-up"
+              icon="tabler:chevron-down"
               class="post-page__drafts-chevron"
               width="18"
               height="18"
               aria-hidden="true"
             />
           </button>
+
+          <div id="post-drafts-body" class="post-page__drafts-body">
+            <p class="post-page__drafts-hint">
+              手动保存后，每 20 秒自动保存
+            </p>
+            <div class="post-page__drafts-actions">
+              <button type="button" class="post-page__draft-btn" @click="discardDraft">
+                清空
+              </button>
+              <button type="button" class="post-page__draft-btn" @click="autoSaveDraft">
+                更新
+              </button>
+              <button type="button" class="post-page__draft-btn post-page__draft-btn--primary" @click="saveDraft">
+                保存
+              </button>
+            </div>
+
+            <div v-if="drafts.length === 0" class="post-page__drafts-empty">
+              暂无草稿
+            </div>
+            <ul v-else class="post-page__draft-list">
+              <li
+                v-for="draft in drafts"
+                :key="draft.id"
+                class="post-page__draft-item"
+                :class="{ 'post-page__draft-item--active': draft.id === current.id }"
+              >
+                <button
+                  type="button"
+                  class="post-page__draft-load"
+                  @click="loadDraft(draft.id!)"
+                >
+                  <span class="post-page__draft-name">{{ draft.title || '无标题' }}</span>
+                  <span class="post-page__draft-snippet">
+                    {{ draft.content.slice(0, 48) }}{{ draft.content.length > 48 ? '…' : '' }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="post-page__draft-remove"
+                  aria-label="删除草稿"
+                  @click.stop="removeDraft(draft.id!)"
+                >
+                  <Icon icon="tabler:trash" width="16" height="16" aria-hidden="true" />
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
       </aside>
     </div>
@@ -298,100 +317,150 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .post-page {
+  --post-radius: 14px;
+  --post-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+
   width: 100%;
-  max-width: 960px;
+  max-width: 1080px;
   height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
   margin: 0 auto;
-  padding: 10px 14px 1.25rem;
+  padding: 12px 16px 16px;
   box-sizing: border-box;
   color: var(--chat-text);
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  overflow: hidden;
 }
 
-.post-page__grid {
+.post-page__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-columns: minmax(0, 1fr) 288px;
   gap: 16px;
-  align-items: stretch;
   flex: 1 1 auto;
   min-height: 0;
+  align-items: stretch;
 }
 
-.post-page__compose {
+/* 主卡片 */
+.post-page__card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   min-width: 0;
-  min-height: min(72dvh, calc(100dvh - 11rem));
+  min-height: 0;
+  background: var(--chat-bg-highlight);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--post-radius);
+  box-shadow: var(--post-shadow);
+  overflow: hidden;
 }
 
-.post-page__head {
+.post-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--chat-border);
   flex-shrink: 0;
 }
 
-.post-page__title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--chat-text);
+.post-page__header-text {
+  min-width: 0;
 }
 
-.post-page__hint {
+.post-page__heading {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.post-page__desc {
   margin: 4px 0 0;
   font-size: 0.8125rem;
   color: var(--chat-text-secondary);
+}
+
+.post-page__submit {
+  flex-shrink: 0;
+  min-height: 42px;
+  padding: 0 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1;
+  color: #fff;
+  background: var(--chat-accent);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+
+  &:hover:not(:disabled) {
+    opacity: 0.92;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  &:disabled,
+  &--busy {
+    opacity: 0.65;
+    cursor: wait;
+  }
+}
+
+.post-page__form {
+  padding: 14px 18px 0;
+  flex-shrink: 0;
 }
 
 .post-page__field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex-shrink: 0;
-}
-
-.post-page__field-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.post-page__field--grow {
-  flex: 1 1 140px;
   min-width: 0;
-}
 
-.post-page__label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--chat-text-tips);
-  letter-spacing: 0.03em;
-
-  &--editor {
-    flex-shrink: 0;
+  &--title {
+    margin-bottom: 12px;
   }
 }
 
-.post-page__input,
-.post-page__select {
+.post-page__field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.post-page__field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--chat-text-tips);
+  letter-spacing: 0.04em;
+}
+
+.post-page__control {
   width: 100%;
-  min-height: 40px;
-  padding: 8px 12px;
+  min-height: 44px;
+  padding: 10px 14px;
   font-size: 0.9375rem;
   font-family: inherit;
   color: var(--chat-text);
-  background: var(--chat-bg-highlight);
+  background: var(--chat-bg-main);
   border: 1px solid var(--chat-border);
   border-radius: 10px;
   box-sizing: border-box;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
   &:focus {
     outline: none;
     border-color: var(--chat-accent);
+    box-shadow: 0 0 0 2px var(--chat-accent-soft);
   }
 }
 
@@ -399,66 +468,62 @@ onUnmounted(() => {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   min-height: 0;
+  padding: 12px 14px 14px;
 }
 
-.post-page__editor-box {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 280px;
-  padding: 10px;
-  background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
-  border-radius: 12px;
-  box-sizing: border-box;
-}
-
-.post-page__aside {
-  display: flex;
-  flex-direction: column;
+/* 草稿箱 */
+.post-page__drafts {
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-/* 草稿箱一体：底部拉手，点击后内容向上展开 */
-.post-page__drafts-sheet {
+.post-page__drafts-card {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
   background: var(--chat-bg-highlight);
   border: 1px solid var(--chat-border);
-  border-radius: 12px;
+  border-radius: var(--post-radius);
+  box-shadow: var(--post-shadow);
   overflow: hidden;
-  box-sizing: border-box;
 }
 
-.post-page__drafts-handle {
+.post-page__drafts-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 12px 14px;
+  padding: 14px 16px;
   font-family: inherit;
   color: var(--chat-text);
   background: var(--chat-bg-highlight);
   border: none;
+  border-bottom: 1px solid transparent;
   cursor: pointer;
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
-.post-page__drafts-handle-label {
+.post-page__drafts-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   flex: 1;
-  text-align: left;
   font-size: 0.9375rem;
   font-weight: 600;
+  text-align: left;
 }
 
-.post-page__drafts-count {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--chat-text-secondary);
+.post-page__drafts-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   padding: 2px 8px;
+  color: var(--chat-text-secondary);
   background: var(--chat-bg-main);
   border-radius: 999px;
 }
@@ -466,38 +531,21 @@ onUnmounted(() => {
 .post-page__drafts-chevron {
   flex-shrink: 0;
   color: var(--chat-text-tips);
-  transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.22s ease;
 }
 
-.post-page__drafts-sheet--open .post-page__drafts-chevron {
-  transform: rotate(180deg);
-}
-
-.post-page__drafts-expand {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.post-page__drafts-sheet--open .post-page__drafts-expand {
-  grid-template-rows: 1fr;
-}
-
-.post-page__drafts-expand-inner {
-  overflow: hidden;
+.post-page__drafts-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
-  padding: 0 12px;
+  padding: 0 14px 14px;
+  overflow: hidden;
 }
 
-.post-page__drafts-sheet--open .post-page__drafts-expand-inner {
-  padding: 12px 12px 4px;
-  border-bottom: 1px solid var(--chat-border);
-  overflow-y: auto;
-  max-height: min(40dvh, 360px);
-}
-
-.post-page__drafts-tip {
+.post-page__drafts-hint {
   margin: 0 0 10px;
+  padding-top: 12px;
   font-size: 0.75rem;
   line-height: 1.45;
   color: var(--chat-text-secondary);
@@ -505,15 +553,15 @@ onUnmounted(() => {
 
 .post-page__drafts-actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
-.post-page__btn {
-  flex: 1 1 auto;
-  min-height: 32px;
-  padding: 0 10px;
+.post-page__draft-btn {
+  flex: 1;
+  min-height: 36px;
+  padding: 0 8px;
   font-size: 0.8125rem;
   font-weight: 500;
   font-family: inherit;
@@ -524,7 +572,7 @@ onUnmounted(() => {
   cursor: pointer;
 
   &--primary {
-    color: var(--chat-bg-highlight);
+    color: #fff;
     background: var(--chat-accent);
     border-color: var(--chat-accent);
     font-weight: 600;
@@ -532,7 +580,7 @@ onUnmounted(() => {
 }
 
 .post-page__drafts-empty {
-  padding: 1rem 0;
+  padding: 24px 0;
   text-align: center;
   font-size: 0.875rem;
   color: var(--chat-text-tips);
@@ -543,31 +591,36 @@ onUnmounted(() => {
   margin: 0;
   padding: 0;
   overflow-y: auto;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  max-height: calc(100dvh - 14rem);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
 }
 
 .post-page__draft-item {
   display: flex;
   align-items: stretch;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 8px;
   border: 1px solid var(--chat-border);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
-  background: var(--chat-bg-elevated);
+  background: var(--chat-bg-main);
 
   &--active {
     border-color: var(--chat-accent);
     box-shadow: 0 0 0 1px var(--chat-accent-soft);
+  }
+
+  &:last-child {
+    margin-bottom: 0;
   }
 }
 
 .post-page__draft-load {
   flex: 1;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 10px 12px;
   text-align: left;
   background: none;
   border: none;
@@ -575,7 +628,7 @@ onUnmounted(() => {
   font-family: inherit;
 }
 
-.post-page__draft-title {
+.post-page__draft-name {
   display: block;
   font-size: 0.875rem;
   font-weight: 600;
@@ -585,108 +638,119 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.post-page__draft-preview {
+.post-page__draft-snippet {
   display: block;
-  margin-top: 2px;
+  margin-top: 3px;
   font-size: 0.75rem;
+  line-height: 1.35;
   color: var(--chat-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.post-page__draft-delete {
+.post-page__draft-remove {
   flex-shrink: 0;
-  white-space: nowrap;
-  padding: 0 10px;
-  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
   color: #dc2626;
   background: none;
   border: none;
   border-left: 1px solid var(--chat-border);
   cursor: pointer;
-  font-family: inherit;
 }
 
+/* —— 桌面端 —— */
 @media screen and (min-width: 769px) {
-  .post-page__aside {
-    position: sticky;
-    top: 8px;
-    align-self: start;
-    max-height: calc(100dvh - 8rem);
-  }
-
-  .post-page__drafts-sheet {
-    flex-direction: column;
-    max-height: calc(100dvh - 8rem);
-  }
-
-  .post-page__drafts-handle {
-    border-bottom: 1px solid var(--chat-border);
+  .post-page__drafts-toggle {
     cursor: default;
+    pointer-events: none;
   }
 
   .post-page__drafts-chevron {
     display: none;
   }
 
-  .post-page__drafts-expand {
-    grid-template-rows: 1fr;
-    flex: 1;
-    min-height: 0;
+  .post-page__drafts-card--open .post-page__drafts-toggle,
+  .post-page__drafts-toggle {
+    border-bottom-color: var(--chat-border);
   }
 
-  .post-page__drafts-expand-inner {
-    max-height: none;
-    flex: 1;
-    padding: 12px;
-    border-bottom: none;
-    overflow-y: auto;
-  }
-
-  .post-page__draft-list {
-    max-height: none;
+  .post-page__field-row:has(.post-page__field:only-child) {
+    grid-template-columns: 1fr;
   }
 }
 
+/* —— 移动端 —— */
 @media screen and (max-width: 768px) {
   .post-page {
-    padding: 8px 12px 1rem;
+    padding: 10px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
   }
 
-  .post-page__grid {
-    grid-template-columns: 1fr;
+  .post-page__layout {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
+    min-height: min-content;
   }
 
-  .post-page__compose {
+  .post-page__card {
+    flex: 1 1 auto;
     min-height: 0;
   }
 
-  .post-page__editor-box {
-    min-height: min(52dvh, 420px);
+  .post-page__header {
+    padding: 14px 14px 10px;
   }
 
-  .post-page__drafts-sheet--open .post-page__drafts-expand-inner {
-    max-height: min(36dvh, 320px);
+  .post-page__heading {
+    font-size: 1.2rem;
+  }
+
+  .post-page__form {
+    padding: 12px 14px 0;
+  }
+
+  .post-page__field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .post-page__editor {
+    min-height: clamp(240px, 42dvh, 520px);
+    padding: 10px 12px 12px;
+  }
+
+  .post-page__submit {
+    min-height: 38px;
+    padding: 0 18px;
+    font-size: 0.875rem;
+  }
+
+  .post-page__drafts {
+    flex-shrink: 0;
+  }
+
+  .post-page__drafts-card:not(.post-page__drafts-card--open) .post-page__drafts-body {
+    display: none;
+  }
+
+  .post-page__drafts-card:not(.post-page__drafts-card--open) .post-page__drafts-toggle {
+    border-bottom: none;
+  }
+
+  .post-page__drafts-card--open .post-page__drafts-chevron {
+    transform: rotate(180deg);
+  }
+
+  .post-page__drafts-card--open .post-page__drafts-body {
+    max-height: min(36dvh, 300px);
   }
 
   .post-page__draft-list {
-    max-height: 24dvh;
-  }
-
-  /* 移动端：先编辑区，草稿一体面板在下方 */
-  .post-page__grid {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .post-page__aside {
-    order: 2;
-  }
-
-  .post-page__compose {
-    order: 1;
+    max-height: min(28dvh, 220px);
   }
 }
 </style>

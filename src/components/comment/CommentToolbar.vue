@@ -10,6 +10,8 @@ const props = withDefaults(
     replyLabel?: string
     inline?: boolean
     replyAlignEnd?: boolean
+    /** 紧贴数据栏等上一区块时去掉顶部分割线 */
+    noTopBorder?: boolean
   }>(),
   {
     replyOpen: false,
@@ -19,6 +21,7 @@ const props = withDefaults(
     replyLabel: '回复',
     inline: false,
     replyAlignEnd: false,
+    noTopBorder: false,
   },
 )
 
@@ -46,6 +49,7 @@ const subLabel = computed(() => {
       'comment-toolbar--inline': inline,
       'comment-toolbar--reply-end': replyAlignEnd,
       'comment-toolbar--split': replyAlignEnd && hasLeading,
+      'comment-toolbar--no-top-border': props.noTopBorder,
     }"
     role="toolbar"
     aria-label="评论操作"
@@ -57,7 +61,7 @@ const subLabel = computed(() => {
         class="comment-toolbar__btn"
         :class="{ 'comment-toolbar__btn--active': replyOpen }"
         :aria-expanded="replyOpen"
-        @click="emit('toggle-reply')"
+        @click.stop="emit('toggle-reply')"
       >
         {{ replyOpen ? '收起' : replyLabel }}
       </button>
@@ -67,7 +71,7 @@ const subLabel = computed(() => {
         class="comment-toolbar__btn comment-toolbar__btn--sub"
         :class="{ 'comment-toolbar__btn--active': subOpen }"
         :aria-expanded="subOpen"
-        @click="emit('toggle-sub')"
+        @click.stop="emit('toggle-sub')"
       >
         {{ subLabel }}
       </button>
@@ -90,7 +94,8 @@ const subLabel = computed(() => {
   box-sizing: border-box;
 }
 
-.comment-toolbar--inline {
+.comment-toolbar--inline,
+.comment-toolbar--no-top-border {
   margin-top: 4px;
   padding-top: 0;
   border-top: none;
@@ -99,6 +104,7 @@ const subLabel = computed(() => {
 .comment-toolbar--split {
   width: 100%;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .comment-toolbar--reply-end:not(.comment-toolbar--split) {
@@ -118,7 +124,9 @@ const subLabel = computed(() => {
 
 .comment-toolbar--split .comment-toolbar__actions {
   margin-left: auto;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 .comment-toolbar__btn {
@@ -129,13 +137,13 @@ const subLabel = computed(() => {
   width: auto;
   min-width: 0;
   max-width: none;
-  min-height: 26px;
-  padding: 3px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--chat-border);
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: none;
   background: transparent;
-  color: var(--chat-text-secondary);
-  font-size: 12px;
+  color: var(--chat-accent);
+  font-size: 13px;
   font-weight: 500;
   font-family: inherit;
   line-height: 1.25;
@@ -144,20 +152,20 @@ const subLabel = computed(() => {
   box-sizing: border-box;
   transition:
     background 0.15s ease,
-    border-color 0.15s ease,
     color 0.15s ease;
 
   &:hover {
     color: var(--chat-accent);
-    border-color: var(--chat-accent);
-    background: var(--chat-accent-soft);
+    background: transparent;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   &--active {
     color: var(--chat-accent);
-    border-color: var(--chat-accent);
-    background: var(--chat-accent-soft);
+    background: transparent;
     font-weight: 600;
+    text-decoration: none;
   }
 
   &--sub {
@@ -165,39 +173,8 @@ const subLabel = computed(() => {
   }
 }
 
-.comment-toolbar--inline .comment-toolbar__actions {
+.comment-toolbar--inline:not(.comment-toolbar--split) .comment-toolbar__actions {
   width: 100%;
 }
 
-:slotted(.comment-toolbar__link-muted) {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 6px;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.3;
-  color: var(--chat-text-secondary);
-  text-decoration: none;
-  transition: color 0.15s ease;
-
-  &:hover {
-    color: var(--chat-accent);
-    text-decoration: underline;
-  }
-}
-
-:slotted(.comment-toolbar__link-vote) {
-  padding: 5px 11px;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid var(--chat-border);
-  border-radius: 8px;
-  background: var(--chat-bg);
-
-  &:hover {
-    text-decoration: none;
-    border-color: var(--chat-accent);
-    background: var(--chat-accent-soft);
-  }
-}
 </style>

@@ -5,7 +5,7 @@ import { Icon } from '@iconify/vue'
 import { computed, nextTick, onBeforeMount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getUserProfilePostNum, getUserProfilePosts } from '@/api/browse/getUserProfilePosts'
-import { getInfoById } from '@/api/info/getInfo'
+import { getInfoById, normalizeAllInfo } from '@/api/info/getInfo'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { useUserStore } from '@/store/userStore'
@@ -117,9 +117,7 @@ onBeforeMount(() => {
   const id = Number(route.params.id)
   getInfoById(id)
     .then((res) => {
-      user.value = res
-      if (res.hideProfilePosts === undefined)
-        res.hideProfilePosts = false
+      user.value = normalizeAllInfo(res)
     })
     .catch((error: { response?: { msg: string, code: number } }) => {
       if (error.response) {

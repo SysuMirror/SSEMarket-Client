@@ -17,7 +17,6 @@ import MarkdownContainer from '../MarkdownContainer.vue'
 import { showMsg } from '../MessageBox'
 import UserAvatar from '../UserAvatar.vue'
 import CommentToolbar from '../comment/CommentToolbar.vue'
-import BasicCard from './BasicCard.vue'
 
 const { subComment, pCommentId, postId } = defineProps<{
   subComment: SubComment
@@ -63,9 +62,6 @@ const replyTargetLabel = computed(() => {
 
 const root = useTemplateRef('root')
 
-/**
- * @description 发送评论
- */
 async function sendCommentFunc() {
   try {
     const sendingData = {
@@ -139,11 +135,7 @@ async function handler(type: 'delete' | 'comment') {
   root.value?.dispatchEvent(event)
 }
 
-/**
- * @description 点赞。
- */
 async function like() {
-  // 后端没有返回数据，不要赋值后再更新
   try {
     const res = await likeCommentComment(
       subComment.ccommentID,
@@ -167,131 +159,67 @@ async function like() {
 </script>
 
 <template>
-  <BasicCard>
-    <div ref="root">
-      <header class="c-comment-card__header">
-        <div class="c-comment-card__identity">
-          <UserAvatar
-            class="c-comment-card__avatar"
-            size="compact"
-            :src="subComment.authorAvatar"
-            :user-id="subCommentAuthorProfileId"
-            :user-phone="subComment.authorTelephone"
-            :user-identity="subComment.authorIdentity"
-            :user-name="subComment.author"
-            :user-score="subComment.authorScore"
-          />
-        </div>
-        <template v-if="subComment.authorTelephone === userInfo.phone">
-          <UserButton
-            compact
-            class="c-comment-card__actions"
-            :no-save="true"
-            :is-self="true"
-            @user-action="handlerDebounced"
-          />
-        </template>
-      </header>
-      <div class="c-comment-card__meta">
-        <span v-if="replyTargetLabel" class="c-comment-card__reply-label">
-          回复 {{ replyTargetLabel }}
-        </span>
-        <span class="c-comment-card__time">{{ formattedTime }}</span>
-      </div>
-      <MarkdownContainer
-        class="c-comment-card__body"
-        :markdown-content="subComment.content || 'loading'"
-      />
-      <CommentToolbar
-        inline
-        reply-align-end
-        :reply-open="commentButtonIsShow"
-        :show-sub-toggle="false"
-        @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
-      >
-        <template #leading>
-          <BasicInfo
-            hide-time
-            layout="inline"
-            :time="subComment.commentTime"
-            :is-like="subComment.isLiked"
-            :like="subComment.likeNum"
-            nocomment
-            @like-change="like"
-          />
-        </template>
-      </CommentToolbar>
-      <div v-if="commentButtonIsShow" class="comment-compose">
-        <MarkdownEditor
-          v-model="commentContent"
-          compact
-          placeholder="回复 TA…"
-          :submit-busy="commentSubmitting"
-          @send="handlerDebounced('comment')"
+  <article ref="root" class="comment-row comment-row--sub">
+    <header class="comment-row__header">
+      <div class="comment-row__identity">
+        <UserAvatar
+          class="comment-row__avatar"
+          size="compact"
+          :src="subComment.authorAvatar"
+          :user-id="subCommentAuthorProfileId"
+          :user-phone="subComment.authorTelephone"
+          :user-identity="subComment.authorIdentity"
+          :user-name="subComment.author"
+          :user-score="subComment.authorScore"
         />
       </div>
-      <slot name="showComment" />
+      <time class="comment-row__time" :datetime="String(subComment.commentTime)">{{ formattedTime }}</time>
+      <UserButton
+        v-if="subComment.authorTelephone === userInfo.phone"
+        compact
+        class="comment-row__actions"
+        :no-save="true"
+        :is-self="true"
+        @user-action="handlerDebounced"
+      />
+    </header>
+    <div v-if="replyTargetLabel" class="comment-row__meta">
+      <span class="comment-row__reply-label">
+        回复 {{ replyTargetLabel }}
+      </span>
     </div>
-  </BasicCard>
+    <MarkdownContainer
+      class="comment-row__body"
+      :markdown-content="subComment.content || 'loading'"
+    />
+    <CommentToolbar
+      inline
+      reply-align-end
+      :reply-open="commentButtonIsShow"
+      :show-sub-toggle="false"
+      @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+    >
+      <template #leading>
+        <BasicInfo
+          hide-time
+          layout="inline"
+          :time="subComment.commentTime"
+          :is-like="subComment.isLiked"
+          :like="subComment.likeNum"
+          nocomment
+          @like-change="like"
+        />
+      </template>
+    </CommentToolbar>
+    <div v-if="commentButtonIsShow" class="comment-compose">
+      <MarkdownEditor
+        v-model="commentContent"
+        compact
+        placeholder="回复 TA…"
+        :submit-busy="commentSubmitting"
+        @send="handlerDebounced('comment')"
+      />
+    </div>
+    <slot name="showComment" />
+  </article>
 </template>
-
-<style scoped lang="scss">
-.c-comment-card__header {
-  --comment-avatar-size: 40px;
-  --comment-avatar-gap: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-}
-
-.c-comment-card__identity {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-
-.c-comment-card__avatar {
-  flex: 0 0 auto;
-}
-
-.c-comment-card__avatar :deep(.user) {
-  width: auto;
-  max-width: 100%;
-}
-
-.c-comment-card__actions {
-  flex-shrink: 0;
-  align-self: flex-start;
-}
-
-.c-comment-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-  padding-left: calc(var(--comment-avatar-size) + var(--comment-avatar-gap));
-}
-
-.c-comment-card__reply-label {
-  display: inline-block;
-  padding: 1px 7px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--chat-accent);
-  background: var(--chat-accent-soft);
-}
-
-.c-comment-card__time {
-  font-size: 11px;
-  color: var(--chat-text-tips);
-}
-
-.c-comment-card__body {
-  margin-bottom: 2px;
-}
-</style>

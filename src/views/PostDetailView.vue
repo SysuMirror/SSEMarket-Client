@@ -185,7 +185,7 @@ onMounted(async () => {
 
 <template>
   <div
-    class="root w-full flex flex-col p-1%"
+    class="post-detail-page w-full flex flex-col p-1%"
     @click="clickHandler"
     @comment-handle="commentHandler"
   >
@@ -209,71 +209,48 @@ onMounted(async () => {
     <div v-else>
       loading...
     </div>
-    <div class="comment-block mx-a mt-5 w-15/16">
-      <div class="comment-sort-header">
-        <h2 class="comment-sort-title">
+    <section class="comment-panel mx-a w-15/16">
+      <header class="comment-panel__header">
+        <h2 class="comment-panel__title">
           评论
+          <span v-if="post" class="comment-panel__count">{{ post.Comment }}</span>
         </h2>
-        <div class="sort-toolbar" role="group" aria-label="评论排序">
+        <div class="sort-switch" role="group" aria-label="评论排序">
+          <span
+            class="sort-switch__thumb"
+            :class="{ 'sort-switch__thumb--asc': commentTimeOrder === 'asc' }"
+            aria-hidden="true"
+          />
           <button
             type="button"
-            class="sort-btn sort-btn--desc"
-            :class="{ 'sort-btn--active': commentTimeOrder === 'desc' }"
+            class="sort-switch__option"
+            :class="{ 'sort-switch__option--active': commentTimeOrder === 'desc' }"
             :aria-pressed="commentTimeOrder === 'desc'"
-            aria-label="按时间降序：最新评论在前"
             @click.stop="setCommentTimeOrder('desc')"
           >
-            <svg
-              class="sort-btn__icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="8" />
-              <path d="M12 8v5l2.5 1.5" />
-              <path d="M18 15l-6-6-6 6" />
-            </svg>
-            <span class="sort-btn__label">
-              <span class="sort-btn__text" aria-hidden="true">最新在前</span>
-            </span>
+            最新在前
           </button>
           <button
             type="button"
-            class="sort-btn sort-btn--asc"
-            :class="{ 'sort-btn--active': commentTimeOrder === 'asc' }"
+            class="sort-switch__option"
+            :class="{ 'sort-switch__option--active': commentTimeOrder === 'asc' }"
             :aria-pressed="commentTimeOrder === 'asc'"
-            aria-label="按时间升序：最早评论在前"
             @click.stop="setCommentTimeOrder('asc')"
           >
-            <svg
-              class="sort-btn__icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="8" />
-              <path d="M12 8v5l2.5 1.5" />
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-            <span class="sort-btn__label">
-              <span class="sort-btn__text" aria-hidden="true">最早在前</span>
-            </span>
+            最早在前
           </button>
         </div>
-      </div>
-      <!-- 这是评论区 -->
+      </header>
       <div
         v-if="post"
-        class="commentList min-w-0 w-full"
+        class="comment-panel__list"
       >
+        <p
+          v-if="sortedComments.length === 0"
+          class="comment-panel__empty"
+        >
+          暂无评论，来发表第一条吧
+        </p>
         <!-- 使用id-评论数作为key使每次评论重新渲染当前评论 -->
         <!-- Post类型固定渲染 -->
         <template v-if="postType === 'post'">
@@ -293,7 +270,7 @@ onMounted(async () => {
           <RatingCommentCard
             v-for="comment in sortedComments"
             :key="comment.PcommentID"
-            class="mx-a my-3 w-full"
+            class="comment-list-item w-full"
             :post-id="post.PostID"
             :commentable="false"
             :is-dence="false"
@@ -301,21 +278,24 @@ onMounted(async () => {
           />
         </template>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.root {
+.post-detail-page {
   color: var(--color-text);
+  flex-shrink: 0;
+
+  > * {
+    flex-shrink: 0;
+  }
 }
 
-.comment-list-item {
-  margin-top: 12px;
-  margin-bottom: 0;
-}
-
-.comment-list-item:first-child {
-  margin-top: 8px;
+.comment-panel__count {
+  margin-left: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--chat-text-secondary);
 }
 </style>

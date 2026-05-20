@@ -4,7 +4,7 @@ import type { AllInfo } from '@/api/info/getInfo'
 import { Icon } from '@iconify/vue'
 import { computed, inject, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAllInfo } from '@/api/info/getInfo'
+import { getAllInfo, isEmailNotificationBlocked, normalizeAllInfo } from '@/api/info/getInfo'
 import { updateEmailPush, updateUserInfo, uploadAvatar } from '@/api/info/updateInfo'
 import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
 import { sendCode } from '@/api/LoginAndRegister/utils'
@@ -72,6 +72,15 @@ watch(
 function onSettingsAvatarError() {
   if (settingsAvatarSrc.value !== defaultAvatar)
     settingsAvatarSrc.value = defaultAvatar
+}
+
+/** 从服务端拉取设置并同步开关（避免本地状态与 DB 不一致） */
+async function reloadSettingsFromServer() {
+  const info = normalizeAllInfo(await getAllInfo(userInfo.phone))
+  allInfo.value = info
+  isPushDisabled.value = isEmailNotificationBlocked(
+    info.emailNotificationBlocked ?? info.emailpush,
+  )
 }
 
 /** 将当前表单同步到服务器（头像 / 隐藏发帖开关会即时调用） */
@@ -188,9 +197,8 @@ function logout() {
   }
 }
 
-onMounted(async () => {
-  allInfo.value = await getAllInfo(userInfo.phone)
-  isPushDisabled.value = allInfo.value.emailpush
+onMounted(() => {
+  void reloadSettingsFromServer()
 })
 
 async function togglePush() {
@@ -198,7 +206,7 @@ async function togglePush() {
     if (!allInfo.value)
       return
     await updateEmailPush(allInfo.value.userID)
-    isPushDisabled.value = !isPushDisabled.value
+    await reloadSettingsFromServer()
     showMsg(
       isPushDisabled.value
         ? '已禁用邮箱推送，将不再接收系统邮件'
@@ -224,9 +232,10 @@ async function toggleHideProfile() {
   hidePostsSyncing.value = true
   try {
     await persistUserInfoToServer()
+    await reloadSettingsFromServer()
   }
   catch {
-    allInfo.value.hideProfilePosts = prev
+    await reloadSettingsFromServer()
     showMsg('同步失败，已恢复原设置')
   }
   finally {

@@ -49,11 +49,27 @@ async function getInfo(): Promise<UserInfo> {
   }
 }
 
+/** 将接口中的 0/1、字符串等统一为 boolean */
+export function coerceApiBool(value: unknown): boolean {
+  return value === true || value === 1 || value === '1'
+}
+
+/**
+ * 后端 emailpush / emailNotificationBlocked 均表示 is_email_notification_blocked：
+ * true = 已禁用邮件通知（不是「已开启推送」）
+ */
+export function isEmailNotificationBlocked(value: unknown): boolean {
+  return coerceApiBool(value)
+}
+
 export interface AllInfo {
   avatarURL: string
   ban: string
   email: string
+  /** @deprecated 与 emailNotificationBlocked 同义，true 表示已禁用邮件通知 */
   emailpush: boolean
+  /** 与 emailpush 相同，语义更清晰 */
+  emailNotificationBlocked?: boolean
   intro: string
   name: string
   phone: string
@@ -62,6 +78,27 @@ export interface AllInfo {
   userID: number
   /** 为 true 时，其他用户在其个人主页看不到发帖列表 */
   hideProfilePosts?: boolean
+}
+
+export function normalizeAllInfo(raw: Partial<AllInfo> | Record<string, unknown>): AllInfo {
+  const src = raw as Record<string, unknown>
+  const blocked = isEmailNotificationBlocked(
+    src.emailNotificationBlocked ?? src.emailpush,
+  )
+  return {
+    avatarURL: String(src.avatarURL ?? ''),
+    ban: String(src.ban ?? ''),
+    email: String(src.email ?? ''),
+    emailpush: blocked,
+    emailNotificationBlocked: blocked,
+    intro: String(src.intro ?? ''),
+    name: String(src.name ?? ''),
+    phone: String(src.phone ?? ''),
+    punishnum: Number(src.punishnum ?? 0),
+    score: Number(src.score ?? 0),
+    userID: Number(src.userID ?? 0),
+    hideProfilePosts: coerceApiBool(src.hideProfilePosts),
+  }
 }
 
 /**
@@ -82,23 +119,11 @@ async function getAllInfo(userTelephone: string): Promise<AllInfo> {
       true,
     )
     const data = await res!.json()
-    return data
+    return normalizeAllInfo(data)
   }
   catch (e) {
     console.error(e)
-    return {
-      avatarURL: '',
-      ban: '',
-      email: '',
-      intro: '',
-      name: '',
-      phone: '',
-      punishnum: 0,
-      score: 0,
-      userID: 0,
-      emailpush: false,
-      hideProfilePosts: false,
-    }
+    return normalizeAllInfo({})
   }
 }
 
@@ -117,7 +142,7 @@ async function getInfoById(userID: number): Promise<AllInfo> {
       true,
     )
     const data = await res!.json()
-    return data
+    return normalizeAllInfo(data)
   }
   catch (e) {
     console.error(e)

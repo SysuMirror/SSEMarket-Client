@@ -21,6 +21,7 @@
     "github-markdown-css": "^5.8.1",
     "markdown-it": "^14.1.0",
     "newsse": "file:",
+    "pdfjs-dist": "2.16.105",
     "prismjs": "^1.30.0",
     "vue": "^3.5.17",
     "vue-router": "^4.5.1"

@@ -52,11 +52,11 @@ body {
   --color-level-6-bg: #4545454e;
 
   /* 私信 / 对话：清新简约（浅底、弱分割、柔和气泡） */
-  --chat-bg-main: #e6edf4;
-  --chat-bg-highlight: #ffffff;
-  --chat-bg-elevated: #fafcfd;
-  --chat-border: rgba(15, 23, 42, 0.1);
-  --chat-border-strong: rgba(15, 23, 42, 0.14);
+  --chat-bg-main: #e9ebee;
+  --chat-bg-highlight: #f7f8f9;
+  --chat-bg-elevated: #f3f4f5;
+  --chat-border: rgba(0, 0, 0, 0.1);
+  --chat-border-strong: rgba(0, 0, 0, 0.18);
   --chat-text: #1e293b;
   --chat-text-secondary: #64748b;
   --chat-text-tips: #94a3b8;

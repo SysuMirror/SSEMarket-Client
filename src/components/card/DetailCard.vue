@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent, ref, useTemplateRef } from 'vue'
-import { RouterLink } from 'vue-router'
-import { votePageRoute } from '@/api/vote/vote'
 import { sendComment } from '@/api/editPostAndComment/editComment'
 import { delPost } from '@/api/editPostAndComment/editPost'
 
@@ -18,6 +16,7 @@ import MarkdownContainer from '../MarkdownContainer.vue'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
 import CommentToolbar from '../comment/CommentToolbar.vue'
+import VoteLink from '../VoteLink.vue'
 import BasicCard from './BasicCard.vue'
 
 const { post } = defineProps<{
@@ -193,17 +192,13 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
     <CommentToolbar
       reply-label="写评论"
       reply-align-end
+      no-top-border
       :reply-open="commentButtonIsShow"
       :show-sub-toggle="false"
       @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
     >
       <template #leading>
-        <RouterLink
-          class="comment-toolbar__link-muted comment-toolbar__link-vote"
-          :to="votePageRoute(post.Title)"
-        >
-          投票
-        </RouterLink>
+        <VoteLink :post-i-d="post.PostID" variant="prominent" />
       </template>
     </CommentToolbar>
     <div v-if="commentButtonIsShow" class="comment-compose max-w-full">

@@ -8,6 +8,13 @@
 }
 
 /* 使用 min-height + 允许纵向滚动，避免长页（如注册）在移动端被 html 固定高度与 overflow:hidden 截断、无法拖动 */
+:root {
+  --layout-site-top-h: 1.875rem;
+  --layout-nav-h: 2.125rem;
+  --layout-header-h: calc(var(--layout-site-top-h) + var(--layout-nav-h));
+  --layout-bottom-nav-h: calc(52px + env(safe-area-inset-bottom, 0px));
+}
+
 html {
   width: 100%;
   min-height: 100vh;
@@ -27,6 +34,14 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+}
+
+/* 主应用壳：禁止 body 滚动，由 .app-main 承担滚动，避免内容被固定顶栏遮挡 */
+body:has(.root),
+body:has(.root) #app {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
 }
 
 @media screen and (min-width: 768px) {

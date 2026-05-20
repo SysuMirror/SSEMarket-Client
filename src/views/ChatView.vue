@@ -28,12 +28,30 @@ const draft = ref('')
 type Contact = RelevantUser & Partial<{ ban: string, phone: string, punishnum: number, intro: string, unRead: number, emailpush: boolean }>
 
 const historyDiv = useTemplateRef<HTMLDivElement>('historyDiv')
-
 const isMobile = ref(false)
+const keyboardInset = ref(0)
 const mobilePane = ref<'list' | 'thread'>('list')
 
 function updateIsMobile() {
   isMobile.value = window.innerWidth <= 768
+}
+
+function syncKeyboardInset() {
+  if (!isMobile.value || mobilePane.value !== 'thread') {
+    keyboardInset.value = 0
+    return
+  }
+  const vv = window.visualViewport
+  if (!vv) {
+    keyboardInset.value = 0
+    return
+  }
+  keyboardInset.value = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+}
+
+function onVisualViewportChange() {
+  syncKeyboardInset()
+  scrollHistory()
 }
 
 const showContactAside = computed(() => !isMobile.value || mobilePane.value === 'list')
@@ -162,6 +180,9 @@ function checkSameDay(x: Date, y: Date) {
 onMounted(() => {
   updateIsMobile()
   window.addEventListener('resize', updateIsMobile)
+  window.visualViewport?.addEventListener('resize', onVisualViewportChange)
+  window.visualViewport?.addEventListener('scroll', onVisualViewportChange)
+  syncKeyboardInset()
 
   on('NewMessage', onNewMessage)
   on('MessageAck', onMessageAck)
@@ -199,8 +220,14 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateIsMobile)
+  window.visualViewport?.removeEventListener('resize', onVisualViewportChange)
+  window.visualViewport?.removeEventListener('scroll', onVisualViewportChange)
   off('NewMessage', onNewMessage)
   off('MessageAck', onMessageAck)
+})
+
+watch([isMobile, mobilePane], () => {
+  syncKeyboardInset()
 })
 </script>
 
@@ -211,6 +238,7 @@ onUnmounted(() => {
       'chat-page--mobile-list': isMobile && mobilePane === 'list',
       'chat-page--mobile-thread': isMobile && mobilePane === 'thread',
     }"
+    :style="{ '--chat-kb-inset': `${keyboardInset}px` }"
   >
     <aside v-show="showContactAside" class="contact-aside">
       <div class="contact-aside__head">
@@ -237,7 +265,7 @@ onUnmounted(() => {
               {{ entry.name }}
             </div>
             <div class="contact-row__preview">
-              {{ entry.intro }}
+              {{ entry.lastMessagePreview || entry.intro }}
             </div>
           </div>
         </div>
@@ -364,9 +392,11 @@ onUnmounted(() => {
   margin: 0 auto;
   gap: 0.75rem;
   padding: 0 12px 1rem;
-  min-height: calc(90dvh - 100px);
   align-items: stretch;
   box-sizing: border-box;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
 }
 
 @media screen and (min-width: 769px) {
@@ -402,9 +432,17 @@ onUnmounted(() => {
 }
 
 @media screen and (max-width: 768px) {
+  .chat-page {
+    padding: 0;
+    gap: 0;
+    max-width: none;
+  }
+
   .chat-page--mobile-list .contact-aside {
     width: 100%;
-    max-height: calc(100dvh - 140px);
+    flex: 1 1 0;
+    max-height: none;
+    height: 100%;
     border-radius: 0;
     border-left: none;
     border-right: none;
@@ -412,6 +450,21 @@ onUnmounted(() => {
 
   .chat-page--mobile-thread .chat-thread {
     display: flex;
+    flex: 1 1 0;
+    width: 100%;
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .chat-page--mobile-thread .thread-composer {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px) + var(--chat-kb-inset, 0px));
+  }
+
+  .chat-page--mobile-thread .thread-body {
+    padding-bottom: calc(12px + var(--chat-kb-inset, 0px));
   }
 }
 
@@ -535,15 +588,6 @@ onUnmounted(() => {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-@media screen and (max-width: 768px) {
-  .chat-page--mobile-thread .chat-thread {
-    width: 100%;
-    max-height: calc(100dvh - 140px);
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-  }
-}
 
 @media screen and (min-width: 769px) {
   .chat-thread {

@@ -52,7 +52,7 @@
 @media screen and (min-width: 768px) {
   .feed-card.post-card:hover {
     border-color: var(--chat-border-strong);
-    box-shadow: 0 6px 18px rgba(44, 61, 86, 0.1);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
     transform: translateY(-1px);
   }
 }

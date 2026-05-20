@@ -2,6 +2,7 @@
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { handleHomeNavClick } from '@/utils/scrollHome'
 
 const { noticeNum = 0, chatNum = 0 } = defineProps<{
   noticeNum?: number
@@ -16,6 +17,7 @@ const isNotice = computed(() => path.value === '/notice')
 const isChat = computed(() => path.value === '/chat')
 const isRanking = computed(() => path.value === '/ranking')
 const isSmartXiaoQiu = computed(() => path.value === '/smart-xiaoqiu' || path.value.startsWith('/smart-xiaoqiu/'))
+const isResume = computed(() => path.value === '/resume' || path.value.startsWith('/resume/'))
 const myRoutes = ['/options', '/save', '/history', '/feedback']
 const isMySection = computed(() => myRoutes.some(p => path.value === p || path.value.startsWith(`${p}/`)))
 
@@ -27,6 +29,11 @@ function toggleMyMenu() {
 
 function closeMyMenu() {
   myMenuVisible.value = false
+}
+
+function onHomeNavClick(e: MouseEvent) {
+  closeMyMenu()
+  handleHomeNavClick(e, route)
 }
 
 function onDocClick(e: MouseEvent) {
@@ -60,7 +67,7 @@ onUnmounted(() => {
         class="bottom-nav__item"
         :class="{ 'bottom-nav__item--active': isHome }"
         to="/"
-        @click="closeMyMenu"
+        @click="onHomeNavClick"
       >
         <Icon icon="tabler:home" class="bottom-nav__icon bottom-nav__icon--home" width="24" height="24" aria-hidden="true" />
         <span class="bottom-nav__text">主页</span>
@@ -109,7 +116,17 @@ onUnmounted(() => {
         @click="closeMyMenu"
       >
         <Icon icon="tabler:sparkles" class="bottom-nav__icon bottom-nav__icon--xiaoqiu" width="24" height="24" aria-hidden="true" />
-        <span class="bottom-nav__text">智能小秋</span>
+        <span class="bottom-nav__text">小秋</span>
+      </RouterLink>
+
+      <RouterLink
+        class="bottom-nav__item"
+        :class="{ 'bottom-nav__item--active': isResume }"
+        to="/resume"
+        @click="closeMyMenu"
+      >
+        <Icon icon="tabler:file-cv" class="bottom-nav__icon bottom-nav__icon--resume" width="24" height="24" aria-hidden="true" />
+        <span class="bottom-nav__text">简历</span>
       </RouterLink>
 
       <div class="bottom-nav__item bottom-nav__item--my" :class="{ 'bottom-nav__item--active': isMySection }">
@@ -151,7 +168,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1000;
+  z-index: 2000;
   padding: 0;
   pointer-events: none;
 }
@@ -303,6 +320,9 @@ onUnmounted(() => {
 .bottom-nav__icon--xiaoqiu {
   color: #7c3aed;
 }
+.bottom-nav__icon--resume {
+  color: #0d9488;
+}
 .bottom-nav__icon--user {
   color: #475569;
 }
@@ -360,6 +380,9 @@ body.dark-mode .bottom-nav__icon--ranking {
 }
 body.dark-mode .bottom-nav__icon--xiaoqiu {
   color: #c4b5fd;
+}
+body.dark-mode .bottom-nav__icon--resume {
+  color: #2dd4bf;
 }
 body.dark-mode .bottom-nav__icon--user {
   color: #94a3b8;

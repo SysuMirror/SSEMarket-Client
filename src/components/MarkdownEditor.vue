@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/html-self-closing -->
 <script setup lang="ts">
-import { nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 
 import { uploadPhoto } from '@/api/editPostAndComment/utils'
 
@@ -41,7 +41,13 @@ type EditType = '标题' | '粗体' | '斜体' | '删除线' | '引用' | '无�
 
 const isPreview = ref(false)
 const formatExpanded = ref(false)
+const fileInputId = useId()
+const fileInputRef = useTemplateRef<HTMLInputElement>('fileInput')
 const textarea = useTemplateRef<HTMLTextAreaElement>('textarea')
+
+function openImagePicker() {
+  fileInputRef.value?.click()
+}
 
 const formatActions: { type: EditType, label: string }[] = [
   { type: '标题', label: '标题' },
@@ -66,7 +72,7 @@ function autoResize() {
   if (!textarea.value)
     return
   if (props.fill) {
-    textarea.value.style.height = '100%'
+    textarea.value.style.height = ''
     return
   }
   textarea.value.style.height = `${minHeight}px`
@@ -214,6 +220,20 @@ watch(isPreview, (preview) => {
     :class="{ 'md-editor--compact': compact, 'md-editor--fill': fill }"
   >
     <div class="md-editor__toolbar">
+      <button type="button" class="md-editor__toolbar-preview" @click="isPreview = !isPreview">
+        {{ isPreview ? '编辑' : '预览' }}
+      </button>
+      <button type="button" class="md-editor__toolbar-image" @click="openImagePicker">
+        图片
+      </button>
+      <input
+        :id="fileInputId"
+        ref="fileInput"
+        type="file"
+        accept="image/*"
+        class="md-editor__file-input"
+        @input="uploadFile"
+      >
       <button
         v-if="compact"
         type="button"
@@ -237,9 +257,6 @@ watch(isPreview, (preview) => {
           {{ action.label }}
         </button>
       </div>
-      <button type="button" class="md-editor__toolbar-preview" @click="isPreview = !isPreview">
-        {{ isPreview ? '编辑' : '预览' }}
-      </button>
     </div>
     <div class="md-editor__body" :class="{ 'md-editor__body--preview': isPreview }">
       <textarea
@@ -256,7 +273,7 @@ watch(isPreview, (preview) => {
         :markdown-content="modelValue || ''"
       />
     </div>
-    <div class="md-editor__actions">
+    <div v-if="!fill" class="md-editor__actions">
       <div
         class="md-editor__action md-editor__action--primary"
         :class="{ 'md-editor__action--busy': submitBusy }"
@@ -267,17 +284,6 @@ watch(isPreview, (preview) => {
       >
         {{ submitBusy ? '发送中…' : '发送' }}
       </div>
-      <label
-        for="fileInput"
-        class="md-editor__action"
-      >图片</label>
-      <input
-        id="fileInput"
-        type="file"
-        accept="image/*"
-        style="display: none"
-        @input="uploadFile"
-      >
     </div>
   </div>
 </template>
@@ -341,8 +347,17 @@ watch(isPreview, (preview) => {
   color: var(--chat-accent);
 }
 
-.md-editor__toolbar-preview {
-  margin-left: auto;
+.md-editor__file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.md-editor__toolbar-preview,
+.md-editor__toolbar-image {
+  flex-shrink: 0;
 }
 
 .md-editor__body {
@@ -408,15 +423,16 @@ watch(isPreview, (preview) => {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 10px;
+  flex-shrink: 0;
 }
 
 .md-editor__action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 72px;
-  min-height: 34px;
-  padding: 6px 16px;
+  min-width: 80px;
+  min-height: 38px;
+  padding: 8px 18px;
   border-radius: 8px;
   border: 1px solid var(--chat-border);
   background: var(--chat-bg-main);
@@ -462,25 +478,88 @@ watch(isPreview, (preview) => {
   min-height: 0;
   height: 100%;
 
+  .md-editor__toolbar {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    button {
+      flex-shrink: 0;
+      min-height: 34px;
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+  }
+
+  .md-editor__format-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
   .md-editor__body {
     flex: 1 1 auto;
-    min-height: 240px;
+    min-height: clamp(220px, 42vh, 520px);
     flex-direction: column;
+    overflow: hidden;
 
     textarea {
       flex: 1 1 auto;
-      min-height: 240px;
-      height: 100% !important;
-      resize: vertical;
+      min-height: clamp(200px, 38vh, 480px);
+      height: auto;
+      max-height: none;
+      resize: none;
       overflow: auto;
+      font-size: 15px;
+      line-height: 1.55;
+      padding: 12px 14px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
+
+      &::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.06);
+        border-radius: 4px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.28);
+        border-radius: 4px;
+      }
     }
   }
 
   .md-editor__body--preview .md-editor__preview-pane {
     flex: 1 1 auto;
-    min-height: 240px;
-    height: 100%;
+    min-height: clamp(200px, 38vh, 480px);
+    height: auto;
+    max-height: none;
     overflow: auto;
+    font-size: 15px;
+    padding: 12px 14px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.28);
+      border-radius: 4px;
+    }
   }
 }
 
@@ -496,15 +575,51 @@ watch(isPreview, (preview) => {
   }
 }
 
+@mixin md-toolbar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 3px;
+  }
+}
+
 @media screen and (max-width: 768px) {
-  .md-editor__toolbar {
+  /* 发帖页：横向滑动工具栏 */
+  .md-editor--fill .md-editor__toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    @include md-toolbar-scrollbar;
+
+    .md-editor__format-group {
+      display: flex;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+  }
+
+  /* 评论区等：保持原有网格 */
+  .md-editor:not(.md-editor--fill) .md-editor__toolbar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
   }
 
-  .md-editor__toolbar-preview {
+  .md-editor:not(.md-editor--fill) .md-editor__toolbar-preview {
     grid-column: span 2;
-    margin-left: 0;
   }
 
   .md-editor--compact .md-editor__toolbar {

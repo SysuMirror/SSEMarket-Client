@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Icon } from '@iconify/vue'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
@@ -116,6 +117,10 @@ function search() {
         <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=60985&format=png&color=000000);" />
         <span>打分</span>
       </router-link>
+      <router-link to="/smart-xiaoqiu">
+        <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=59695&format=png&color=000000); background-size: 90% 90%;" />
+        <span>智能小秋</span>
+      </router-link>
       <div class="sidebar-divider" />
       <router-link to="/save">
         <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=85185&format=png&color=000000);" />
@@ -135,6 +140,10 @@ function search() {
         <span>通知</span>
       </router-link>
       <div class="sidebar-bottom">
+        <router-link to="/resume" class="sidebar-link-resume">
+          <Icon icon="tabler:file-cv" class="sidebar-resume-icon" width="22" height="22" aria-hidden="true" />
+          <span>简历专区</span>
+        </router-link>
         <router-link to="/chat">
           <div class="icon-wrapper">
             <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=83142&format=png&color=000000);" />
@@ -193,10 +202,10 @@ function search() {
 /* PWA模式样式 */
 .pwa-sidebar {
   position: fixed;
-  top: 3em;
+  top: var(--pc-header-total, calc(2.75rem + 3em));
   left: 0;
   width: 280px;
-  height: calc(100vh - 3em);
+  height: calc(100vh - var(--pc-header-total, calc(2.75rem + 3em)));
   background: #ffffffa0;
   backdrop-filter: blur(10px);
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
@@ -215,10 +224,11 @@ function search() {
   display: flex;
   background: #ffffffa0;
   backdrop-filter: blur(10px);
-  height: 3em;
+  min-height: var(--layout-nav-h, 2.125rem);
+  height: var(--layout-nav-h, 2.125rem);
   color: #444;
   align-items: center;
-  padding: 0 1em;
+  padding: 0 0.65em;
   box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
   width: 100%;
   justify-content: flex-start;
@@ -291,8 +301,9 @@ function search() {
 .site-header.pwa-header .search input {
   width: 100%;
   max-width: 48em;
-  height: 2em;
-  padding: 0 2em 0 0.75em;
+  height: 1.55em;
+  padding: 0 1.6em 0 0.5em;
+  font-size: 12px;
   border: 1px solid #ccc;
   border-radius: 5px;
   line-height: 0.8;
@@ -333,6 +344,15 @@ function search() {
   margin-top: auto;
   display: flex;
   flex-direction: column;
+}
+
+.sidebar-resume-icon {
+  flex-shrink: 0;
+  color: #0d9488;
+}
+
+body.dark-mode .sidebar-resume-icon {
+  color: #2dd4bf;
 }
 
 .sidebar-links a {

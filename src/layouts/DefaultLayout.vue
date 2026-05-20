@@ -17,6 +17,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { useNoticeStore } from '@/store/noticeStore'
 import { showSnackbar } from '@/utils/snackbar'
+import { handleHomeNavClick } from '@/utils/scrollHome'
 
 const BottomNavbar = defineAsyncComponent(
   () => import('@/components/BottomNavbar.vue'),
@@ -76,47 +77,9 @@ const isHomePage = computed(() => {
 /** 子页占满顶栏与主区域之间剩余高度，禁止整页滚动（如智能小秋） */
 const layoutFill = computed(() => Boolean(route.meta.layoutFill))
 
-const { headerHeight, handleTouchStart, handleTouchEnd } = (() => {
-  const headerHeight = ref('3em')
-  let startY = 0
-  let endY = 0
-  const handleTouchStart = (event: TouchEvent) => {
-    startY = event.touches[0].clientY
-  }
-  const handleTouchEnd = (event: TouchEvent) => {
-    endY = event.changedTouches[0].clientY
-    if (Math.abs(startY - endY) < 10)
-      return
-    if (startY > endY) {
-      headerHeight.value = '0'
-    }
-    else {
-      // 如果当前在发帖页面，保持收起状态
-      if (route.path === '/post') {
-        headerHeight.value = '0'
-      }
-      else {
-        headerHeight.value = '3em'
-      }
-    }
-  }
-
-  return {
-    headerHeight,
-    handleTouchStart,
-    handleTouchEnd,
-  }
-})()
-
-// 监听路由变化，在/post路由时自动收起header
-watch(() => route.path, (newPath) => {
-  if (newPath === '/post') {
-    headerHeight.value = '0'
-  }
-  else {
-    headerHeight.value = '3em'
-  }
-}, { immediate: true })
+function onTitleHomeClick(e: MouseEvent) {
+  handleHomeNavClick(e, route)
+}
 
 onMounted(() => {
   connect()
@@ -133,10 +96,6 @@ onMounted(() => {
     // provide('focusCleanup', _);
   })
 
-  if (!isPC.value) {
-    window.addEventListener('touchstart', handleTouchStart)
-    window.addEventListener('touchend', handleTouchEnd)
-  }
   // 启动新帖子轮询
   startPolling()
 })
@@ -144,10 +103,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', updateWidth)
 
-  if (!isPC.value) {
-    window.removeEventListener('touchstart', handleTouchStart)
-    window.removeEventListener('touchend', handleTouchEnd)
-  }
   // 停止新帖子轮询
   stopPolling()
   disconnect()
@@ -180,12 +135,16 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 <template>
   <div
     class="root w-full"
-    :class="{ 'pwa-mode': isDesktopExperience, 'root--layout-fill': layoutFill }"
+    :class="{
+      'pwa-mode': isDesktopExperience,
+      'root--layout-fill': layoutFill,
+      'root--input-focused': isAnyInputFocused && !isPC,
+    }"
   >
-    <header>
+    <header class="site-header-stack">
       <div class="site-top">
         <div class="top-left" />
-        <RouterLink class="title" to="/">
+        <RouterLink class="title" to="/" @click="onTitleHomeClick">
           SSE MARKET
         </RouterLink>
         <div class="top-right">
@@ -197,7 +156,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
         <PcHeader v-else :unread-chat-num="chatNum" :unread-notice-num="noticeNum.unreadTotalNum" />
       </template>
       <template v-else>
-        <MobileHeader :style="{ height: headerHeight }" />
+        <MobileHeader />
       </template>
     </header>
     <template v-if="!isPC">
@@ -207,7 +166,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
         :chat-num="chatNum"
       />
     </template>
-    <main class="mt-2 w-full flex flex-row p-0" :class="{ 'main--layout-fill': layoutFill }">
+    <main class="app-main w-full flex flex-row p-0" :class="{ 'app-main--layout-fill': layoutFill }">
       <div
         class="content"
         :class="{ 'menu-collapsed': isMenuCollapsed, 'content--layout-fill': layoutFill }"
@@ -227,25 +186,50 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 </template>
 
 <style lang="scss" scoped>
-header {
-  position: sticky;
+/* 顶栏高度变量：全端固定导航，主内容用 padding-top 避让 */
+.site-header-stack {
+  --layout-site-top-h: 1.875rem;
+  --layout-nav-h: 2.125rem;
+  --layout-header-h: calc(var(--layout-site-top-h) + var(--layout-nav-h));
+  /* 兼容 PWA 侧栏组件内联样式 */
+  --pc-site-top-h: var(--layout-site-top-h);
+  --pc-nav-h: var(--layout-nav-h);
+  --pc-header-total: var(--layout-header-h);
+
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2100;
   width: 100%;
-  z-index: 1999;
+  background: #0f172a;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.14);
+}
+
+/* 二级导航（搜索/链接条）统一高度，避免主内容遮挡计算不准 */
+.site-header-stack :deep(.site-header),
+.site-header-stack :deep(.pwa-header) {
+  flex-shrink: 0;
+  min-height: var(--layout-nav-h);
+  height: var(--layout-nav-h);
+  box-sizing: border-box;
 }
 
 .site-top {
   display: flex;
+  align-items: center;
+  min-height: var(--layout-site-top-h);
   background: #0f172a;
 
   .title {
     flex: 1;
     color: #eee;
     text-align: center;
-    margin: 0.25em;
-    margin-left: 0.5em;
-    letter-spacing: 0.25em;
-    font-size: 18px;
+    margin: 0;
+    padding: 0 0.35rem;
+    letter-spacing: 0.14em;
+    font-size: 14px;
+    line-height: 1.15;
     font-family: 'Ubuntu Mono', Arial, Helvetica, sans-serif;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -257,13 +241,59 @@ header {
     display: flex;
     align-items: center;
     justify-content: end;
-    padding: 0 0.8rem;
+    padding: 0 0.5rem;
   }
+}
+
+/* 主内容区：顶栏下方独立滚动，避免 body 滚动时内容滑入顶栏下方 */
+.root {
+  --layout-bottom-nav-h: calc(52px + env(safe-area-inset-bottom, 0px));
+
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 0;
+  margin: 0;
+  margin-top: var(--layout-header-h);
+  height: calc(100dvh - var(--layout-header-h));
+  max-height: calc(100dvh - var(--layout-header-h));
+  overflow: hidden;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+
+/* 由 .content 承担纵向滚动；子路由不得 flex-shrink，否则详情页等会被压进视口高度无法滚动 */
+.content:not(.content--layout-fill) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-top: 12px;
+  align-items: stretch;
+}
+
+.content:not(.content--layout-fill) > * {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .content {
   width: 100%;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 0 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -272,36 +302,48 @@ header {
     width 0.3s ease;
 }
 
-/* 大屏幕样式 >768px */
-@media screen and (min-width: 768px) {
+@media screen and (min-width: 769px) {
   .content {
-    padding-left: 5%;
-    padding-right: 5%;
+    padding: 12px 5% 24px;
   }
 }
 
-/* PWA模式样式 */
+@media screen and (max-width: 768px) {
+  .app-main:not(.app-main--layout-fill) {
+    height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h));
+    max-height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h));
+  }
+
+  /* 输入法聚焦时底栏已隐藏，不再预留底栏高度，避免输入框与键盘之间留白 */
+  .root.root--input-focused:not(.root--layout-fill) .app-main:not(.app-main--layout-fill) {
+    height: calc(100dvh - var(--layout-header-h));
+    max-height: calc(100dvh - var(--layout-header-h));
+  }
+
+  .root.root--input-focused.root--layout-fill > .app-main.app-main--layout-fill {
+    height: calc(100dvh - var(--layout-header-h));
+    max-height: calc(100dvh - var(--layout-header-h));
+  }
+
+  .content {
+    padding-bottom: 16px;
+  }
+
+  .root.root--layout-fill .content.content--layout-fill {
+    padding-bottom: 0;
+  }
+}
+
+/* PWA 桌面：侧栏 + 主内容分区 */
 .root.pwa-mode {
   position: relative;
 }
 
-.root.pwa-mode .content {
-  transition:
-    margin-left 0.3s ease,
-    width 0.3s ease;
+.root.pwa-mode .site-top {
+  min-height: var(--layout-site-top-h);
 }
 
-/* 移动端不受PWA模式影响 */
-@media screen and (max-width: 767px) {
-  .root.pwa-mode .content:not(.menu-collapsed),
-  .root.pwa-mode .content.menu-collapsed {
-    margin-left: 0;
-    width: 100%;
-  }
-}
-
-/* PC端PWA模式样式 */
-@media screen and (min-width: 768px) {
+@media screen and (min-width: 769px) {
   .root.pwa-mode .content:not(.menu-collapsed) {
     margin-left: 280px;
     width: calc(100% - 280px);
@@ -313,41 +355,47 @@ header {
   }
 }
 
-.root.pwa-mode .site-top {
-  position: relative;
-  z-index: 2001;
+@media screen and (max-width: 768px) {
+  .root.pwa-mode .content:not(.menu-collapsed),
+  .root.pwa-mode .content.menu-collapsed {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
-/* 智能小秋等：整页定高，仅子区域滚动 */
-.root.root--layout-fill {
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  min-height: 100dvh;
-  height: 100dvh;
-  max-height: 100dvh;
-  overflow: hidden;
-}
-
-.root.root--layout-fill > main.main--layout-fill {
+/* 发帖 / 智能小秋：主区域不滚动，子页面内部滚动 */
+.root.root--layout-fill > .app-main.app-main--layout-fill {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+  margin-top: var(--layout-header-h);
+  height: calc(100dvh - var(--layout-header-h));
+  max-height: calc(100dvh - var(--layout-header-h));
+}
+
+@media screen and (max-width: 768px) {
+  .root.root--layout-fill > .app-main.app-main--layout-fill {
+    height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h));
+    max-height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h));
+  }
 }
 
 .root.root--layout-fill .content.content--layout-fill {
   flex: 1 1 0;
   min-height: 0;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  padding-bottom: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding-bottom: 0;
-}
 
-@media screen and (max-width: 767px) {
-  .root.root--layout-fill .content.content--layout-fill {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  > :deep(*) {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
   }
 }
 </style>

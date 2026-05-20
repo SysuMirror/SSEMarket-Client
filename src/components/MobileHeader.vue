@@ -63,8 +63,8 @@ const shopSidebarIsShow = computed(() => {
       to="/post"
       class="icon bright-icon post-button"
       style="
-              width: 30px;
-              height: 30px;
+              width: 26px;
+              height: 26px;
               background-position: 1px -1px;
               background-image: url(https://ssemarket.cn/new/webp/sendPostButton.webp)
             "
@@ -75,22 +75,23 @@ const shopSidebarIsShow = computed(() => {
 <style lang="scss" scoped>
 .site-header {
   display: flex;
+  flex-shrink: 0;
+  min-height: var(--layout-nav-h, 2.125rem);
+  height: var(--layout-nav-h, 2.125rem);
   background: #ffffffa0;
   backdrop-filter: blur(2px);
   color: #444;
   align-items: center;
-  padding: 0 1em;
+  padding: 0 0.45em;
   box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
-  transition: box-shadow 0.3s ease;
-  margin-bottom: 0px;
   overflow: hidden;
-  transition: height 0.3s ease;
 
   .links {
     a {
       position: relative;
       display: inline-block;
-      padding: 0.25em 0.5em;
+      padding: 0.1em 0.35em;
+      font-size: 12px;
       border-radius: 4px;
       margin-right: 0.2em;
       text-decoration: none;
@@ -125,14 +126,15 @@ const shopSidebarIsShow = computed(() => {
 
   .search {
     flex: 1;
-    margin: 0 1em;
+    margin: 0 0.5em;
     text-align: center;
 
     input {
       width: 100%;
       max-width: 48em;
-      height: 2em;
-      padding: 0 2em 0 0.75em;
+      height: 1.55em;
+      padding: 0 1.6em 0 0.5em;
+      font-size: 12px;
       border: 1px solid #ccc;
       border-radius: 5px;
       line-height: 0.8;
@@ -203,8 +205,8 @@ body.dark-mode .icon {
 
 /* 课程专区（暂时） */
 .lesson {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   background-size: cover;
   background-repeat: no-repeat;
   background-size: contain;
@@ -219,9 +221,8 @@ body.dark-mode .lesson {
 
 .bright-icon {
   display: block;
-  width: 100%;
-  height: 30px;
-  width: 30px;
+  width: 26px;
+  height: 26px;
   text-align: center;
   margin: 5px;
   background-size: 100%;

@@ -13,6 +13,8 @@ export interface RelevantUser {
   identity: string
   score: number
   unRead: number
+  lastMessageAt?: string
+  lastMessagePreview?: string
 }
 
 export interface ChatMessageItem {
@@ -26,6 +28,33 @@ export interface ChatMessageItem {
 }
 
 export type Contact = RelevantUser & Partial<{ ban: string, phone: string, punishnum: number, intro: string, unRead: number, emailpush: boolean }>
+
+function parseContactTime(at?: string) {
+  if (!at)
+    return 0
+  const t = new Date(at).getTime()
+  return Number.isNaN(t) ? 0 : t
+}
+
+function sortContactsByLastMessage() {
+  contacts.sort((a, b) => parseContactTime(b.lastMessageAt) - parseContactTime(a.lastMessageAt))
+}
+
+function touchContactMessage(userID: number, preview: string, at?: string) {
+  const idx = contacts.findIndex(c => c.userID === userID)
+  if (idx === -1)
+    return
+  const contact = contacts[idx]
+  contact.lastMessagePreview = preview
+  contact.lastMessageAt = at ?? new Date().toISOString()
+  if (idx > 0) {
+    contacts.splice(idx, 1)
+    contacts.unshift(contact)
+  }
+  else {
+    sortContactsByLastMessage()
+  }
+}
 
 interface ChatEventMap {
   RelevantUsers: {
@@ -135,12 +164,14 @@ export function useChat() {
       const result = sendMessage(message)
 
       if (result) {
+        const createdAt = new Date().toISOString()
         chatHistory.push({
           ...message,
-          createdAt: new Date().toISOString(),
+          createdAt,
           chatMsgID: getDummyID(),
           unread: 0,
         })
+        touchContactMessage(current.userID, content, createdAt)
       }
 
       return result
@@ -170,6 +201,7 @@ export function useChat() {
         if (data.senderUserID === current.userID) {
           // 当前会话
           chatHistory.push(data)
+          touchContactMessage(current.userID, data.content, data.createdAt)
           return
         }
 
@@ -182,12 +214,16 @@ export function useChat() {
               ...res,
               unRead: 1,
               identity: '',
+              lastMessagePreview: data.content,
+              lastMessageAt: data.createdAt,
             })
+            sortContactsByLastMessage()
           })
         }
         else {
           const contact = contacts[idx]
           contact.unRead = (contact.unRead || 0) + 1
+          touchContactMessage(data.senderUserID, data.content, data.createdAt)
         }
       }
 
@@ -204,7 +240,14 @@ export function useChat() {
           return acc
         }, [])
         Promise.all(users.map(user => getInfoById(user.userID))).then((resList) => {
-          contacts.splice(0, contacts.length, ...users.map((user, index) => ({ ...user, ...resList[index], unRead: 0 })))
+          contacts.splice(0, contacts.length, ...users.map((user, index) => ({
+            ...resList[index],
+            ...user,
+            unRead: user.unRead ?? 0,
+            lastMessageAt: user.lastMessageAt,
+            lastMessagePreview: user.lastMessagePreview,
+          })))
+          sortContactsByLastMessage()
         })
       }
 
@@ -219,7 +262,8 @@ export function useChat() {
 
     const addContact = (contact: RelevantUser) => {
       if (!contacts.find(c => c.userID === contact.userID)) {
-        contacts.push(contact)
+        contacts.unshift(contact)
+        sortContactsByLastMessage()
       }
     }
 
@@ -240,6 +284,10 @@ export function useChat() {
       await getChatHistory(userInfo.userID, current.userID).then((res) => {
         if (res.code === 200) {
           chatHistory.splice(0, chatHistory.length, ...res.data.chatHistoryList)
+          const last = chatHistory[chatHistory.length - 1]
+          if (last) {
+            touchContactMessage(current.userID, last.content, last.createdAt)
+          }
         }
       })
       updateChatNum()

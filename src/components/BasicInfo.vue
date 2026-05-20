@@ -34,6 +34,7 @@ function LikeChange() {
       }}</span>
     </div>
     <div class="basic-info__stats">
+      <div class="basic-info__stats-group">
       <span v-if="browse || browse === 0" class="basic-info__stat">
         {{ browse }}
         <svg
@@ -95,6 +96,10 @@ function LikeChange() {
           />
         </svg>
       </span>
+      </div>
+      <div v-if="$slots['stats-trailing']" class="basic-info__stats-trailing">
+        <slot name="stats-trailing" />
+      </div>
     </div>
   </div>
 </template>
@@ -112,14 +117,28 @@ function LikeChange() {
 .basic-info__stats {
   display: flex;
   align-items: center;
-  justify-content: space-around;
+  justify-content: space-between;
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--chat-border);
   font-size: 13px;
   font-weight: 500;
   color: var(--chat-text);
+  gap: 8px;
+}
+
+.basic-info__stats-group {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-around;
+  min-width: 0;
   gap: 12px;
+}
+
+.basic-info__stats-trailing {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .basic-info__stat {
@@ -148,14 +167,19 @@ function LikeChange() {
   }
 
   .basic-info__stats {
-    justify-content: flex-start;
-    gap: 18px;
+    justify-content: space-between;
+    gap: 8px;
     margin-top: 0;
     padding-top: 0;
     border-top: none;
     font-size: 14px;
     font-weight: 600;
     line-height: 1.2;
+  }
+
+  .basic-info__stats-group {
+    justify-content: flex-start;
+    gap: 18px;
   }
 
   .basic-info__stat {

@@ -49,6 +49,10 @@ export default defineConfig({
             return 'cryptoJs'
           }
 
+          if (id.includes('pdfjs-dist')) {
+            return 'pdfjs'
+          }
+
           return 'vendor'
         },
       },
