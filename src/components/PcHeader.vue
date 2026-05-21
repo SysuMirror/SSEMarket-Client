@@ -10,7 +10,14 @@ defineProps<{
 
 const sinfo = useTemplateRef<HTMLInputElement>('sinfo')
 const { userInfo } = useUserStore()
-const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = useHeaderSearch(sinfo)
+const {
+  onSearchInput,
+  search,
+  searchModeButtonText,
+  searchPlaceholder,
+  showRollingPlaceholder,
+  toggleSearchMode,
+} = useHeaderSearch(sinfo)
 
 </script>
 
@@ -93,12 +100,20 @@ const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = us
       </router-link>
     </div>
     <form class="search" @submit.prevent="search">
-      <input
-        id="sinfo"
-        ref="sinfo"
-        name="sinfo"
-        :placeholder="searchPlaceholder"
-      >
+      <label class="search-input-wrap" for="sinfo">
+        <input
+          id="sinfo"
+          ref="sinfo"
+          name="sinfo"
+          placeholder="搜索..."
+          @input="onSearchInput"
+        >
+        <Transition name="hot-query-roll" mode="out-in">
+          <span v-if="showRollingPlaceholder" :key="searchPlaceholder" class="rolling-placeholder">
+            {{ searchPlaceholder }}
+          </span>
+        </Transition>
+      </label>
       <button type="submit">
         <div
           class="icon"
@@ -237,18 +252,37 @@ const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = us
     margin: 0 0.5em;
     text-align: center;
 
-    input {
+    .search-input-wrap {
       flex: 1;
       min-width: 0;
       width: 100%;
       max-width: 48em;
-      height: 1.55em;
+      height: 1.86em;
+      position: relative;
+    }
+
+    input {
+      width: 100%;
+      height: 100%;
       padding: 0 1.6em 0 0.5em;
       font-size: 12px;
       border: 1px solid #ccc;
       border-radius: 5px;
       line-height: 0.8;
       vertical-align: middle;
+    }
+
+    .rolling-placeholder {
+      position: absolute;
+      inset: 0 1.8em 0 0.55em;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      color: #777;
+      font-size: 12px;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
     }
 
     button[type='submit'] {
@@ -264,7 +298,7 @@ const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = us
     .search-mode-toggle {
       flex-shrink: 0;
       width: auto;
-      height: 1.55em;
+      height: 1.86em;
       margin: 0;
       padding: 0 0.65em;
       border: 1px solid #d7d7d7;
@@ -284,6 +318,22 @@ const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = us
 
   }
 }
+
+.hot-query-roll-enter-active,
+.hot-query-roll-leave-active {
+  transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.hot-query-roll-enter-from {
+  opacity: 0;
+  transform: translateY(55%);
+}
+
+.hot-query-roll-leave-to {
+  opacity: 0;
+  transform: translateY(-55%);
+}
+
 .dark-mode .site-header {
   background: #000000a0;
   color: #ddd;
@@ -311,6 +361,10 @@ const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = us
       background: #88888880;
       border: 1px solid #ccc;
       color: #ccc;
+    }
+
+    .rolling-placeholder {
+      color: #aaa;
     }
 
     input::placeholder {

@@ -5,6 +5,7 @@ import { fetchHotQueries } from '@/api/ragSearch'
 const isSmartSearchMode = ref(false)
 const hotQueries = ref<string[]>([])
 const hotQueryIndex = ref(0)
+const searchInputValue = ref('')
 let hotQueryTimer: ReturnType<typeof window.setInterval> | null = null
 let mountedCount = 0
 
@@ -26,7 +27,7 @@ function startHotQueryRolling() {
     if (hotQueries.value.length <= 1)
       return
     hotQueryIndex.value = (hotQueryIndex.value + 1) % hotQueries.value.length
-  }, 2200)
+  }, 3600)
 }
 
 function stopHotQueryRolling() {
@@ -41,10 +42,15 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
   const router = useRouter()
 
   const searchPlaceholder = computed(() => hotQueries.value[hotQueryIndex.value] || '搜索...')
+  const showRollingPlaceholder = computed(() => !searchInputValue.value.trim())
   const searchModeButtonText = computed(() => isSmartSearchMode.value ? '切换普通检索' : '切换智能检索')
 
   function currentSearchValue() {
-    return inputRef.value?.value?.trim() || searchPlaceholder.value.trim()
+    return searchInputValue.value.trim() || searchPlaceholder.value.trim()
+  }
+
+  function onSearchInput(event: Event) {
+    searchInputValue.value = (event.target as HTMLInputElement).value
   }
 
   function buildSearchQuery(value: string) {
@@ -66,18 +72,21 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
     const value = currentSearchValue()
     if (!value || value === '搜索...')
       return
+    if (el && !el.value.trim()) {
+      el.value = value
+      searchInputValue.value = value
+    }
     if (value === '年度报告') {
       router.push('/annual2025')
       if (el)
         el.value = ''
+      searchInputValue.value = ''
       return
     }
     router.push({
       name: 'Search',
       query: buildSearchQuery(value),
     })
-    if (el)
-      el.value = ''
   }
 
   function toggleSearchMode() {
@@ -121,6 +130,9 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
     isSmartSearchMode,
     search,
     searchModeButtonText,
+    searchInputValue,
+    showRollingPlaceholder,
+    onSearchInput,
     searchPlaceholder,
     toggleSearchMode,
   }

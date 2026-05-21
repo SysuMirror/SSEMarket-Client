@@ -18,7 +18,14 @@ const emit = defineEmits<{
 const router = useRouter()
 const sinfo = useTemplateRef<HTMLInputElement>('sinfo')
 const { userInfo } = useUserStore()
-const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = useHeaderSearch(sinfo)
+const {
+  onSearchInput,
+  search,
+  searchModeButtonText,
+  searchPlaceholder,
+  showRollingPlaceholder,
+  toggleSearchMode,
+} = useHeaderSearch(sinfo)
 const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
 const headerAvatarSrc = ref(defaultAvatar)
 
@@ -157,12 +164,20 @@ function goBack() {
     </button>
     <div class="search-container">
       <form class="search" @submit.prevent="search">
-        <input
-          id="sinfo"
-          ref="sinfo"
-          name="sinfo"
-          :placeholder="searchPlaceholder"
-        >
+        <label class="search-input-wrap" for="sinfo">
+          <input
+            id="sinfo"
+            ref="sinfo"
+            name="sinfo"
+            placeholder="搜索..."
+            @input="onSearchInput"
+          >
+          <Transition name="hot-query-roll" mode="out-in">
+            <span v-if="showRollingPlaceholder" :key="searchPlaceholder" class="rolling-placeholder">
+              {{ searchPlaceholder }}
+            </span>
+          </Transition>
+        </label>
         <button type="submit">
           <div
             class="icon"
@@ -285,18 +300,37 @@ function goBack() {
   max-width: 48em;
 }
 
-.site-header.pwa-header .search input {
+.site-header.pwa-header .search .search-input-wrap {
   flex: 1;
   min-width: 0;
   width: 100%;
   max-width: 48em;
-  height: 1.55em;
+  height: 1.86em;
+  position: relative;
+}
+
+.site-header.pwa-header .search input {
+  width: 100%;
+  height: 100%;
   padding: 0 1.6em 0 0.5em;
   font-size: 12px;
   border: 1px solid #ccc;
   border-radius: 5px;
   line-height: 0.8;
   vertical-align: middle;
+}
+
+.site-header.pwa-header .search .rolling-placeholder {
+  position: absolute;
+  inset: 0 1.8em 0 0.55em;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: #777;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .site-header.pwa-header .search button[type='submit'] {
@@ -312,7 +346,7 @@ function goBack() {
 .site-header.pwa-header .search .search-mode-toggle {
   flex-shrink: 0;
   width: auto;
-  height: 1.55em;
+  height: 1.86em;
   margin: 0;
   padding: 0 0.65em;
   border: 1px solid #d7d7d7;
@@ -323,6 +357,21 @@ function goBack() {
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.hot-query-roll-enter-active,
+.hot-query-roll-leave-active {
+  transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.hot-query-roll-enter-from {
+  opacity: 0;
+  transform: translateY(55%);
+}
+
+.hot-query-roll-leave-to {
+  opacity: 0;
+  transform: translateY(-55%);
 }
 
 .site-header.pwa-header .search .search-mode-toggle:hover {
@@ -492,6 +541,10 @@ body.dark-mode .sidebar-resume-icon {
   background: #88888880;
   border: 1px solid #ccc;
   color: #ccc;
+}
+
+.dark-mode .site-header.pwa-header .search .rolling-placeholder {
+  color: #aaa;
 }
 
 .dark-mode .site-header.pwa-header .search input::placeholder {
