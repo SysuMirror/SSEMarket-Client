@@ -3,6 +3,8 @@ import unittest
 from scripts.rag_hot_query_clusters import (
     HotQueryClusterStore,
     best_candidate_match,
+    canonical_hot_queries_from_observations,
+    merge_hot_query_fallbacks,
     cosine_similarity,
     decide_merge,
     metadata_from_rag_payload,
@@ -171,6 +173,112 @@ class HotQueryClusterTests(unittest.TestCase):
             candidates = store.recent_candidate_queries("保研怎么准备", limit=5)
 
         self.assertEqual(candidates, ["考研怎么准备", "保研要准备什么"])
+
+    def test_canonical_hot_queries_merge_only_high_confidence_observations(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+
+        with TemporaryDirectory() as temp_dir:
+            store = HotQueryClusterStore(Path(temp_dir) / "hot_queries.sqlite3")
+            store.record_observation(
+                raw_query="保研要准备什么",
+                normalized_query="保研要准备什么",
+                candidate_query="保研怎么准备",
+                decision_kind="merged",
+                decision_reason="high_confidence",
+                semantic_similarity=0.9687,
+                result_overlap=2,
+                result_count=2,
+                cache_hit=False,
+                terms=["保研", "准备"],
+                top_post_ids=[784, 356],
+            )
+            store.record_observation(
+                raw_query="保研怎么准备",
+                normalized_query="保研怎么准备",
+                candidate_query="保研要准备什么",
+                decision_kind="merged",
+                decision_reason="high_confidence",
+                semantic_similarity=0.9687,
+                result_overlap=2,
+                result_count=2,
+                cache_hit=False,
+                terms=["保研", "准备"],
+                top_post_ids=[784, 356],
+            )
+            store.record_observation(
+                raw_query="考研怎么准备",
+                normalized_query="考研怎么准备",
+                candidate_query="保研要准备什么",
+                decision_kind="rejected",
+                decision_reason="conflicting_subject",
+                semantic_similarity=0.97,
+                result_overlap=2,
+                result_count=2,
+                cache_hit=False,
+                terms=["考研", "准备"],
+                top_post_ids=[784, 356],
+            )
+
+            hot_queries = canonical_hot_queries_from_observations(store, limit=5)
+
+        self.assertEqual(hot_queries[0]["query"], "保研要准备什么")
+        self.assertEqual(hot_queries[0]["count"], 2)
+        returned_queries = [item["query"] for item in hot_queries]
+        self.assertIn("考研怎么准备", returned_queries)
+        self.assertNotIn("保研怎么准备", returned_queries)
+
+    def test_merge_hot_query_fallbacks_fills_without_duplicates(self):
+        canonical = [{"query": "保研要准备什么", "count": 2, "last_seen": 10, "recommend_score": 23}]
+        fallback = [
+            {"query": "保研要准备什么", "count": 1, "last_seen": 9, "recommend_score": 13},
+            {"query": "实习怎么找", "count": 1, "last_seen": 8, "recommend_score": 12},
+        ]
+
+        merged = merge_hot_query_fallbacks(canonical, fallback, limit=2)
+
+        self.assertEqual([item["query"] for item in merged], ["保研要准备什么", "实习怎么找"])
+
+
+    def test_merge_hot_query_fallbacks_suppresses_canonical_aliases(self):
+        canonical = [
+            {
+                "query": "canonical query",
+                "count": 2,
+                "last_seen": 10,
+                "recommend_score": 23,
+                "_aliases": ["canonical query", "alias query"],
+            }
+        ]
+        fallback = [
+            {"query": "alias query", "count": 1, "last_seen": 9, "recommend_score": 13},
+            {"query": "separate query", "count": 1, "last_seen": 8, "recommend_score": 12},
+        ]
+
+        merged = merge_hot_query_fallbacks(canonical, fallback, limit=3)
+
+        self.assertEqual([item["query"] for item in merged], ["canonical query", "separate query"])
+        self.assertNotIn("_aliases", merged[0])
+
+    def test_merge_hot_query_fallbacks_fills_limit_after_alias_suppression(self):
+        canonical = [
+            {
+                "query": "canonical query",
+                "count": 2,
+                "last_seen": 10,
+                "recommend_score": 23,
+                "_aliases": ["canonical query", "alias query"],
+            }
+        ]
+        fallback = [
+            {"query": "alias query", "count": 1, "last_seen": 9, "recommend_score": 13},
+            {"query": "fallback 1", "count": 1, "last_seen": 8, "recommend_score": 12},
+            {"query": "fallback 2", "count": 1, "last_seen": 7, "recommend_score": 11},
+        ]
+
+        merged = merge_hot_query_fallbacks(canonical, fallback, limit=3)
+
+        self.assertEqual([item["query"] for item in merged], ["canonical query", "fallback 1", "fallback 2"])
 
 
 if __name__ == "__main__":

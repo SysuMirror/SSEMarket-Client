@@ -13,7 +13,13 @@ from urllib.parse import parse_qs, urlparse
 
 import pymysql
 
-from rag_hot_query_clusters import HotQueryClusterStore, best_candidate_match, metadata_from_rag_payload
+from rag_hot_query_clusters import (
+    HotQueryClusterStore,
+    best_candidate_match,
+    canonical_hot_queries_from_observations,
+    merge_hot_query_fallbacks,
+    metadata_from_rag_payload,
+)
 
 
 RAG_API_BASE = os.getenv("SSEMARKET_RAG_API_BASE", "http://127.0.0.1:19081")
@@ -348,6 +354,20 @@ def hot_queries_from_events(events: list[dict], limit: int = 8) -> list[dict]:
     return ranked[:min(max(int(limit), 1), 12)]
 
 
+def hot_queries(limit: int = 8) -> list[dict]:
+    safe_limit = min(max(int(limit), 1), 12)
+    fallback = hot_queries_from_events(read_search_events(), safe_limit * 2)
+    try:
+        canonical = canonical_hot_queries_from_observations(HotQueryClusterStore(HOT_QUERY_CLUSTER_DB_PATH), safe_limit)
+    except Exception as exc:
+        print(
+            json.dumps({"hot_query_canonical": False, "error": str(exc)}, ensure_ascii=False),
+            flush=True,
+        )
+        return fallback
+    return merge_hot_query_fallbacks(canonical, fallback, safe_limit)
+
+
 def cached_remote_search(query: str, limit: int) -> dict:
     request_start = time.perf_counter()
     key = cache_key(query, limit)
@@ -469,7 +489,7 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/hot-queries":
             params = parse_qs(parsed.query)
             limit = params.get("limit", ["8"])[0]
-            self.write_json({"ok": True, "data": hot_queries_from_events(read_search_events(), int(limit))})
+            self.write_json({"ok": True, "data": hot_queries(int(limit))})
             return
         if parsed.path != "/search":
             self.write_json({"ok": False, "error": "not found"}, 404)

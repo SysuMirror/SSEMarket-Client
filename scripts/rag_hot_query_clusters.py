@@ -228,6 +228,7 @@ class HotQueryClusterStore:
             rows = conn.execute(
                 """
                 SELECT
+                    event_id,
                     raw_query,
                     normalized_query,
                     candidate_query,
@@ -250,6 +251,7 @@ class HotQueryClusterStore:
             conn.close()
         return [
             {
+                "event_id": int(row["event_id"]),
                 "raw_query": row["raw_query"],
                 "normalized_query": row["normalized_query"],
                 "candidate_query": row["candidate_query"],
@@ -324,3 +326,94 @@ def best_candidate_match(
         if best is None or decision.semantic_similarity > best.decision.semantic_similarity:
             best = CandidateMatch(candidate_query=candidate_query, decision=decision)
     return best
+
+
+def canonical_hot_queries_from_observations(store: HotQueryClusterStore, limit: int = 8) -> list[dict]:
+    events = store.recent_observations(limit=100)
+    parent: dict[str, str] = {}
+
+    def find(query: str) -> str:
+        parent.setdefault(query, query)
+        if parent[query] != query:
+            parent[query] = find(parent[query])
+        return parent[query]
+
+    def union(left: str, right: str) -> None:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root != right_root:
+            parent[right_root] = left_root
+
+    for event in events:
+        query = str(event.get("normalized_query") or "")
+        candidate = str(event.get("candidate_query") or "")
+        if query:
+            find(query)
+        if candidate:
+            find(candidate)
+        if (
+            query
+            and candidate
+            and event.get("merge_decision") == "merged"
+            and event.get("decision_reason") == "high_confidence"
+        ):
+            union(query, candidate)
+
+    groups: dict[str, dict[str, dict]] = {}
+    for event in events:
+        query = str(event.get("normalized_query") or "")
+        if not query or int(event.get("result_count") or 0) <= 0:
+            continue
+        root = find(query)
+        group = groups.setdefault(root, {})
+        item = group.setdefault(query, {"query": query, "count": 0, "first_event_id": 0, "first_seen": 0, "last_seen": 0})
+        item["count"] += 1
+        created_at = int(event.get("created_at") or 0)
+        event_id = int(event.get("event_id") or 0)
+        if not item["first_event_id"] or event_id < int(item["first_event_id"]):
+            item["first_event_id"] = event_id
+        if not item["first_seen"] or created_at < int(item["first_seen"]):
+            item["first_seen"] = created_at
+        item["last_seen"] = max(int(item["last_seen"]), created_at)
+
+    ranked: list[dict] = []
+    for group in groups.values():
+        canonical = sorted(
+            group.values(),
+            key=lambda item: (-int(item["count"]), int(item["first_event_id"]), len(str(item["query"])), str(item["query"])),
+        )[0]
+        count = sum(int(item["count"]) for item in group.values())
+        last_seen = max(int(item["last_seen"]) for item in group.values())
+        ranked.append(
+            {
+                "query": canonical["query"],
+                "count": count,
+                "last_seen": last_seen,
+                "recommend_score": count * 10 + min(last_seen // 100, 3),
+                "_aliases": sorted(group.keys()),
+            }
+        )
+
+    ranked.sort(key=lambda item: (-int(item["recommend_score"]), -int(item["count"]), -int(item["last_seen"]), str(item["query"])))
+    return ranked[:min(max(int(limit), 1), 12)]
+
+
+def merge_hot_query_fallbacks(canonical: list[dict], fallback: list[dict], limit: int = 8) -> list[dict]:
+    safe_limit = min(max(int(limit), 1), 12)
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for item in canonical + fallback:
+        query = str(item.get("query") or "")
+        if not query or query in seen:
+            continue
+        aliases = {str(alias) for alias in item.get("_aliases", []) if str(alias)}
+        if aliases & seen:
+            continue
+        public_item = dict(item)
+        public_item.pop("_aliases", None)
+        merged.append(public_item)
+        seen.add(query)
+        seen.update(aliases)
+        if len(merged) >= safe_limit:
+            break
+    return merged
