@@ -13,6 +13,8 @@ from urllib.parse import parse_qs, urlparse
 
 import pymysql
 
+from rag_hot_query_clusters import HotQueryClusterStore, metadata_from_rag_payload
+
 
 RAG_API_BASE = os.getenv("SSEMARKET_RAG_API_BASE", "http://127.0.0.1:19081")
 RAG_LAB_DIR = Path(os.getenv("SSEMARKET_RAG_LAB_DIR", "/root/SSE_Market/ssemarket-rag-lab"))
@@ -21,6 +23,7 @@ PORT = int(os.getenv("SSEMARKET_RAG_PUBLIC_PORT", "19082"))
 SEARCH_CACHE_TTL_SECONDS = 10 * 60
 RAG_RESULT_CACHE: dict[tuple[str, int], tuple[float, dict]] = {}
 SEARCH_LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "rag-search-events.jsonl"
+HOT_QUERY_CLUSTER_DB_PATH = Path(__file__).resolve().parent.parent / "logs" / "hot-query-observations.sqlite3"
 HOT_QUERY_EVENT_LIMIT = 300
 HOT_QUERY_WORD_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff]")
 HOT_QUERY_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -145,6 +148,55 @@ def record_search_event(response: dict, query: str, limit: int) -> None:
         return
 
 
+def observe_hot_query_cluster(response: dict, query: str) -> None:
+    if result_count(response) <= 0:
+        return
+    normalized_query = normalize_query(query)
+    if not normalized_query or not is_hot_query_candidate(normalized_query):
+        return
+    try:
+        metadata = metadata_from_rag_payload(response)
+        store = HotQueryClusterStore(HOT_QUERY_CLUSTER_DB_PATH)
+        store.record_observation(
+            raw_query=query,
+            normalized_query=normalized_query,
+            candidate_query="",
+            decision_kind="new",
+            decision_reason="observation_only",
+            semantic_similarity=0.0,
+            result_overlap=0,
+            result_count=result_count(response),
+            cache_hit=bool(response.get("cache_hit")),
+            terms=sorted(metadata.terms),
+            top_post_ids=metadata.top_post_ids,
+        )
+        print(
+            json.dumps(
+                {
+                    "hot_query_observation": True,
+                    "query": normalized_query,
+                    "decision": "new",
+                    "terms": sorted(metadata.terms),
+                    "top_post_ids": metadata.top_post_ids,
+                },
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "hot_query_observation": False,
+                    "query": normalized_query,
+                    "error": str(exc),
+                },
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
+
+
 def read_search_events() -> list[dict]:
     if not SEARCH_LOG_PATH.exists():
         return []
@@ -226,6 +278,7 @@ def cached_remote_search(query: str, limit: int) -> dict:
         }
         response = add_metrics(payload, cache_hit=True, cache_age_ms=int((now - cached[0]) * 1000), timings=timings)
         record_search_event(response, key[0], key[1])
+        observe_hot_query_cluster(response, key[0])
         return response
 
     rag_start = time.perf_counter()
@@ -245,6 +298,7 @@ def cached_remote_search(query: str, limit: int) -> dict:
     }
     response = add_metrics(payload, cache_hit=False, cache_age_ms=0, timings=timings)
     record_search_event(response, key[0], key[1])
+    observe_hot_query_cluster(response, key[0])
     return response
 
 
