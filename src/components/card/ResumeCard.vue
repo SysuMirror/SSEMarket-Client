@@ -52,6 +52,8 @@ function viewDetail() {
         <span class="resume-card__dot">·</span>
         <span>{{ fileSizeText }}</span>
         <span class="resume-card__dot">·</span>
+        <span>{{ resume.viewNum }} 次浏览</span>
+        <span class="resume-card__dot">·</span>
         <span>{{ resume.downloadNum }} 次下载</span>
       </div>
       <div class="resume-card__footer">

@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { deleteResume } from '@/api/resume/deleteResume'
 import { downloadResume } from '@/api/resume/downloadResume'
 import { getResumeDetail } from '@/api/resume/getResumeDetail'
+import { updateResume } from '@/api/resume/updateResume'
 import { isResumeImageExt, isWeChatBrowser } from '@/api/resume/previewResume'
 import ResumeImagePreview from '@/components/ResumeImagePreview.vue'
 import ResumePdfPreview from '@/components/ResumePdfPreview.vue'
@@ -20,6 +21,10 @@ const resume = ref<ResumeItem | null>(null)
 const isLoading = ref(true)
 const isDownloading = ref(false)
 const isDeleting = ref(false)
+const isEditing = ref(false)
+const isSaving = ref(false)
+const editTitle = ref('')
+const editDescription = ref('')
 const previewActive = ref(false)
 
 const resumeID = computed(() => Number(route.params.id))
@@ -73,10 +78,51 @@ const previewIdleHint = computed(() => {
 async function fetchDetail() {
   isLoading.value = true
   previewActive.value = false
+  isEditing.value = false
   resume.value = await getResumeDetail(resumeID.value)
   isLoading.value = false
   if (!resume.value)
     showMsg('简历不存在或已删除')
+}
+
+function startEdit() {
+  if (!resume.value || !isOwner.value)
+    return
+  editTitle.value = resume.value.title
+  editDescription.value = resume.value.description || ''
+  isEditing.value = true
+}
+
+function cancelEdit() {
+  isEditing.value = false
+}
+
+async function handleSaveEdit() {
+  if (!resume.value || isSaving.value)
+    return
+  const title = editTitle.value.trim()
+  if (!title) {
+    showMsg('请填写标题')
+    return
+  }
+  isSaving.value = true
+  try {
+    const updated = await updateResume(
+      resume.value.resumeID,
+      title,
+      editDescription.value.trim(),
+    )
+    if (!updated) {
+      showMsg('保存失败')
+      return
+    }
+    resume.value = updated
+    isEditing.value = false
+    showMsg('已保存')
+  }
+  finally {
+    isSaving.value = false
+  }
 }
 
 function startPreview() {
@@ -195,19 +241,67 @@ watch(() => route.params.id, () => {
             <Icon :icon="fileIcon" width="26" height="26" />
           </div>
           <div class="fr__hero-body">
-            <h2 class="fr__title">
-              {{ resume.title }}
-            </h2>
-            <div class="fr__chips">
-              <span v-if="resume.isAnonymous" class="fr__chip">匿名</span>
-              <span class="fr__chip fr__chip--muted">{{ fileTypeLabel }}</span>
-              <span v-if="canPreview" class="fr__chip fr__chip--ok">可预览</span>
-            </div>
+            <template v-if="isEditing">
+              <div class="fr__edit">
+                <label class="fr__edit-field">
+                  <span class="fr__edit-label">标题</span>
+                  <input
+                    v-model="editTitle"
+                    type="text"
+                    class="fr__edit-input"
+                    maxlength="50"
+                    placeholder="简历标题"
+                  >
+                </label>
+                <label class="fr__edit-field">
+                  <span class="fr__edit-label">简介</span>
+                  <textarea
+                    v-model="editDescription"
+                    class="fr__edit-textarea"
+                    rows="3"
+                    maxlength="500"
+                    placeholder="可选：方向、经历摘要等"
+                  />
+                </label>
+                <div class="fr__edit-actions">
+                  <button
+                    type="button"
+                    class="fr__btn fr__btn--primary"
+                    :disabled="isSaving"
+                    @click="handleSaveEdit"
+                  >
+                    <Icon icon="tabler:device-floppy" width="17" height="17" />
+                    <span>{{ isSaving ? '保存中…' : '保存' }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="fr__btn fr__btn--secondary"
+                    :disabled="isSaving"
+                    @click="cancelEdit"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <h2 class="fr__title">
+                {{ resume.title }}
+              </h2>
+              <div class="fr__chips">
+                <span v-if="resume.isAnonymous" class="fr__chip">匿名</span>
+                <span class="fr__chip fr__chip--muted">{{ fileTypeLabel }}</span>
+                <span v-if="canPreview" class="fr__chip fr__chip--ok">可预览</span>
+              </div>
+            </template>
           </div>
         </div>
 
-        <p v-if="resume.description" class="fr__desc">
+        <p v-if="!isEditing && resume.description" class="fr__desc">
           {{ resume.description }}
+        </p>
+        <p v-else-if="!isEditing && !resume.description" class="fr__desc fr__desc--empty">
+          暂无简介
         </p>
 
         <div class="fr__stats">
@@ -220,6 +314,10 @@ watch(() => route.params.id, () => {
             <span class="fr__stat-value">{{ fileSizeText }}</span>
           </div>
           <div class="fr__stat">
+            <span class="fr__stat-label">浏览</span>
+            <span class="fr__stat-value">{{ resume.viewNum }} 次</span>
+          </div>
+          <div class="fr__stat">
             <span class="fr__stat-label">下载</span>
             <span class="fr__stat-value">{{ resume.downloadNum }} 次</span>
           </div>
@@ -229,7 +327,7 @@ watch(() => route.params.id, () => {
           </div>
         </div>
 
-        <div class="fr__actions">
+        <div v-if="!isEditing" class="fr__actions">
           <button
             v-if="canPreview"
             type="button"
@@ -247,6 +345,15 @@ watch(() => route.params.id, () => {
           >
             <Icon icon="tabler:download" width="17" height="17" />
             <span>{{ isDownloading ? '…' : '下载' }}</span>
+          </button>
+          <button
+            v-if="isOwner"
+            type="button"
+            class="fr__btn fr__btn--secondary"
+            @click="startEdit"
+          >
+            <Icon icon="tabler:edit" width="17" height="17" />
+            <span>编辑</span>
           </button>
           <button
             v-if="isOwner"
@@ -433,6 +540,64 @@ watch(() => route.params.id, () => {
   font-size: 14px;
   line-height: 1.5;
   color: var(--fr-muted);
+
+  &--empty {
+    font-style: italic;
+    opacity: 0.75;
+  }
+}
+
+.fr__edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.fr__edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fr__edit-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fr-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.fr__edit-input,
+.fr__edit-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--fr-stroke);
+  border-radius: 8px;
+  background: var(--fr-surface);
+  color: var(--fr-text);
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: var(--fr-accent);
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.15);
+  }
+}
+
+.fr__edit-textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.45;
+}
+
+.fr__edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .fr__stats {

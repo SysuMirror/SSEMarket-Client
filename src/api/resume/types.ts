@@ -9,6 +9,7 @@ export interface ResumeItem {
   mimeType: string
   fileExt: string
   downloadNum: number
+  viewNum: number
   isAnonymous: boolean
   isOwner: boolean
   canPreview: boolean
