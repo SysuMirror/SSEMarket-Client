@@ -43,6 +43,10 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
   const searchPlaceholder = computed(() => hotQueries.value[hotQueryIndex.value] || '搜索...')
   const searchModeButtonText = computed(() => isSmartSearchMode.value ? '切换普通检索' : '切换智能检索')
 
+  function currentSearchValue() {
+    return inputRef.value?.value?.trim() || searchPlaceholder.value.trim()
+  }
+
   function buildSearchQuery(value: string) {
     if (isSmartSearchMode.value)
       return { sinfo: value, smart: '1' }
@@ -59,19 +63,21 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
 
   function search() {
     const el = inputRef.value
-    const value = el?.value?.trim() || ''
-    if (!el || !value)
+    const value = currentSearchValue()
+    if (!value || value === '搜索...')
       return
     if (value === '年度报告') {
       router.push('/annual2025')
-      el.value = ''
+      if (el)
+        el.value = ''
       return
     }
     router.push({
       name: 'Search',
       query: buildSearchQuery(value),
     })
-    el.value = ''
+    if (el)
+      el.value = ''
   }
 
   function toggleSearchMode() {

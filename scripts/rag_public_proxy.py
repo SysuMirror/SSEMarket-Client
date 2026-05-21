@@ -39,6 +39,8 @@ HOT_QUERY_WORD_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff]")
 HOT_QUERY_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 HOT_QUERY_HANGUL_RE = re.compile(r"[\u3130-\u318f\uac00-\ud7af]")
 HOT_QUERY_LONG_ASCII_TOKEN_RE = re.compile(r"[A-Za-z0-9]{12,}")
+HOT_QUERY_ASCII_RE = re.compile(r"[A-Za-z0-9]")
+HOT_QUERY_MEANINGLESS_WORDS = {"test", "testing", "ceshi", "测试"}
 SEED_HOT_QUERIES = [
     ("保研要准备什么", 28),
     ("实习怎么找", 25),
@@ -314,10 +316,21 @@ def is_hot_query_candidate(query: str) -> bool:
     query = normalize_query(query)
     if not query:
         return False
+    compact_query = re.sub(r"\s+", "", query).lower()
+    if compact_query in HOT_QUERY_MEANINGLESS_WORDS:
+        return False
+    if compact_query.isdigit():
+        return False
+    if len(set(compact_query)) <= 1:
+        return False
     if HOT_QUERY_HANGUL_RE.search(query) and not HOT_QUERY_CJK_RE.search(query):
         return False
     word_chars = HOT_QUERY_WORD_RE.findall(query)
     if not word_chars:
+        return False
+    cjk_chars = HOT_QUERY_CJK_RE.findall(query)
+    ascii_chars = HOT_QUERY_ASCII_RE.findall(query)
+    if len(cjk_chars) < 2 and len(ascii_chars) < 3:
         return False
     if len(word_chars) / max(len(query), 1) < 0.45:
         return False

@@ -82,6 +82,28 @@ class RagPublicProxyHotCacheTest(unittest.TestCase):
         self.assertEqual(second["cache_scope"], "standard")
         self.assertEqual(rag_search.call_count, 1)
 
+    def test_meaningless_queries_are_not_hot_query_candidates(self):
+        for query in ["123", "1", "a", "aa", "aaa", "。。。", "测试", "test"]:
+            with self.subTest(query=query):
+                self.assertFalse(rag_public_proxy.is_hot_query_candidate(query))
+
+    def test_meaningful_queries_are_hot_query_candidates(self):
+        for query in ["保研", "保研怎么准备", "简历怎么写", "course review"]:
+            with self.subTest(query=query):
+                self.assertTrue(rag_public_proxy.is_hot_query_candidate(query))
+
+    def test_hot_queries_from_events_excludes_meaningless_queries(self):
+        hot_queries = rag_public_proxy.hot_queries_from_events(
+            [
+                {"query": "123", "result_count": 10, "timestamp": 100},
+                {"query": "保研", "result_count": 10, "timestamp": 101},
+            ],
+            limit=2,
+        )
+
+        self.assertEqual(hot_queries[0]["query"], "保研")
+        self.assertNotIn("123", [item["query"] for item in hot_queries])
+
 
 if __name__ == "__main__":
     unittest.main()
