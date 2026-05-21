@@ -1,43 +1,12 @@
 <script lang="ts" setup>
 import { computed, useTemplateRef } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
+import { useHeaderSearch } from '@/composables/useHeaderSearch'
 
 const route = useRoute()
-const router = useRouter()
-const sinfo = useTemplateRef('sinfo')
-function search() {
-  const el = sinfo.value as HTMLInputElement
-  if (!el || !el.value)
-    return
-  if (el.value === '年度报告') {
-    router.push('/annual2025')
-    el.value = ''
-    return
-  }
-  const currentRoute = router.currentRoute.value
-  if (currentRoute.path === '/partition/课程交流'
-    // 如果先搜索一次然后返回，再次搜索时path会被URI编码，参见PartitionListView的sendPartition函数
-    || currentRoute.path === `/partition/${encodeURIComponent('课程交流')}`
-    || currentRoute?.query?.partition === '课程交流'
-    || currentRoute?.query?.partition === encodeURIComponent('课程交流')) {
-    router.push(`/search?sinfo=${encodeURIComponent(el.value)}&partition=课程交流`)
-  }
-  else {
-    router.push(`/search?sinfo=${encodeURIComponent(el.value)}`)
-  }
-  el.value = ''
-}
+const sinfo = useTemplateRef<HTMLInputElement>('sinfo')
+const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = useHeaderSearch(sinfo)
 
-function smartSearch() {
-  const el = sinfo.value as HTMLInputElement
-  const value = el?.value?.trim() || ''
-  router.push({
-    name: 'RagPreview',
-    query: value ? { q: value, limit: '10' } : {},
-  })
-  if (el)
-    el.value = ''
-}
 const shopSidebarIsShow = computed(() => {
   return /^\/(?:myproducts|shop)/.test(route.fullPath)
 })
@@ -57,7 +26,7 @@ const shopSidebarIsShow = computed(() => {
         id="sinfo"
         ref="sinfo"
         name="sinfo"
-        placeholder="搜索..."
+        :placeholder="searchPlaceholder"
       >
       <button type="submit">
         <div
@@ -69,8 +38,8 @@ const shopSidebarIsShow = computed(() => {
                 "
         />
       </button>
-      <button class="smart-search-button" type="button" aria-label="智能搜索" @click="smartSearch">
-        智能
+      <button class="search-mode-toggle" type="button" @click="toggleSearchMode">
+        {{ searchModeButtonText }}
       </button>
     </form>
     <router-link
@@ -143,6 +112,7 @@ const shopSidebarIsShow = computed(() => {
     align-items: center;
     justify-content: center;
     flex: 1;
+    gap: 0.4em;
     margin: 0 0.5em;
     text-align: center;
 
@@ -160,7 +130,7 @@ const shopSidebarIsShow = computed(() => {
       vertical-align: middle;
     }
 
-    button {
+    button[type='submit'] {
       flex-shrink: 0;
       background: unset;
       height: 1em;
@@ -170,19 +140,21 @@ const shopSidebarIsShow = computed(() => {
       vertical-align: middle;
     }
 
-    .smart-search-button {
+    .search-mode-toggle {
+      flex-shrink: 0;
       width: auto;
-      min-width: 38px;
       height: 1.55em;
-      margin: 0 0 0 0.45em;
-      padding: 0 0.55em;
+      margin: 0;
+      padding: 0 0.5em;
       border: 1px solid #d7d7d7;
       border-radius: 5px;
       background: #f7f7f7;
       color: #555;
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1;
+      white-space: nowrap;
     }
+
   }
 }
 .dark-mode .site-header {
@@ -217,15 +189,16 @@ const shopSidebarIsShow = computed(() => {
     input::placeholder {
       color: #aaa;
     }
-    button {
+    button[type='submit'] {
       overflow: hidden;
     }
 
-    .smart-search-button {
+    .search-mode-toggle {
       background: #ffffff12;
       border-color: #777;
       color: #ddd;
     }
+
   }
 }
 

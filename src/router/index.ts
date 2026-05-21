@@ -63,9 +63,13 @@ const router = createRouter({
         },
         {
           path: 'rag-preview',
-          name: 'RagPreview',
-          meta: { public: true },
-          component: () => import('@/views/RagPreviewView.vue'),
+          redirect: to => ({
+            name: 'Search',
+            query: {
+              sinfo: typeof to.query.q === 'string' ? to.query.q : '',
+              smart: '1',
+            },
+          }),
         },
         {
           path: 'partitions',

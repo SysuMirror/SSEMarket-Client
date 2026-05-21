@@ -4,19 +4,21 @@ import { Icon } from '@iconify/vue'
 import {
   onMounted,
   ref,
+  watch,
 } from 'vue'
 
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
+import { searchRagPosts } from '@/api/ragSearch'
 import { usePostView } from '@/composables/usePostView'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
+import type { Post } from '@/types/post'
 
 const { search, setSearchTimeRange, refreshPosts, conditions, updateNum } = usePostStore()
 const { userInfo } = useUserStore()
 const route = useRoute()
-const router = useRouter()
 const { posts, update, isLoading, hasMore, initialize } = usePostView()
 
 const isDense = ref(false)
@@ -24,15 +26,45 @@ const keyword = ref('')
 const timeFrom = ref('')
 const timeTo = ref('')
 const filtering = ref(false)
+const isSmartMode = ref(false)
+const smartLoading = ref(false)
+const smartError = ref('')
+const initialized = ref(false)
 
 async function runSearch() {
+  isSmartMode.value = false
+  smartError.value = ''
   filtering.value = true
   hasMore.value = true
   refreshPosts()
+  search(keyword.value, route.query?.partition as typeof Partitions[number] | undefined)
   setSearchTimeRange(timeFrom.value, timeTo.value)
   await update()
   await updateNum(userInfo.phone)
   filtering.value = false
+}
+
+async function runSmartSearch() {
+  if (!keyword.value)
+    return
+  isSmartMode.value = true
+  smartLoading.value = true
+  smartError.value = ''
+  posts.splice(0, posts.length)
+  hasMore.value = false
+  try {
+    const response = await searchRagPosts(keyword.value, 10, 'manual')
+    const ragPosts = (response.data?.results || [])
+      .map(result => result.post)
+      .filter((post): post is Post => !!post)
+    posts.splice(0, posts.length, ...ragPosts)
+  }
+  catch (error) {
+    smartError.value = error instanceof Error ? error.message : '智能检索失败'
+  }
+  finally {
+    smartLoading.value = false
+  }
 }
 
 function clearTimeFilter() {
@@ -41,21 +73,22 @@ function clearTimeFilter() {
   void runSearch()
 }
 
-function switchToSmartSearch() {
-  if (!keyword.value)
+function loadMore() {
+  if (isSmartMode.value)
     return
-  router.push({
-    name: 'RagPreview',
-    query: { q: keyword.value, limit: '10' },
-  })
+  void update()
 }
 
-onMounted(async () => {
+async function initializeFromRoute() {
   const query = route.query
   if (!('sinfo' in query))
     return showMsg('未知的搜索')
   const sinfo = query.sinfo as string
   keyword.value = sinfo
+  isDense.value = false
+  timeFrom.value = ''
+  timeTo.value = ''
+  smartError.value = ''
   const partition = query?.partition as typeof Partitions[number] | undefined
   if (query.timeFrom && typeof query.timeFrom === 'string')
     timeFrom.value = query.timeFrom
@@ -70,7 +103,39 @@ onMounted(async () => {
         setSearchTimeRange(timeFrom.value, timeTo.value)
     },
   })
+  if (query.smart === '1')
+    await runSmartSearch()
+}
+
+onMounted(async () => {
+  await initializeFromRoute()
+  initialized.value = true
 })
+
+watch(
+  () => [route.query.sinfo, route.query.partition, route.query.smart, route.query.timeFrom, route.query.timeTo],
+  async ([sinfo, partition, smart, timeFrom, timeTo], [previousSinfo, previousPartition, previousSmart, previousTimeFrom, previousTimeTo]) => {
+    if (!initialized.value)
+      return
+
+    const queryChanged = sinfo !== previousSinfo
+      || partition !== previousPartition
+      || timeFrom !== previousTimeFrom
+      || timeTo !== previousTimeTo
+
+    if (queryChanged) {
+      await initializeFromRoute()
+      return
+    }
+
+    if (!keyword.value || smart === previousSmart)
+      return
+    if (smart === '1')
+      await runSmartSearch()
+    else
+      await runSearch()
+  },
+)
 </script>
 
 <template>
@@ -79,18 +144,12 @@ onMounted(async () => {
       <h2 class="search-page__title">
         搜索
       </h2>
-      <div class="search-page__mode-switch" aria-label="搜索模式">
-        <span class="search-page__mode search-page__mode--active">普通搜索</span>
-        <button class="search-page__mode" type="button" @click="switchToSmartSearch">
-          智能搜索
-        </button>
-      </div>
-      <p v-if="keyword" class="search-page__keyword">
+      <p v-if="keyword && !isSmartMode" class="search-page__keyword">
         关键词：<span>{{ keyword }}</span>
       </p>
     </header>
 
-    <section class="search-page__filter" aria-label="发帖时间筛选">
+    <section v-if="!isSmartMode" class="search-page__filter" aria-label="发帖时间筛选">
       <p class="search-page__filter-label">
         发帖时间范围
       </p>
@@ -146,12 +205,19 @@ onMounted(async () => {
       </p>
     </section>
 
+    <p v-if="smartLoading" class="search-page__status">
+      智能检索中...
+    </p>
+    <p v-if="smartError" class="search-page__error">
+      {{ smartError }}
+    </p>
+
     <PostList
       :posts="posts"
       :is-dense="isDense"
-      :is-loading="isLoading || filtering"
+      :is-loading="isLoading || filtering || smartLoading"
       :has-more="hasMore"
-      @bottom="update"
+      @bottom="loadMore"
     />
   </div>
 </template>
@@ -167,35 +233,12 @@ onMounted(async () => {
 }
 
 .search-page__head {
-  margin-bottom: 10px;
-}
-
-.search-page__mode-switch {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  margin-top: 8px;
-  padding: 3px;
-  border: 1px solid var(--chat-border);
-  border-radius: 8px;
-  background: var(--chat-bg-highlight);
-}
-
-.search-page__mode {
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--chat-text-secondary);
-  padding: 5px 10px;
-  font-size: 0.8125rem;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.search-page__mode--active {
-  background: var(--chat-accent);
-  color: #fff;
-  cursor: default;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 10px;
 }
 
 .search-page__title {
@@ -206,7 +249,8 @@ onMounted(async () => {
 }
 
 .search-page__keyword {
-  margin: 6px 0 0;
+  flex-basis: 100%;
+  margin: 0;
   font-size: 0.875rem;
   color: var(--chat-text-secondary);
 
@@ -316,6 +360,26 @@ onMounted(async () => {
   font-size: 0.75rem;
   color: var(--chat-text-tips);
   line-height: 1.45;
+}
+
+.search-page__status {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--chat-border);
+  border-radius: 10px;
+  background: var(--chat-bg-highlight);
+  color: var(--chat-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.search-page__error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(244, 67, 54, 0.35);
+  border-radius: 10px;
+  background: rgba(244, 67, 54, 0.08);
+  color: var(--color-error);
+  font-size: 0.8125rem;
 }
 
 @media screen and (min-width: 768px) {

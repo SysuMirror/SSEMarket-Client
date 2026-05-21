@@ -3,6 +3,7 @@ import { Icon } from '@iconify/vue'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/userStore'
+import { useHeaderSearch } from '@/composables/useHeaderSearch'
 
 const props = defineProps<{
   unreadNoticeNum: number
@@ -15,8 +16,9 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
-const sinfo = useTemplateRef('sinfo')
+const sinfo = useTemplateRef<HTMLInputElement>('sinfo')
 const { userInfo } = useUserStore()
+const { search, searchModeButtonText, searchPlaceholder, toggleSearchMode } = useHeaderSearch(sinfo)
 const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
 const headerAvatarSrc = ref(defaultAvatar)
 
@@ -60,39 +62,6 @@ function goBack() {
   }
 }
 
-function search() {
-  const el = sinfo.value as HTMLInputElement
-  if (!el || !el.value)
-    return
-  if (el.value === '年度报告') {
-    router.push('/annual2025')
-    el.value = ''
-    return
-  }
-  const currentRoute = router.currentRoute.value
-  if (currentRoute.path === '/partition/课程交流'
-    // 如果先搜索一次然后返回，再次搜索时path会被URI编码
-    || currentRoute.path === `/partition/${encodeURIComponent('课程交流')}`
-    || currentRoute?.query?.partition === '课程交流'
-    || currentRoute?.query?.partition === encodeURIComponent('课程交流')) {
-    router.push(`/search?sinfo=${encodeURIComponent(el.value)}&partition=课程交流`)
-  }
-  else {
-    router.push(`/search?sinfo=${encodeURIComponent(el.value)}`)
-  }
-  el.value = ''
-}
-
-function smartSearch() {
-  const el = sinfo.value as HTMLInputElement
-  const value = el?.value?.trim() || ''
-  router.push({
-    name: 'RagPreview',
-    query: value ? { q: value, limit: '10' } : {},
-  })
-  if (el)
-    el.value = ''
-}
 </script>
 
 <template>
@@ -192,7 +161,7 @@ function smartSearch() {
           id="sinfo"
           ref="sinfo"
           name="sinfo"
-          placeholder="搜索..."
+          :placeholder="searchPlaceholder"
         >
         <button type="submit">
           <div
@@ -204,8 +173,8 @@ function smartSearch() {
 							"
           />
         </button>
-        <button class="smart-search-button" type="button" title="智能搜索" @click="smartSearch">
-          智能
+        <button class="search-mode-toggle" type="button" @click="toggleSearchMode">
+          {{ searchModeButtonText }}
         </button>
       </form>
     </div>
@@ -310,6 +279,7 @@ function smartSearch() {
   align-items: center;
   justify-content: center;
   flex: 1;
+  gap: 0.45em;
   margin: 0 1em;
   text-align: center;
   max-width: 48em;
@@ -329,7 +299,7 @@ function smartSearch() {
   vertical-align: middle;
 }
 
-.site-header.pwa-header .search button {
+.site-header.pwa-header .search button[type='submit'] {
   flex-shrink: 0;
   background: unset;
   height: 1em;
@@ -339,11 +309,11 @@ function smartSearch() {
   vertical-align: middle;
 }
 
-.site-header.pwa-header .search .smart-search-button {
+.site-header.pwa-header .search .search-mode-toggle {
+  flex-shrink: 0;
   width: auto;
-  min-width: 42px;
   height: 1.55em;
-  margin: 0 0 0 0.5em;
+  margin: 0;
   padding: 0 0.65em;
   border: 1px solid #d7d7d7;
   border-radius: 5px;
@@ -351,10 +321,11 @@ function smartSearch() {
   color: #555;
   font-size: 12px;
   line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.site-header.pwa-header .search .smart-search-button:hover {
+.site-header.pwa-header .search .search-mode-toggle:hover {
   border-color: #aaa;
   background: #eee;
 }
@@ -525,6 +496,12 @@ body.dark-mode .sidebar-resume-icon {
 
 .dark-mode .site-header.pwa-header .search input::placeholder {
   color: #aaa;
+}
+
+.dark-mode .site-header.pwa-header .search .search-mode-toggle {
+  background: #ffffff12;
+  border-color: #777;
+  color: #ddd;
 }
 
 .dark-mode .sidebar-header {
