@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import sqlite3
 import time
 import json
@@ -29,6 +30,22 @@ class QueryMetadata:
     terms: set[str]
     top_post_ids: list[int]
     rewritten_query: str
+
+
+@dataclass(frozen=True)
+class CandidateMatch:
+    candidate_query: str
+    decision: MergeDecision
+
+
+def cosine_similarity(left: list[float], right: list[float]) -> float:
+    if not left or not right or len(left) != len(right):
+        return 0.0
+    left_norm = math.sqrt(sum(item * item for item in left))
+    right_norm = math.sqrt(sum(item * item for item in right))
+    if left_norm == 0 or right_norm == 0:
+        return 0.0
+    return sum(a * b for a, b in zip(left, right)) / (left_norm * right_norm)
 
 
 def primary_subject(text: str) -> str:
@@ -248,3 +265,62 @@ class HotQueryClusterStore:
             }
             for row in rows
         ]
+
+    def recent_candidate_queries(self, current_query: str, limit: int = 20) -> list[str]:
+        safe_limit = min(max(int(limit), 1), 100)
+        conn = self.connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT normalized_query
+                FROM hot_query_observations
+                WHERE normalized_query != ?
+                  AND result_count > 0
+                ORDER BY event_id DESC
+                LIMIT ?
+                """,
+                (current_query, safe_limit * 4),
+            ).fetchall()
+        finally:
+            conn.close()
+
+        candidates: list[str] = []
+        for row in rows:
+            query = str(row["normalized_query"] or "")
+            if query and query not in candidates:
+                candidates.append(query)
+            if len(candidates) >= safe_limit:
+                break
+        return candidates
+
+
+def best_candidate_match(
+    *,
+    store: HotQueryClusterStore,
+    query: str,
+    query_embedding: list[float],
+    query_terms: set[str],
+    query_post_ids: list[int],
+    candidate_embeddings: dict[str, list[float]],
+    limit: int = 50,
+) -> CandidateMatch | None:
+    best: CandidateMatch | None = None
+    for event in store.recent_observations(limit=limit):
+        candidate_query = str(event.get("normalized_query") or "")
+        if not candidate_query or candidate_query == query:
+            continue
+        candidate_embedding = candidate_embeddings.get(candidate_query)
+        if candidate_embedding is None:
+            continue
+        decision = decide_merge(
+            query=query,
+            candidate_query=candidate_query,
+            semantic_similarity=cosine_similarity(query_embedding, candidate_embedding),
+            query_terms=query_terms,
+            candidate_terms=set(event.get("terms") or []),
+            query_post_ids=query_post_ids,
+            candidate_post_ids=[int(item) for item in event.get("top_post_ids") or []],
+        )
+        if best is None or decision.semantic_similarity > best.decision.semantic_similarity:
+            best = CandidateMatch(candidate_query=candidate_query, decision=decision)
+    return best

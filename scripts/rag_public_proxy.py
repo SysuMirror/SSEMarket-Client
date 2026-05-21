@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pymysql
 
-from rag_hot_query_clusters import HotQueryClusterStore, metadata_from_rag_payload
+from rag_hot_query_clusters import HotQueryClusterStore, best_candidate_match, metadata_from_rag_payload
 
 
 RAG_API_BASE = os.getenv("SSEMARKET_RAG_API_BASE", "http://127.0.0.1:19081")
@@ -22,8 +22,11 @@ HOST = os.getenv("SSEMARKET_RAG_PUBLIC_HOST", "127.0.0.1")
 PORT = int(os.getenv("SSEMARKET_RAG_PUBLIC_PORT", "19082"))
 SEARCH_CACHE_TTL_SECONDS = 10 * 60
 RAG_RESULT_CACHE: dict[tuple[str, int], tuple[float, dict]] = {}
+EMBEDDING_CACHE: dict[str, list[float]] = {}
+EMBEDDING_CACHE_MAX = 512
 SEARCH_LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "rag-search-events.jsonl"
 HOT_QUERY_CLUSTER_DB_PATH = Path(__file__).resolve().parent.parent / "logs" / "hot-query-observations.sqlite3"
+HOT_QUERY_CANDIDATE_LIMIT = 8
 HOT_QUERY_EVENT_LIMIT = 300
 HOT_QUERY_WORD_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff]")
 HOT_QUERY_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -131,6 +134,59 @@ def result_count(payload: dict) -> int:
     return len(payload.get("data", {}).get("results", []))
 
 
+def require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"{name} is required")
+    return value
+
+
+def env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    return int(raw)
+
+
+def embed_texts(texts: list[str]) -> list[list[float]]:
+    if not texts:
+        return []
+    api_key = require_env("DASHSCOPE_API_KEY")
+    base_url = require_env("EMBEDDING_BASE_URL").rstrip("/")
+    model = require_env("EMBEDDING_MODEL")
+    dim = env_int("EMBEDDING_DIM", 1024)
+    body = json.dumps(
+        {
+            "model": model,
+            "input": texts,
+            "dimensions": dim,
+            "encoding_format": "float",
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        f"{base_url}/embeddings",
+        data=body,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    data = payload.get("data") or []
+    data.sort(key=lambda item: int(item.get("index") or 0))
+    return [item["embedding"] for item in data]
+
+
+def cached_embed_texts(texts: list[str]) -> list[list[float]]:
+    missing = [text for text in texts if text not in EMBEDDING_CACHE]
+    if missing:
+        for text, vector in zip(missing, embed_texts(missing)):
+            if len(EMBEDDING_CACHE) >= EMBEDDING_CACHE_MAX:
+                EMBEDDING_CACHE.pop(next(iter(EMBEDDING_CACHE)))
+            EMBEDDING_CACHE[text] = vector
+    return [EMBEDDING_CACHE[text] for text in texts]
+
+
 def record_search_event(response: dict, query: str, limit: int) -> None:
     event = {
         "timestamp": int(time.time()),
@@ -157,14 +213,43 @@ def observe_hot_query_cluster(response: dict, query: str) -> None:
     try:
         metadata = metadata_from_rag_payload(response)
         store = HotQueryClusterStore(HOT_QUERY_CLUSTER_DB_PATH)
+        candidate_query = ""
+        decision_kind = "new"
+        decision_reason = "cache_hit_observation" if response.get("cache_hit") else "no_candidate"
+        semantic_similarity = 0.0
+        result_overlap = 0
+        if not response.get("cache_hit"):
+            candidate_queries = store.recent_candidate_queries(normalized_query, HOT_QUERY_CANDIDATE_LIMIT)
+            if candidate_queries:
+                try:
+                    vectors = cached_embed_texts([normalized_query] + candidate_queries)
+                    query_embedding = vectors[0]
+                    candidate_embeddings = dict(zip(candidate_queries, vectors[1:]))
+                    match = best_candidate_match(
+                        store=store,
+                        query=normalized_query,
+                        query_embedding=query_embedding,
+                        query_terms=metadata.terms,
+                        query_post_ids=metadata.top_post_ids,
+                        candidate_embeddings=candidate_embeddings,
+                        limit=HOT_QUERY_CANDIDATE_LIMIT,
+                    )
+                    if match:
+                        candidate_query = match.candidate_query
+                        decision_kind = match.decision.kind
+                        decision_reason = match.decision.reason
+                        semantic_similarity = match.decision.semantic_similarity
+                        result_overlap = match.decision.result_overlap
+                except Exception as exc:
+                    decision_reason = f"embedding_unavailable:{type(exc).__name__}"
         store.record_observation(
             raw_query=query,
             normalized_query=normalized_query,
-            candidate_query="",
-            decision_kind="new",
-            decision_reason="observation_only",
-            semantic_similarity=0.0,
-            result_overlap=0,
+            candidate_query=candidate_query,
+            decision_kind=decision_kind,
+            decision_reason=decision_reason,
+            semantic_similarity=semantic_similarity,
+            result_overlap=result_overlap,
             result_count=result_count(response),
             cache_hit=bool(response.get("cache_hit")),
             terms=sorted(metadata.terms),
@@ -175,7 +260,11 @@ def observe_hot_query_cluster(response: dict, query: str) -> None:
                 {
                     "hot_query_observation": True,
                     "query": normalized_query,
-                    "decision": "new",
+                    "candidate_query": candidate_query,
+                    "decision": decision_kind,
+                    "decision_reason": decision_reason,
+                    "semantic_similarity": round(semantic_similarity, 4),
+                    "result_overlap": result_overlap,
                     "terms": sorted(metadata.terms),
                     "top_post_ids": metadata.top_post_ids,
                 },
@@ -315,20 +404,6 @@ def rag_search(query: str, limit: int) -> dict:
     url = f"{RAG_API_BASE}/search?q={encoded_query}&limit={safe_limit}"
     with urllib.request.urlopen(url, timeout=35) as response:
         return json.loads(response.read().decode("utf-8"))
-
-
-def require_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f"{name} is required")
-    return value
-
-
-def env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if not raw:
-        return default
-    return int(raw)
 
 
 def fetch_posts(post_ids: list[int]) -> dict[int, dict]:

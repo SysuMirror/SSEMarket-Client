@@ -2,6 +2,8 @@ import unittest
 
 from scripts.rag_hot_query_clusters import (
     HotQueryClusterStore,
+    best_candidate_match,
+    cosine_similarity,
     decide_merge,
     metadata_from_rag_payload,
 )
@@ -107,6 +109,68 @@ class HotQueryClusterTests(unittest.TestCase):
         self.assertEqual(events[0]["candidate_query"], "保研要准备什么")
         self.assertEqual(events[0]["terms"], ["保研", "准备"])
         self.assertEqual(events[0]["top_post_ids"], [784, 356])
+
+    def test_cosine_similarity_handles_basic_vectors(self):
+        self.assertAlmostEqual(cosine_similarity([1.0, 0.0], [1.0, 0.0]), 1.0)
+        self.assertAlmostEqual(cosine_similarity([1.0, 0.0], [0.0, 1.0]), 0.0)
+        self.assertAlmostEqual(cosine_similarity([], [1.0, 0.0]), 0.0)
+
+    def test_best_candidate_match_uses_embeddings_terms_and_posts(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+
+        with TemporaryDirectory() as temp_dir:
+            store = HotQueryClusterStore(Path(temp_dir) / "hot_queries.sqlite3")
+            store.record_observation(
+                raw_query="保研要准备什么",
+                normalized_query="保研要准备什么",
+                decision_kind="new",
+                decision_reason="observation_only",
+                semantic_similarity=0.0,
+                result_overlap=0,
+                result_count=2,
+                cache_hit=False,
+                terms=["保研", "准备"],
+                top_post_ids=[784, 356],
+            )
+
+            match = best_candidate_match(
+                store=store,
+                query="保研怎么准备",
+                query_embedding=[1.0, 0.0],
+                query_terms={"保研", "准备"},
+                query_post_ids=[784, 356, 100],
+                candidate_embeddings={"保研要准备什么": [0.99, 0.01]},
+            )
+
+        self.assertIsNotNone(match)
+        assert match is not None
+        self.assertEqual(match.candidate_query, "保研要准备什么")
+        self.assertEqual(match.decision.kind, "merged")
+
+    def test_recent_candidate_queries_are_distinct_and_exclude_current_query(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+
+        with TemporaryDirectory() as temp_dir:
+            store = HotQueryClusterStore(Path(temp_dir) / "hot_queries.sqlite3")
+            for query in ["保研要准备什么", "保研要准备什么", "考研怎么准备", "保研怎么准备"]:
+                store.record_observation(
+                    raw_query=query,
+                    normalized_query=query,
+                    decision_kind="new",
+                    decision_reason="observation_only",
+                    semantic_similarity=0.0,
+                    result_overlap=0,
+                    result_count=2,
+                    cache_hit=False,
+                    terms=["准备"],
+                    top_post_ids=[1, 2],
+                )
+
+            candidates = store.recent_candidate_queries("保研怎么准备", limit=5)
+
+        self.assertEqual(candidates, ["考研怎么准备", "保研要准备什么"])
 
 
 if __name__ == "__main__":
