@@ -41,8 +41,8 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
   const route = useRoute()
   const router = useRouter()
 
-  const searchPlaceholder = computed(() => hotQueries.value[hotQueryIndex.value] || '搜索...')
-  const showRollingPlaceholder = computed(() => !searchInputValue.value.trim())
+  const searchPlaceholder = computed(() => hotQueries.value[hotQueryIndex.value] || '')
+  const showRollingPlaceholder = computed(() => !searchInputValue.value.trim() && !!searchPlaceholder.value)
   const searchModeButtonText = computed(() => isSmartSearchMode.value ? '切换普通检索' : '切换智能检索')
 
   function currentSearchValue() {
@@ -70,7 +70,7 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
   function search() {
     const el = inputRef.value
     const value = currentSearchValue()
-    if (!value || value === '搜索...')
+    if (!value)
       return
     if (el && !el.value.trim()) {
       el.value = value

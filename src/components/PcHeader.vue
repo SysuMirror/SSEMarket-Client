@@ -105,7 +105,6 @@ const {
           id="sinfo"
           ref="sinfo"
           name="sinfo"
-          placeholder="搜索..."
           @input="onSearchInput"
         >
         <Transition name="hot-query-roll" mode="out-in">
@@ -264,7 +263,7 @@ const {
     input {
       width: 100%;
       height: 100%;
-      padding: 0 1.6em 0 0.5em;
+      padding: 0 0.5em;
       font-size: 12px;
       border: 1px solid #ccc;
       border-radius: 5px;
@@ -274,7 +273,7 @@ const {
 
     .rolling-placeholder {
       position: absolute;
-      inset: 0 1.8em 0 0.55em;
+      inset: 0 0.55em;
       display: flex;
       align-items: center;
       overflow: hidden;
@@ -288,10 +287,13 @@ const {
     button[type='submit'] {
       flex-shrink: 0;
       background: unset;
-      height: 1em;
-      width: 1em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 1.86em;
+      width: 1.86em;
       padding: 0;
-      margin: 0 0 0 -1.5em;
+      margin: 0;
       vertical-align: middle;
     }
 
