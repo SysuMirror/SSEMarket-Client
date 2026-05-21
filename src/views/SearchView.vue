@@ -6,7 +6,7 @@ import {
   ref,
 } from 'vue'
 
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { usePostView } from '@/composables/usePostView'
@@ -16,6 +16,7 @@ import { useUserStore } from '@/store/userStore'
 const { search, setSearchTimeRange, refreshPosts, conditions, updateNum } = usePostStore()
 const { userInfo } = useUserStore()
 const route = useRoute()
+const router = useRouter()
 const { posts, update, isLoading, hasMore, initialize } = usePostView()
 
 const isDense = ref(false)
@@ -38,6 +39,15 @@ function clearTimeFilter() {
   timeFrom.value = ''
   timeTo.value = ''
   void runSearch()
+}
+
+function switchToSmartSearch() {
+  if (!keyword.value)
+    return
+  router.push({
+    name: 'RagPreview',
+    query: { q: keyword.value, limit: '10' },
+  })
 }
 
 onMounted(async () => {
@@ -69,6 +79,12 @@ onMounted(async () => {
       <h2 class="search-page__title">
         搜索
       </h2>
+      <div class="search-page__mode-switch" aria-label="搜索模式">
+        <span class="search-page__mode search-page__mode--active">普通搜索</span>
+        <button class="search-page__mode" type="button" @click="switchToSmartSearch">
+          智能搜索
+        </button>
+      </div>
       <p v-if="keyword" class="search-page__keyword">
         关键词：<span>{{ keyword }}</span>
       </p>
@@ -152,6 +168,34 @@ onMounted(async () => {
 
 .search-page__head {
   margin-bottom: 10px;
+}
+
+.search-page__mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 3px;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  background: var(--chat-bg-highlight);
+}
+
+.search-page__mode {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--chat-text-secondary);
+  padding: 5px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.search-page__mode--active {
+  background: var(--chat-accent);
+  color: #fff;
+  cursor: default;
 }
 
 .search-page__title {

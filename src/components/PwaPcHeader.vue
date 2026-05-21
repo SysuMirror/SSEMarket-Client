@@ -82,6 +82,17 @@ function search() {
   }
   el.value = ''
 }
+
+function smartSearch() {
+  const el = sinfo.value as HTMLInputElement
+  const value = el?.value?.trim() || ''
+  router.push({
+    name: 'RagPreview',
+    query: value ? { q: value, limit: '10' } : {},
+  })
+  if (el)
+    el.value = ''
+}
 </script>
 
 <template>
@@ -193,6 +204,9 @@ function search() {
 							"
           />
         </button>
+        <button class="smart-search-button" type="button" title="智能搜索" @click="smartSearch">
+          智能
+        </button>
       </form>
     </div>
   </div>
@@ -292,6 +306,9 @@ function search() {
 }
 
 .site-header.pwa-header .search-container .search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
   margin: 0 1em;
   text-align: center;
@@ -299,6 +316,8 @@ function search() {
 }
 
 .site-header.pwa-header .search input {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   max-width: 48em;
   height: 1.55em;
@@ -311,12 +330,33 @@ function search() {
 }
 
 .site-header.pwa-header .search button {
+  flex-shrink: 0;
   background: unset;
   height: 1em;
   width: 1em;
   padding: 0;
   margin: 0 0 0 -1.5em;
   vertical-align: middle;
+}
+
+.site-header.pwa-header .search .smart-search-button {
+  width: auto;
+  min-width: 42px;
+  height: 1.55em;
+  margin: 0 0 0 0.5em;
+  padding: 0 0.65em;
+  border: 1px solid #d7d7d7;
+  border-radius: 5px;
+  background: #f7f7f7;
+  color: #555;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.site-header.pwa-header .search .smart-search-button:hover {
+  border-color: #aaa;
+  background: #eee;
 }
 
 .sidebar-header {

@@ -62,6 +62,12 @@ const router = createRouter({
           component: () => import('@/views/SearchView.vue'),
         },
         {
+          path: 'rag-preview',
+          name: 'RagPreview',
+          meta: { public: true },
+          component: () => import('@/views/RagPreviewView.vue'),
+        },
+        {
           path: 'partitions',
           name: 'Partitions',
           component: () => import('@/views/PartitionListView.vue'),
@@ -205,6 +211,11 @@ const { isLogin, refreshToken } = useUserStore()
 
 router.beforeEach((to, from, next) => {
   if (to.path.startsWith('/auth')) {
+    next()
+    setTitle(to.name as string)
+    return
+  }
+  if (to.meta.public) {
     next()
     setTitle(to.name as string)
     return
