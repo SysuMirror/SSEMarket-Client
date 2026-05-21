@@ -31,6 +31,7 @@ export interface RagSearchResponse {
   data?: RagSearchData
   error?: string
   cache_hit?: boolean
+  cache_scope?: 'standard' | 'hot_query'
   cache_age_ms?: number
   elapsed_ms?: number
   timings?: {
@@ -55,8 +56,8 @@ export interface HotQueriesResponse {
 
 const ragProxyBase = import.meta.env.VITE_RAG_PROXY_BASE || '/api/rag-local'
 
-export async function searchRagPosts(query: string, limit = 5): Promise<RagSearchResponse> {
-  const url = `${ragProxyBase}/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`
+export async function searchRagPosts(query: string, limit = 5, source: 'manual' | 'hot' = 'manual'): Promise<RagSearchResponse> {
+  const url = `${ragProxyBase}/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}&source=${encodeURIComponent(source)}`
   const res = await fetch(url)
   const data = await res.json() as RagSearchResponse
   if (!res.ok || !data.ok) {

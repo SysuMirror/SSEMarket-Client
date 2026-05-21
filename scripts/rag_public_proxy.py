@@ -28,6 +28,7 @@ HOST = os.getenv("SSEMARKET_RAG_PUBLIC_HOST", "127.0.0.1")
 PORT = int(os.getenv("SSEMARKET_RAG_PUBLIC_PORT", "19082"))
 SEARCH_CACHE_TTL_SECONDS = 10 * 60
 RAG_RESULT_CACHE: dict[tuple[str, int], tuple[float, dict]] = {}
+HOT_QUERY_RESULT_CACHE: dict[tuple[str, int], tuple[float, dict]] = {}
 EMBEDDING_CACHE: dict[str, list[float]] = {}
 EMBEDDING_CACHE_MAX = 512
 SEARCH_LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "rag-search-events.jsonl"
@@ -368,11 +369,25 @@ def hot_queries(limit: int = 8) -> list[dict]:
     return merge_hot_query_fallbacks(canonical, fallback, safe_limit)
 
 
-def cached_remote_search(query: str, limit: int) -> dict:
+def is_canonical_hot_query(query: str) -> bool:
+    normalized = normalize_query(query)
+    if not normalized:
+        return False
+    return any(item.get("query") == normalized for item in hot_queries(12))
+
+
+def search_cache_for_source(query: str, source: str) -> tuple[dict[tuple[str, int], tuple[float, dict]], str]:
+    if source == "hot" and is_canonical_hot_query(query):
+        return HOT_QUERY_RESULT_CACHE, "hot_query"
+    return RAG_RESULT_CACHE, "standard"
+
+
+def cached_remote_search(query: str, limit: int, source: str = "manual") -> dict:
     request_start = time.perf_counter()
     key = cache_key(query, limit)
     now = time.time()
-    cached = RAG_RESULT_CACHE.get(key)
+    cache, cache_scope = search_cache_for_source(key[0], source)
+    cached = cache.get(key)
 
     if cached and now - cached[0] <= SEARCH_CACHE_TTL_SECONDS:
         post_start = time.perf_counter()
@@ -386,6 +401,7 @@ def cached_remote_search(query: str, limit: int) -> dict:
             "total_ms": now_ms(request_start),
         }
         response = add_metrics(payload, cache_hit=True, cache_age_ms=int((now - cached[0]) * 1000), timings=timings)
+        response["cache_scope"] = cache_scope
         record_search_event(response, key[0], key[1])
         observe_hot_query_cluster(response, key[0])
         return response
@@ -393,7 +409,7 @@ def cached_remote_search(query: str, limit: int) -> dict:
     rag_start = time.perf_counter()
     payload = rag_search(query, key[1])
     rag_ms = now_ms(rag_start)
-    RAG_RESULT_CACHE[key] = (now, strip_post_fields(payload))
+    cache[key] = (now, strip_post_fields(payload))
 
     post_start = time.perf_counter()
     payload = clone_payload(payload)
@@ -406,6 +422,7 @@ def cached_remote_search(query: str, limit: int) -> dict:
         "total_ms": now_ms(request_start),
     }
     response = add_metrics(payload, cache_hit=False, cache_age_ms=0, timings=timings)
+    response["cache_scope"] = cache_scope
     record_search_event(response, key[0], key[1])
     observe_hot_query_cluster(response, key[0])
     return response
@@ -498,17 +515,19 @@ class Handler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
         query = params.get("q", [""])[0].strip()
         limit = params.get("limit", ["5"])[0]
+        source = params.get("source", ["manual"])[0].strip()
         if not query:
             self.write_json({"ok": False, "error": "query is required"}, 400)
             return
         try:
-            response = cached_remote_search(query, int(limit))
+            response = cached_remote_search(query, int(limit), source=source)
             print(
                 json.dumps(
                     {
                         "query": normalize_query(query),
                         "limit": cache_key(query, int(limit))[1],
                         "cache_hit": response.get("cache_hit"),
+                        "cache_scope": response.get("cache_scope"),
                         "timings": response.get("timings"),
                         "result_count": len(response.get("data", {}).get("results", [])),
                     },

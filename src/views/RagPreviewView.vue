@@ -133,7 +133,7 @@ function startHotQueryRolling() {
   }, 2200)
 }
 
-async function runSearch(nextQuery = query.value, options: { syncRoute?: boolean } = {}) {
+async function runSearch(nextQuery = query.value, options: { syncRoute?: boolean, source?: 'manual' | 'hot' } = {}) {
   const cleanQuery = nextQuery.trim() || activeHotQuery.value
   if (!cleanQuery) {
     error.value = '请输入搜索内容'
@@ -147,7 +147,7 @@ async function runSearch(nextQuery = query.value, options: { syncRoute?: boolean
   loading.value = true
   error.value = ''
   try {
-    const res = await searchRagPosts(cleanQuery, limit.value)
+    const res = await searchRagPosts(cleanQuery, limit.value, options.source || 'manual')
     searchData.value = res.data || null
     writeCache()
     void loadHotQueries()
@@ -225,7 +225,7 @@ onUnmounted(() => {
     </section>
 
     <BasicCard class="rag-search-card">
-      <form class="rag-search-form" @submit.prevent="runSearch(query, { syncRoute: true })">
+      <form class="rag-search-form" @submit.prevent="runSearch(query, { syncRoute: true, source: query.trim() ? 'manual' : 'hot' })">
         <label class="rag-search-form__label" for="rag-query">搜索内容</label>
         <div class="rag-search-form__row">
           <div class="rag-search-form__input-wrap">
