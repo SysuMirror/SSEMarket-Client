@@ -21,7 +21,7 @@
   padding: 12px 16px;
   border-bottom: 1px solid var(--chat-border);
   background: var(--chat-bg-highlight);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .comment-panel__title {
@@ -95,8 +95,12 @@
   font-size: 12px;
   font-weight: 500;
   font-family: inherit;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: 0;
   white-space: nowrap;
   cursor: pointer;
+  box-sizing: border-box;
   transition: color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 
@@ -435,7 +439,8 @@ body.dark-mode .vote-link--prominent {
 
 /* 覆盖全局 button:hover，避免评论区操作钮一侧发深 */
 .comment-panel .comment-toolbar__btn,
-.comment-row .comment-toolbar__btn {
+.comment-row .comment-toolbar__btn,
+.detail-card .comment-toolbar__btn {
   background: transparent !important;
   background-color: transparent !important;
   text-transform: none;
@@ -457,6 +462,37 @@ body.dark-mode .vote-link--prominent {
     font-weight: 600;
     text-decoration: none;
   }
+
+  &--prominent {
+    padding: 6px 14px;
+    border: 1px solid var(--chat-border-strong);
+    border-radius: 6px;
+    background: var(--chat-accent-soft) !important;
+    font-weight: 600;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--chat-accent-soft) !important;
+      border-color: var(--chat-accent);
+      text-decoration: none;
+      filter: brightness(1.06);
+    }
+
+    &.comment-toolbar__btn--active {
+      border-color: var(--chat-accent);
+      background: var(--chat-accent-soft) !important;
+    }
+  }
+}
+
+/* 夜间模式：头像不参与顶栏 icon 反色，且不受 color-scheme 影响 */
+body.dark-mode .user-avatar-img,
+body.dark-mode .user-avatar .user-avatar-img {
+  filter: none !important;
+}
+
+.user-avatar {
+  color-scheme: only light;
 }
 
 .comment-row__footer {

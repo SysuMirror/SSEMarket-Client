@@ -1,527 +1,327 @@
 <script setup lang="ts">
-import type { ProductCreation } from '@/api/shop/handleProduct'
+import { Icon } from '@iconify/vue'
 import { ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { uploadPhoto } from '@/api/editPostAndComment/utils'
-import { handleProduct } from '@/api/shop/handleProduct'
+import { createShopProduct } from '@/api/shop/mutations'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
 
-const { userInfo } = useUserStore()
+defineOptions({ name: 'SaleView' })
 
 const router = useRouter()
+const { userInfo } = useUserStore()
 
-// 商品数据
-const product = ref<ProductCreation & { tempFiles: File[] }>({
-  name: '',
-  price: 0,
-  description: '',
-  images: [], // 存储图片URL
-  tempFiles: [], // 临时存储选择的文件，用于预览
-})
-
-// 错误信息
-const errors = ref<{
-  name: string
-  price: string
-  description: string
-  images: string
-}>({
-  name: '',
-  price: '',
-  description: '',
-  images: '',
-})
-
-// 提交状态
-const isSubmitting = ref<boolean>(false)
+const name = ref('')
+const price = ref<number | ''>('')
+const description = ref('')
+const syncFeedPost = ref(true)
+const previewUrls = ref<string[]>([])
+const tempFiles = ref<File[]>([])
+const submitting = ref(false)
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 
-// 触发文件选择
-function triggerFileInput(): void {
-  if (fileInput.value) {
-    fileInput.value.click()
-  }
+function triggerFileInput() {
+  fileInput.value?.click()
 }
 
-// 处理文件选择
-function handleFiles(event: Event): void {
-  const target = event.target as HTMLInputElement
-  const files = target.files
+function handleFiles(event: Event) {
+  const files = (event.target as HTMLInputElement).files
   if (!files)
     return
-
   for (const file of Array.from(files)) {
-    if (!isImage(file))
-      continue // 检查是否是图片
-
-    if (product.value.tempFiles.length >= 5) {
-      showMsg('最多只能上传5张图片')
+    if (!file.type.startsWith('image/'))
+      continue
+    if (tempFiles.value.length >= 5) {
+      showMsg('最多 5 张图片')
       break
     }
-
-    // 添加到临时文件列表
-    product.value.tempFiles.push(file)
-
-    // 预览图片
+    tempFiles.value.push(file)
     const reader = new FileReader()
-    reader.onload = (e: ProgressEvent<FileReader>): void => {
-      if (e.target && e.target.result) {
-        // 在 images 数组中添加临时预览URL（非服务器URL）
-        product.value.images.push(e.target.result as string)
-      }
+    reader.onload = (e) => {
+      if (e.target?.result)
+        previewUrls.value.push(e.target.result as string)
     }
     reader.readAsDataURL(file)
   }
-
-  // 清空文件输入，以便可以重新选择相同的文件
-  if (fileInput.value) {
+  if (fileInput.value)
     fileInput.value.value = ''
-  }
 }
 
-// 检查是否是图片
-function isImage(file: File): boolean {
-  return file.type.startsWith('image/')
+function removeImage(index: number) {
+  tempFiles.value.splice(index, 1)
+  previewUrls.value.splice(index, 1)
 }
 
-// 删除图片
-function deleteImage(index: number): void {
-  product.value.tempFiles.splice(index, 1) // 从临时文件中删除
-  product.value.images.splice(index, 1) // 从预览列表中删除
-}
-
-// 表单验证
-function validateForm(): boolean {
-  let isValid = true
-  errors.value = {
-    name: '',
-    price: '',
-    description: '',
-    images: '',
-  }
-
-  if (!product.value.name) {
-    errors.value.name = '商品名称不能为空'
-    isValid = false
-  }
-
-  if (product.value.price === null || product.value.price <= 0) {
-    errors.value.price = '请输入有效的商品价格'
-    isValid = false
-  }
-
-  if (!product.value.description) {
-    errors.value.description = '商品描述不能为空'
-    isValid = false
-  }
-
-  // if (product.value.tempFiles.length === 0) {
-  //   errors.value.images = '至少需要上传一张商品图片'
-  //   isValid = false
-  // }
-
-  return isValid
-}
-
-// 提交商品
-async function submitProduct(): Promise<void> {
-  if (isSubmitting.value)
-    return
-
-  if (!validateForm()) {
-    showMsg('请修正表单中的错误')
+async function submit() {
+  const title = name.value.trim()
+  const desc = description.value.trim()
+  const p = Number(price.value)
+  if (!title) {
+    showMsg('请填写商品名称')
     return
   }
-  isSubmitting.value = true
-
+  if (!Number.isFinite(p) || p <= 0) {
+    showMsg('请填写有效价格')
+    return
+  }
+  if (!desc) {
+    showMsg('请填写商品描述')
+    return
+  }
+  submitting.value = true
   try {
-    // 收集所有图片的URL
     const imageUrls: string[] = []
-
-    // 上传所有图片到服务器
-    for (const file of product.value.tempFiles) {
-      try {
-        const data = await uploadPhoto(file)
-        imageUrls.push(data.fileURL)
-      }
-      catch (error) {
-        console.error('Error uploading file:', error)
-        showMsg('部分图片上传失败，请重试')
-        isSubmitting.value = false
-        return
-      }
+    for (const file of tempFiles.value) {
+      const data = await uploadPhoto(file)
+      imageUrls.push(data.fileURL)
     }
-
-    // 将图片URL添加到商品对象
-    product.value.images = imageUrls
-
-    // 这里添加提交逻辑，可以调用API提交整个商品对象
-    // console.log('商品发布成功，图片URL:', imageUrls)
-    await handleProduct(product.value, userInfo.userID)
-    await router.push('/shop')
-    showMsg('商品发布成功')
+    const id = await createShopProduct(
+      userInfo.userID,
+      { name: title, price: p, description: desc, images: imageUrls },
+      syncFeedPost.value,
+    )
+    if (!id) {
+      showMsg('发布失败')
+      return
+    }
+    showMsg(syncFeedPost.value ? '已发布，并已同步发帖到主页' : '商品发布成功')
+    router.push(shopProductPath(id))
   }
-  catch (error) {
-    console.error('Error submitting product:', error)
-    showMsg('商品发布失败，请重试')
+  catch (e) {
+    console.error(e)
+    showMsg('发布失败')
   }
   finally {
-    isSubmitting.value = false
+    submitting.value = false
   }
 }
 
-// 取消发布
-function cancelPublish(): void {
-  if (confirm('确定要取消发布吗？已填写的信息将不会保存')) {
-    router.push('/shop')
-  }
+function shopProductPath(id: number) {
+  return `/shop/productdetail/${id}`
 }
 </script>
 
 <template>
-  <div class="product-publish-container">
-    <div class="publish-header">
-      <h1>发布新商品</h1>
-    </div>
+  <div class="shop-sale shop-zone">
+    <header class="shop-sale__head">
+      <button type="button" class="shop-sale__back" aria-label="返回" @click="router.back()">
+        <Icon icon="tabler:arrow-left" width="18" height="18" />
+      </button>
+      <h1>发布商品</h1>
+    </header>
 
-    <form class="product-form" @submit.prevent="submitProduct">
-      <div class="form-row">
-        <!-- 商品名称 -->
-        <div class="form-group flex-1">
-          <label for="productName">商品名称</label>
-          <input
-            id="productName"
-            v-model.trim="product.name"
-            type="text"
-            placeholder="请输入商品名称"
-            :class="{ error: errors.name }"
-          >
-          <div v-if="errors.name" class="error-message">
-            {{ errors.name }}
+    <section class="shop-sale__card">
+      <label class="shop-sale__field">
+        <span>名称（最多 30 字）</span>
+        <input v-model="name" type="text" maxlength="30" placeholder="如：高等数学教材第七版">
+      </label>
+      <label class="shop-sale__field">
+        <span>价格（元）</span>
+        <input v-model.number="price" type="number" min="1" placeholder="整数价格">
+      </label>
+
+      <div class="shop-sale__field">
+        <span>图片（最多 5 张）</span>
+        <div class="shop-sale__images">
+          <div v-for="(url, i) in previewUrls" :key="i" class="shop-sale__img-wrap">
+            <img :src="url" alt="预览">
+            <button type="button" class="shop-sale__img-del" @click="removeImage(i)">
+              ×
+            </button>
           </div>
-        </div>
-
-        <!-- 商品价格 -->
-        <div class="form-group flex-1">
-          <label for="productPrice">商品价格 (¥)</label>
-          <input
-            id="productPrice"
-            v-model.number="product.price"
-            type="number"
-            placeholder="请输入商品价格"
-            :class="{ error: errors.price }"
-          >
-          <div v-if="errors.price" class="error-message">
-            {{ errors.price }}
-          </div>
-        </div>
-      </div>
-
-      <!-- 商品图片上传 -->
-      <div class="form-group">
-        <label>商品图片 (最多上传5张)</label>
-        <div class="images-upload-container">
-          <div
-            v-for="(image, index) in product.images"
-            :key="index"
-            class="image-upload-wrapper"
-          >
-            <img :src="image" alt="预览图" class="preview-image">
-            <div class="image-actions">
-              <button type="button" class="delete-image" @click.stop="deleteImage(index)">
-                删除
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-if="product.images.length < 5"
-            class="upload-button-wrapper"
+          <button
+            v-if="previewUrls.length < 5"
+            type="button"
+            class="shop-sale__img-add"
             @click="triggerFileInput"
           >
-            <input
-              ref="fileInput"
-              type="file"
-              accept="image/*"
-              multiple
-              style="display: none"
-              @change="handleFiles"
-            >
-            <div class="upload-button">
-              <i class="upload-icon">+</i>
-              <span>添加图片</span>
-            </div>
-          </div>
-        </div>
-        <div v-if="errors.images" class="error-message">
-          {{ errors.images }}
+            <Icon icon="tabler:plus" width="20" height="20" />
+          </button>
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            @change="handleFiles"
+          >
         </div>
       </div>
 
-      <!-- 商品描述 -->
-      <div class="form-group">
-        <label for="productDescription">商品描述</label>
-        <textarea
-          id="productDescription"
-          v-model="product.description"
-          placeholder="请输入商品详细描述"
-          rows="6"
-          :class="{ error: errors.description }"
-        />
-        <div v-if="errors.description" class="error-message">
-          {{ errors.description }}
-        </div>
-      </div>
+      <label class="shop-sale__field">
+        <span>描述</span>
+        <textarea v-model="description" rows="5" maxlength="2000" placeholder="成色、交易方式、联系方式等" />
+      </label>
 
-      <!-- 操作按钮 -->
-      <div class="form-actions">
-        <button type="button" class="cancel-btn" @click="cancelPublish">
-          取消
+      <div class="shop-sale__sync">
+        <button
+          type="button"
+          class="shop-sale__sync-btn"
+          :class="{ 'shop-sale__sync-btn--on': syncFeedPost }"
+          :aria-pressed="syncFeedPost"
+          @click="syncFeedPost = !syncFeedPost"
+        >
+          <Icon :icon="syncFeedPost ? 'tabler:check' : 'tabler:square'" width="16" height="16" />
+          同步发帖到主页
         </button>
-        <button type="submit" class="publish-btn" :disabled="isSubmitting">
-          发布商品
-        </button>
+        <p class="shop-sale__sync-hint">
+          开启后将以「新上架-名称」为题在主页发帖，正文含商品链接；关闭则仅上架商品。
+        </p>
       </div>
-    </form>
+    </section>
+
+    <button type="button" class="shop-sale__submit" :disabled="submitting" @click="submit">
+      {{ submitting ? '发布中…' : '发布商品' }}
+    </button>
   </div>
 </template>
 
-<style scoped>
-.product-publish-container {
-  max-width: 1000px;
+<style scoped lang="scss">
+.shop-sale {
+  max-width: 720px;
   margin: 0 auto;
-  padding: 20px;
-  background: var(--color-bg);
-  min-height: 100vh;
+  padding: 4px 0 12px;
 }
 
-.publish-header {
-  text-align: center;
-  margin-bottom: 40px;
-  padding: 30px;
-  background: var(--shop-section-bg);
-  border-radius: 16px;
-  box-shadow: 0 8px 30px var(--color-post-card-box-shadow);
-  backdrop-filter: blur(10px);
-}
-
-.publish-header h1 {
-  font-size: 32px;
-  color: var(--color-text);
-  font-weight: 700;
-  margin: 0;
-  background: linear-gradient(135deg, var(--color-info), #81b3e9);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.product-form {
-  background: var(--shop-section-bg);
-  border-radius: 16px;
-  box-shadow: 0 8px 30px var(--color-post-card-box-shadow);
-  padding: 40px;
-  border: 1px solid var(--color-border);
-  position: relative;
-}
-
-.product-form::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #4c8baf, #81b3e9, #4c8baf);
-  border-radius: 16px 16px 0 0;
-}
-
-.form-row {
+.shop-sale__head {
   display: flex;
-  gap: 20px;
-  margin-bottom: 25px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  h1 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+  }
 }
 
-.form-group {
-  margin-bottom: 25px;
-}
-
-.flex-1 {
-  flex: 1;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 12px;
-  font-weight: 600;
-  color: var(--color-text);
-  font-size: 16px;
-}
-
-.form-group input,
-.form-group textarea {
-  width: 100%;
-  padding: 16px;
-  border: 2px solid var(--color-border);
+.shop-sale__back {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hp-border, #e8eaed);
   border-radius: 8px;
-  font-size: 16px;
-  box-sizing: border-box;
-  transition: all 0.3s ease;
-  background: var(--shop-filter-bg);
-  color: var(--color-text);
+  background: var(--hp-card, #fff);
+  cursor: pointer;
 }
 
-.form-group input:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--color-info);
-  background: var(--shop-filter-bg);
-  box-shadow: 0 0 0 3px var(--color-hover);
-  transform: translateY(-1px);
+.shop-sale__card {
+  padding: 12px;
+  border: 1px solid var(--hp-border, #e8eaed);
+  border-radius: 10px;
+  background: var(--hp-card, #fff);
 }
 
-.form-group input.error,
-.form-group textarea.error {
-  border-color: var(--color-error);
+.shop-sale__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+
+  span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--hp-muted, #8a9199);
+  }
+
+  input,
+  textarea {
+    padding: 9px 11px;
+    border: 1px solid var(--hp-border, #e8eaed);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+  }
 }
 
-.error-message {
-  color: var(--color-error);
-  font-size: 14px;
-  margin-top: 5px;
-}
-
-.images-upload-container {
+.shop-sale__images {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
-  border: 2px dashed var(--color-info);
-  border-radius: 12px;
-  padding: 20px;
-  min-height: 180px;
-  background: var(--shop-skeleton-bg);
-  transition: all 0.3s ease;
+  gap: 8px;
 }
 
-.images-upload-container:hover {
-  border-color: var(--color-info);
-  background: var(--shop-filter-bg);
-}
-
-.image-upload-wrapper {
+.shop-sale__img-wrap {
   position: relative;
-  width: 150px;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
-.preview-image {
-  width: 100%;
-  height: 150px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.image-actions {
+.shop-sale__img-del {
   position: absolute;
-  top: 5px;
-  right: 5px;
-}
-
-.delete-image {
-  background-color: rgba(229, 57, 53, 0.8);
-  color: white;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
   border: none;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  font-size: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 
-.upload-button-wrapper {
-  width: 150px;
-  height: 150px;
-  display: flex;
-  justify-content: center;
+.shop-sale__img-add {
+  width: 72px;
+  height: 72px;
+  border: 1px dashed var(--hp-border, #e8eaed);
+  border-radius: 8px;
+  background: var(--chat-bg-muted, #f4f5f7);
+  color: var(--hp-muted, #8a9199);
+  cursor: pointer;
+}
+
+.shop-sale__sync {
+  margin-top: 4px;
+}
+
+.shop-sale__sync-btn {
+  display: inline-flex;
   align-items: center;
-  background: var(--shop-filter-bg);
-  border-radius: 12px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: all 0.3s ease;
-  border: 2px dashed var(--color-info);
-  color: var(--color-text);
-}
-
-.upload-button-wrapper:hover {
-  background: var(--shop-section-bg);
-  border-color: var(--color-info);
-  transform: scale(1.05);
-}
-
-.upload-button {
-  text-align: center;
-  color: var(--color-text);
-}
-
-.upload-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
-  display: block;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: center; /* 居中对齐按钮 */
-  gap: 15px;
-  margin-top: 30px;
-}
-
-.cancel-btn {
-  padding: 16px 32px;
-  background: var(--shop-filter-bg);
-  border: 2px solid var(--color-border);
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--hp-border, #e8eaed);
   border-radius: 8px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  font-size: 16px;
+  background: var(--chat-bg-muted, #f4f5f7);
+  font-size: 13px;
   font-weight: 600;
-  color: var(--color-text);
-  transition: all 0.3s ease;
+  color: var(--hp-muted, #8a9199);
+  cursor: pointer;
+
+  &--on {
+    border-color: var(--chat-accent);
+    background: var(--chat-accent-soft, #fff5eb);
+    color: var(--chat-accent);
+  }
 }
 
-.cancel-btn:hover {
-  background: var(--shop-section-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--color-post-card-box-shadow);
+.shop-sale__sync-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hp-muted, #8a9199);
 }
 
-.publish-btn {
-  padding: 16px 32px;
-  background: linear-gradient(135deg, #4c8baf 0%, #81b3e9 100%);
-  color: white;
+.shop-sale__submit {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
+  background: var(--chat-accent);
+  color: var(--chat-unread-text, #fff);
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  font-size: 16px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(76, 139, 175, 0.3);
-}
-
-.publish-btn:hover {
-  background: linear-gradient(135deg, #3a6b8a 0%, #6a9bc7 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(76, 139, 175, 0.4);
-}
-
-.publish-btn:disabled {
-  background-color: var(--shop-text-muted);
-  cursor: not-allowed;
-  -webkit-tap-highlight-color: transparent;
 }
 </style>

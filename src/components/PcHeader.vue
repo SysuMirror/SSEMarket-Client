@@ -105,8 +105,16 @@ const {
           id="sinfo"
           ref="sinfo"
           name="sinfo"
+          class="search-input"
           @input="onSearchInput"
         >
+        <button
+          type="button"
+          class="search-mode-toggle search-mode-toggle--in-field"
+          @click.stop="toggleSearchMode"
+        >
+          {{ searchModeButtonText }}
+        </button>
         <Transition name="hot-query-roll" mode="out-in">
           <span v-if="showRollingPlaceholder" :key="searchPlaceholder" class="rolling-placeholder">
             {{ searchPlaceholder }}
@@ -122,9 +130,6 @@ const {
 								background-position: 0px 0px;
 							"
         />
-      </button>
-      <button class="search-mode-toggle" type="button" @click="toggleSearchMode">
-        {{ searchModeButtonText }}
       </button>
     </form>
     <div
@@ -243,6 +248,7 @@ const {
     text-align: center;
 
     .search-input-wrap {
+      --search-toggle-w: 4.6em;
       flex: 1;
       min-width: 0;
       width: 100%;
@@ -251,20 +257,46 @@ const {
       position: relative;
     }
 
+    .search-input,
     input {
       width: 100%;
       height: 100%;
-      padding: 0 0.5em;
+      padding: 0 calc(var(--search-toggle-w) + 0.35em) 0 0.5em;
       font-size: 12px;
       border: 1px solid #ccc;
       border-radius: 5px;
       line-height: 0.8;
       vertical-align: middle;
+      box-sizing: border-box;
+    }
+
+    .search-mode-toggle--in-field {
+      position: absolute;
+      right: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      height: calc(100% - 4px);
+      width: var(--search-toggle-w);
+      margin: 0;
+      padding: 0 2px;
+      border: none;
+      border-left: 1px solid #d7d7d7;
+      border-radius: 0 4px 4px 0;
+      background: #f3f3f3;
+      color: #555;
+      font-size: 10px;
+      line-height: 1.1;
+      white-space: nowrap;
+      cursor: pointer;
     }
 
     .rolling-placeholder {
       position: absolute;
-      inset: 0 0.55em;
+      left: 0.5em;
+      right: calc(var(--search-toggle-w) + 0.4em);
+      top: 0;
+      bottom: 0;
       display: flex;
       align-items: center;
       overflow: hidden;
@@ -272,6 +304,7 @@ const {
       font-size: 12px;
       line-height: 1;
       white-space: nowrap;
+      text-overflow: ellipsis;
       pointer-events: none;
     }
 
@@ -288,25 +321,8 @@ const {
       vertical-align: middle;
     }
 
-    .search-mode-toggle {
-      flex-shrink: 0;
-      width: auto;
-      height: 1.86em;
-      margin: 0;
-      padding: 0 0.65em;
-      border: 1px solid #d7d7d7;
-      border-radius: 5px;
-      background: #f7f7f7;
-      color: #555;
-      font-size: 12px;
-      line-height: 1;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-
-    .search-mode-toggle:hover {
-      border-color: #aaa;
-      background: #eee;
+    .search-mode-toggle--in-field:hover {
+      background: #ebebeb;
     }
 
   }
@@ -367,9 +383,9 @@ const {
       overflow: hidden;
     }
 
-    .search-mode-toggle {
-      background: #ffffff12;
-      border-color: #777;
+    .search-mode-toggle--in-field {
+      background: #ffffff18;
+      border-left-color: #666;
       color: #ddd;
     }
 

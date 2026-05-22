@@ -43,7 +43,7 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
 
   const searchPlaceholder = computed(() => hotQueries.value[hotQueryIndex.value] || '')
   const showRollingPlaceholder = computed(() => !searchInputValue.value.trim() && !!searchPlaceholder.value)
-  const searchModeButtonText = computed(() => isSmartSearchMode.value ? '切换普通检索' : '切换智能检索')
+  const searchModeButtonText = computed(() => isSmartSearchMode.value ? '切换普通' : '切换智能')
 
   function currentSearchValue() {
     return searchInputValue.value.trim() || searchPlaceholder.value.trim()

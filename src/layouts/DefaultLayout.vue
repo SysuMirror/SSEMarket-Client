@@ -166,10 +166,16 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
         :chat-num="chatNum"
       />
     </template>
-    <main class="app-main w-full flex flex-row p-0" :class="{ 'app-main--layout-fill': layoutFill }">
+    <main
+      class="app-main w-full flex flex-row p-0"
+      :class="{ 'app-main--layout-fill': layoutFill }"
+    >
       <div
         class="content"
-        :class="{ 'menu-collapsed': isMenuCollapsed, 'content--layout-fill': layoutFill }"
+        :class="{
+          'menu-collapsed': isMenuCollapsed,
+          'content--layout-fill': layoutFill,
+        }"
         :data-menu-collapsed="isMenuCollapsed"
       >
         <template v-if="!isPC && isHomePage">

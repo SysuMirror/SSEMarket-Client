@@ -201,10 +201,13 @@ watch(() => route.query.category, async () => {
 
 <style scoped lang="scss">
 .rating-page {
+  width: 100%;
   max-width: 720px;
+  min-width: 0;
   margin: 0 auto;
   padding: 8px 10px 20px;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .rating-page__top {
@@ -324,15 +327,27 @@ watch(() => route.query.category, async () => {
 
 .rating-page__cats {
   display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 4px;
   margin-bottom: 6px;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hp-border, #d0d5dd) transparent;
 
   &::-webkit-scrollbar {
-    display: none;
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--hp-border, #d0d5dd);
+    border-radius: 4px;
   }
 }
 

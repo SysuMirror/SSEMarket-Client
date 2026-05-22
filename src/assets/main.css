@@ -85,10 +85,24 @@ button:hover {
   color: var(--color-button-bg);
 }
 
-img {
-  width: 25%;
-  height: 25%;
+/* 帖子正文插图；勿用全局 img 规则，否则会压扁头像等 UI 图片 */
+.markdown-body img,
+.imgs img {
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+img.user-avatar-img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  filter: none;
+}
+
+body.dark-mode img.user-avatar-img {
+  filter: none !important;
 }
 
 @media screen and (max-width: 768px) {

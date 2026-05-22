@@ -10,7 +10,10 @@ export async function getRatingCategories(): Promise<RatingCategory[]> {
     }, true)
     if (!res?.ok)
       return []
-    return await res.json() as RatingCategory[]
+    const list = await res.json() as RatingCategory[]
+    return list
+      .filter(c => c.name.trim().toLowerCase() !== 'test')
+      .sort((a, b) => b.categoryID - a.categoryID)
   }
   catch (e) {
     console.error(e)

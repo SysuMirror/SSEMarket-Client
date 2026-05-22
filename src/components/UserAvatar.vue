@@ -253,8 +253,15 @@ function onProfileKeydown(event: KeyboardEvent) {
       border-radius: 50%;
       object-fit: cover;
       background: #fff;
+      filter: none;
     }
+
+    color-scheme: only light;
   }
+}
+
+:global(body.dark-mode) .user-avatar .user-avatar-img {
+  filter: none !important;
 }
 
 .user--compact .user__cluster {

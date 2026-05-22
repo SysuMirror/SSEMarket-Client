@@ -8,6 +8,8 @@ const props = withDefaults(
     subOpen?: boolean
     showSubToggle?: boolean
     replyLabel?: string
+    /** 帖子详情「写评论」等主操作：略加重描边与底色 */
+    replyProminent?: boolean
     inline?: boolean
     replyAlignEnd?: boolean
     /** 紧贴数据栏等上一区块时去掉顶部分割线 */
@@ -19,6 +21,7 @@ const props = withDefaults(
     subOpen: false,
     showSubToggle: true,
     replyLabel: '回复',
+    replyProminent: false,
     inline: false,
     replyAlignEnd: false,
     noTopBorder: false,
@@ -59,7 +62,10 @@ const subLabel = computed(() => {
       <button
         type="button"
         class="comment-toolbar__btn"
-        :class="{ 'comment-toolbar__btn--active': replyOpen }"
+        :class="{
+          'comment-toolbar__btn--active': replyOpen,
+          'comment-toolbar__btn--prominent': replyProminent,
+        }"
         :aria-expanded="replyOpen"
         @click.stop="emit('toggle-reply')"
       >

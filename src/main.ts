@@ -8,6 +8,7 @@ import './assets/mode.css'
 import './assets/comment-ui.scss'
 import './assets/post-feed.scss'
 import './assets/rating-hupu.scss'
+import './assets/shop-zone.scss'
 import 'virtual:uno.css'
 
 void clearStaleNewSSEServiceWorker()
