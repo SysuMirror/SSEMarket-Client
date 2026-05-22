@@ -47,7 +47,7 @@ function onSidebarAvatarError() {
         <RouterLink v-else to="/shop" class="nav-button">
           <span class="nav-text">返回首页</span>
         </RouterLink>
-        <RouterLink to="/chat" class="nav-button">
+        <RouterLink to="/messages?tab=chat" class="nav-button">
           <span class="nav-text">消息</span>
         </RouterLink>
         <RouterLink to="/shop/sale" class="nav-button">

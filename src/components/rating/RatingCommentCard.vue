@@ -5,7 +5,7 @@ import CommentCard from '../card/CommentCard.vue'
 import RatingShow from './RatingShow.vue'
 
 defineOptions({
-  name: 'RatingCard',
+  name: 'RatingCommentCard',
 })
 
 const _ = defineProps<RatingCommentProps>()
@@ -14,8 +14,9 @@ const _ = defineProps<RatingCommentProps>()
 interface RatingCommentProps {
   comment: RatingComment
   postId: number
-  commentable: boolean// 是否可再评论
-  isDence: boolean// 是否密集显示(隐藏用户信息)
+  commentable: boolean
+  isDence: boolean
+  likeMode?: 'post' | 'rating'
 }
 </script>
 
@@ -25,6 +26,7 @@ interface RatingCommentProps {
     :post-id="postId"
     :commentable="commentable"
     :is-dence="isDence"
+    :like-mode="_.likeMode ?? 'rating'"
   >
     <!-- 填充right-extension插槽 -->
     <template #right-extension>

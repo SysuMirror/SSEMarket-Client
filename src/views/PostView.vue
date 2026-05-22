@@ -25,7 +25,6 @@ const partitions = ref([
   '课程专区',
   '求职招募',
   '其他',
-  '打分',
 ])
 const postContent = ref('')
 const title = useTemplateRef('title')
@@ -190,8 +189,8 @@ onUnmounted(() => {
               ref="title"
               type="text"
               class="post-page__control"
-              placeholder="写一个吸引人的标题（最多 20 字）"
-              maxlength="20"
+              placeholder="写一个吸引人的标题（最多 30 字）"
+              maxlength="30"
             >
           </label>
 

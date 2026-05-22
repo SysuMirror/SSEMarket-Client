@@ -117,28 +117,19 @@ function goBack() {
         <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=83976&format=png&color=000000); background-size: 90% 90%;" />
         <span>历史</span>
       </router-link>
-      <router-link to="/notice">
+      <router-link to="/messages">
         <div class="icon-wrapper">
-          <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=32058&format=png&color=000000);" />
-          <div v-if="unreadNoticeNum" class="notice-num">
-            {{ unreadNoticeNum }}
+          <Icon icon="tabler:messages" class="sidebar-messages-icon" width="22" height="22" aria-hidden="true" />
+          <div v-if="unreadNoticeNum + unreadChatNum > 0" class="notice-num">
+            {{ unreadNoticeNum + unreadChatNum > 99 ? '99+' : unreadNoticeNum + unreadChatNum }}
           </div>
         </div>
-        <span>通知</span>
+        <span>消息</span>
       </router-link>
       <div class="sidebar-bottom">
         <router-link to="/resume" class="sidebar-link-resume">
           <Icon icon="tabler:file-cv" class="sidebar-resume-icon" width="22" height="22" aria-hidden="true" />
           <span>简历专区</span>
-        </router-link>
-        <router-link to="/chat">
-          <div class="icon-wrapper">
-            <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=83142&format=png&color=000000);" />
-            <div v-if="unreadChatNum" class="notice-num">
-              {{ unreadChatNum }}
-            </div>
-          </div>
-          <span>私信</span>
         </router-link>
         <router-link to="/options">
           <div class="user-avatar-icon">
@@ -406,6 +397,15 @@ function goBack() {
   margin-top: auto;
   display: flex;
   flex-direction: column;
+}
+
+.sidebar-messages-icon {
+  flex-shrink: 0;
+  color: #2563eb;
+}
+
+body.dark-mode .sidebar-messages-icon {
+  color: #60a5fa;
 }
 
 .sidebar-resume-icon {

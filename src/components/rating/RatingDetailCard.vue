@@ -1,987 +1,401 @@
 <script setup lang="ts">
-// 因为不会覆写sendcommentfunc所以复制了一遍
-// 继承自DetailCard
-import type { Rating } from '@/types/post'
-import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, triggerRef, watch } from 'vue'
-import { getAverageRating, getStarsDistribution, getUserPostRating, sendRComment, submitRating } from '@/api/editPostAndComment/editComment'
-import { delPost } from '@/api/editPostAndComment/editPost'
-import { likePost } from '@/api/SaveAndLike/SaveAndLike'
+import type { RatingPostDetail } from '@/api/rating/types'
+import { Icon } from '@iconify/vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
+import { createRatingComment, deleteRatingPost, likeRatingPost, submitRatingStar } from '@/api/rating'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
+import { ratingZonePath } from '@/utils/ratingRoute'
 import { debounceAsync } from '@/utils/debounced'
-
-import CommentToolbar from '../comment/CommentToolbar.vue'
-import VoteLink from '../VoteLink.vue'
-import BasicCard from '../card/BasicCard.vue'
-import MarkdownContainer from '../MarkdownContainer.vue'
 import UserAvatar from '../UserAvatar.vue'
-import UserButton from '../UserButton.vue'
 import RatingDistribution from './RatingDistribution.vue'
 
 const { post } = defineProps<{
-  post: Rating
+  post: RatingPostDetail
 }>()
 
-const emits = defineEmits(['infoChange'])
+const emits = defineEmits<{
+  infoChange: ['like' | 'delete' | 'comment' | 'rating']
+}>()
 
+const MarkdownContainer = defineAsyncComponent(() => import('../MarkdownContainer.vue'))
+const MarkdownEditor = defineAsyncComponent(() => import('../MarkdownEditor.vue'))
 const OldImages = defineAsyncComponent(() => import('@/components/OldImages.vue'))
-
-const MarkdownEditor = defineAsyncComponent(
-  () => import('../MarkdownEditor.vue'),
-)
-
-const commentButtonIsShow = ref(false)
-const commentContent = ref('')
-const commentSubmitting = ref(false)
-const commentRating = ref(post.UserRating || 0)
 
 const { userInfo } = useUserStore()
 
-type RatingWithOwnerKeys = Rating & { userID?: number, user_id?: number }
+const showCompose = ref(false)
+const commentContent = ref('')
+const commentSubmitting = ref(false)
 
 const profileOwnerId = computed(() => {
-  const p = post as RatingWithOwnerKeys
-  const n = Number(p.UserID ?? p.userID ?? p.user_id)
-  if (Number.isFinite(n) && n > 0)
-    return n
-  const phone = (p.UserTelephone || '').trim()
-  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
-    return userInfo.userID
-  return 0
+  const n = Number(post.userID)
+  return Number.isFinite(n) && n > 0 ? n : 0
 })
 
-const currRatingList = ref(post.Stars || [0, 0, 0, 0, 0])
-const currRating = ref(post.UserRating || 0)
-const averageRating = ref(post.Rating || 0)
-const ratingListKey = ref(0)
+const currStars = ref<[number, number, number, number, number]>(
+  [...(post.stars || [0, 0, 0, 0, 0])] as [number, number, number, number, number],
+)
+const currRating = ref(post.userStar || 0)
+const averageRating = ref(post.averageRating || 0)
+const raterCount = computed(() => currStars.value.reduce((s, n) => s + n, 0))
+const isOwner = computed(() => post.userTelephone === userInfo.phone)
 
-// 响应式检测是否为移动端
-const isMobile = ref(window.innerWidth <= 768) // 临时设置为true来测试效果
-
-// 检测屏幕尺寸
-function checkIsMobile() {
-  isMobile.value = window.innerWidth <= 768
-}
-
-// 监听窗口大小变化
-onMounted(() => {
-  checkIsMobile()
-  window.addEventListener('resize', checkIsMobile)
-})
-
-// 清理事件监听器
-onUnmounted(() => {
-  window.removeEventListener('resize', checkIsMobile)
-})
-
-// 移除强制刷新计数器，因为它会导致组件不必要的重新创建
-
-// 监听 post 变化，更新用户评分
-watch(() => post.UserRating, (newRating) => {
-  // 只有当 newRating 是有效数字时才更新，避免 undefined 导致的重置
-  if (typeof newRating === 'number' && newRating >= 0) {
-    currRating.value = newRating
-    commentRating.value = newRating
-  }
+watch(() => post.userStar, (v) => {
+  if (typeof v === 'number' && v >= 0)
+    currRating.value = v
 }, { immediate: true })
 
-// 移除对 post.stars 的监听，因为 post 是只读的 props
+watch(() => post.stars, (s) => {
+  if (s?.length === 5)
+    currStars.value = [...s] as [number, number, number, number, number]
+}, { deep: true })
 
-// 获取用户评分、评分分布和平均评分
-async function fetchUserRating() {
-  try {
-    // 并行获取用户评分、评分分布和平均评分
-    const [userRating, starsDistribution, averageRatingData] = await Promise.all([
-      getUserPostRating(post.PostID),
-      getStarsDistribution(post.PostID),
-      getAverageRating(post.PostID),
-    ])
-
-    // 只有当后端返回的评分大于0时才更新，避免覆盖用户刚刚设置的评分
-    if (userRating > 0) {
-      currRating.value = userRating
-      commentRating.value = userRating
-    }
-
-    // 直接更新响应式变量，不依赖 post.stars
-    currRatingList.value = [...starsDistribution]
-
-    // 更新平均评分
-    averageRating.value = averageRatingData
-
-    // 强制触发响应式更新
-    triggerRef(currRating)
-    triggerRef(commentRating)
-    triggerRef(currRatingList)
-    triggerRef(averageRating)
-
-    // 增加评分列表的key以强制重新渲染
-    ratingListKey.value++
-
-    // 确保DOM更新
-    await nextTick()
-  }
-  catch (error) {
-    console.error('获取用户评分和评分分布失败:', error)
-  }
-}
-
-// 组件挂载时获取用户评分
-onMounted(() => {
-  fetchUserRating()
+watch(() => post.averageRating, (v) => {
+  averageRating.value = v
 })
 
-// 更新本地评分数据（现在直接从后端获取最新数据，这个函数主要用于临时更新）
-function updateLocalRatingData(newRating: number) {
-  // 临时更新用户评分显示，实际数据会通过 fetchUserRating 从后端获取
-  currRating.value = newRating
-  commentRating.value = newRating
+function formatTime(t: string) {
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime()))
+    return t
+  return d.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-async function currentRatingClick(rating: number) {
-  const oldRating = currRating.value
-
-  // 立即显示新评分（乐观更新）
-  currRating.value = rating
-  commentRating.value = rating
-
-  // 使用专门的评分API提交评分
+async function onStarClick(n: number) {
+  const prev = currRating.value
+  currRating.value = n
   try {
-    const success = await submitRating(
-      userInfo.phone,
-      post.PostID,
-      rating,
-    )
-
-    if (success) {
-      // 重新获取评分分布和平均分
-      await fetchUserRating()
-
+    const ok = await submitRatingStar(post.ratingPostID, n)
+    if (ok)
       emits('infoChange', 'rating')
-    }
-    else {
-      // 恢复原评分
-      currRating.value = oldRating
-      commentRating.value = oldRating
-    }
+    else
+      currRating.value = prev
   }
   catch {
-    showMsg('评分提交失败，请稍后再试')
-
-    // 恢复原评分
-    currRating.value = oldRating
-    commentRating.value = oldRating
+    showMsg('评分失败')
+    currRating.value = prev
   }
 }
 
-// 提交评论（包含评分）
-async function submitCommentImpl() {
-  if (!commentContent.value.trim() && commentRating.value === 0) {
-    showMsg('请输入评论内容或选择评分')
+async function onLike() {
+  try {
+    const ok = await likeRatingPost(post.ratingPostID)
+    if (ok)
+      emits('infoChange', 'like')
+  }
+  catch {
+    showMsg('点赞失败')
+  }
+}
+
+async function onDelete() {
+  if (!confirm('确定删除这条评分？'))
+    return
+  try {
+    const ok = await deleteRatingPost(post.ratingPostID)
+    if (ok)
+      emits('infoChange', 'delete')
+  }
+  catch {
+    showMsg('删除失败')
+  }
+}
+
+const submitComment = debounceAsync(async () => {
+  if (!commentContent.value.trim() && currRating.value === 0) {
+    showMsg('请写评论或先评分')
     return
   }
-
-  const hasRating = commentRating.value > 0
-
   commentSubmitting.value = true
   try {
-    const success = await sendRComment(
+    const ok = await createRatingComment(
+      post.ratingPostID,
       commentContent.value,
-      post.PostID,
-      userInfo.phone,
-      commentRating.value,
+      currRating.value,
     )
-
-    if (success) {
-      showMsg('评论提交成功')
-
-      // 如果有评分，更新本地评分数据
-      if (hasRating) {
-        currRating.value = commentRating.value
-        updateLocalRatingData(commentRating.value)
-
-        // 重新获取评分分布和平均分
-        await fetchUserRating()
-      }
-
-      // 清空表单
+    if (ok) {
+      showMsg('已发布')
       commentContent.value = ''
-      commentRating.value = 0
-      commentButtonIsShow.value = false
-
-      // 触发更新事件
+      showCompose.value = false
       emits('infoChange', 'comment')
     }
     else {
-      showMsg('评论提交失败')
+      showMsg('发布失败')
     }
-  }
-  catch {
-    showMsg('评论提交出错')
   }
   finally {
     commentSubmitting.value = false
   }
-}
-
-const submitComment = debounceAsync(submitCommentImpl)
-
-/**
- * @description 点赞功能
- */
-async function like() {
-  try {
-    await likePost(post.PostID, userInfo.phone)
-    // 触发事件通知父组件更新数据
-    emits('infoChange', 'like')
-  }
-  catch (e) {
-    showMsg('点赞失败')
-    console.error(e)
-  }
-}
-
-function useCustomEvent(type: 'delete' | 'save' | 'like') {
-  emits('infoChange', type)
-}
-
-async function deleteRatingPost() {
-  try {
-    await delPost(post.PostID)
-    useCustomEvent('delete')
-  }
-  catch (error) {
-    console.error(error)
-    showMsg('删除失败，请稍后再试')
-  }
-}
+})
 </script>
 
 <template>
-  <BasicCard class="w-15/16">
-    <div class="h-fit flex flex-row flex-wrap items-center justify-between gap-2">
-      <div class="rating-detail-card__profile min-w-0">
+  <article class="rating-detail-card rating-zone">
+    <header class="rd-card__head">
+      <div class="rd-card__author">
         <UserAvatar
-          :src="post.UserAvatar"
+          :src="post.userAvatar"
           :user-id="profileOwnerId"
-          :user-identity="post.UserIdentity"
-          :user-name="post.UserName"
-          :user-score="post.UserScore"
+          :user-identity="post.userIdentity"
+          :user-name="post.userName"
+          :user-score="post.userScore"
         />
+        <div class="rd-card__author-meta">
+          <span class="rd-card__author-name">{{ post.userName || '用户' }}</span>
+          <span class="rd-card__time">{{ formatTime(post.createdAt) }}</span>
+        </div>
       </div>
-      <div v-if="isMobile">
-        <UserButton :no-save="true" :is-saved="post.IsSaved" :is-self="post.UserTelephone === userInfo.phone" @user-action="deleteRatingPost" />
-      </div>
-    </div>
-    <div class="card-title">
-      <h2>
-        {{ post.Title || '' }}
-      </h2>
-    </div>
-
-    <!-- 桌面端评分统计面板 - 放在左上方 -->
-    <div v-if="!isMobile" class="rating-panel-small">
-      <RatingDistribution
-        :stars="currRatingList"
-        :average-rating="averageRating"
-        :user-rating="currRating"
-        :is-mobile="false"
-        :show-user-rating="true"
-        @rating-click="currentRatingClick"
-      />
-    </div>
-
-    <MarkdownContainer
-      :markdown-content="post.Content || 'loading'"
-    />
-    <template v-if="post.Photos">
-      <OldImages :photos="post.Photos" />
-    </template>
-
-    <!-- 手机端评分面板 - 放在帖子内容下方 -->
-    <div v-if="isMobile">
-      <RatingDistribution
-        :stars="currRatingList"
-        :average-rating="averageRating"
-        :user-rating="currRating"
-        :is-mobile="true"
-        :show-user-rating="true"
-        @rating-click="currentRatingClick"
-      />
-    </div>
-
-    <div class="post-actions-container">
-      <div class="post-info">
-        <span class="post-time text-3">{{
-          new Date(post.PostTime).toLocaleString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          })
-        }}</span>
-        <span class="post-browse">浏览 {{ post.Browse }}</span>
-      </div>
-      <div class="action-buttons">
-        <button class="like-button" :class="{ liked: post.IsLiked }" @click="like">
-          <span class="like-icon">{{ post.IsLiked ? '❤️' : '🤍' }}</span>
-          <span class="like-count">{{ post.Like }}</span>
+      <div class="rd-card__actions">
+        <button
+          type="button"
+          class="rd-card__act"
+          :class="{ 'rd-card__act--like-on': post.isLiked }"
+          aria-label="点赞"
+          @click="onLike"
+        >
+          <Icon :icon="post.isLiked ? 'tabler:heart-filled' : 'tabler:heart'" width="18" height="18" />
+          <span>{{ post.like }}</span>
+        </button>
+        <button
+          v-if="isOwner"
+          type="button"
+          class="rd-card__act rd-card__act--danger"
+          aria-label="删除"
+          @click="onDelete"
+        >
+          <Icon icon="tabler:trash" width="18" height="18" />
         </button>
       </div>
-    </div>
-    <CommentToolbar
-      reply-label="写评论"
-      reply-align-end
-      no-top-border
-      :reply-open="commentButtonIsShow"
-      :show-sub-toggle="false"
-      @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+    </header>
+
+    <RouterLink
+      v-if="post.categoryName && post.categoryID"
+      :to="ratingZonePath(post.categoryID)"
+      class="rd-card__zone"
     >
-      <template #leading>
-        <VoteLink :post-i-d="post.PostID" variant="prominent" />
-      </template>
-    </CommentToolbar>
+      <Icon icon="tabler:folder" width="14" height="14" aria-hidden="true" />
+      {{ post.categoryName }}
+      <span class="rd-card__zone-more">同分区更多</span>
+      <Icon icon="tabler:chevron-right" width="14" height="14" aria-hidden="true" />
+    </RouterLink>
 
-    <div v-if="post.UserTelephone === userInfo.phone && !isMobile" class="deleteButton">
-      <button @click="deleteRatingPost()">
-        删除
-      </button>
+    <h1 class="rd-card__title">
+      {{ post.title || '未命名评分' }}
+    </h1>
+
+    <div class="rd-card__stats">
+      <span><Icon icon="tabler:eye" width="14" height="14" /> {{ post.browse }}</span>
+      <span><Icon icon="tabler:message" width="14" height="14" /> {{ post.comment }}</span>
+      <span><Icon icon="tabler:users" width="14" height="14" /> {{ raterCount }} 人评</span>
     </div>
 
-    <div v-if="commentButtonIsShow" class="comment-compose comment-editor max-w-full">
+    <RatingDistribution
+      class="rd-card__dist"
+      dense
+      :stars="currStars"
+      :average-rating="averageRating"
+      :user-rating="currRating"
+      :show-user-rating="true"
+      @rating-click="onStarClick"
+    />
+
+    <div v-if="post.content" class="rd-card__content">
+      <MarkdownContainer :markdown-content="post.content" />
+    </div>
+    <OldImages v-if="post.photos" :photos="post.photos" />
+
+    <footer class="rd-card__foot">
+      <button
+        type="button"
+        class="rd-card__compose-toggle"
+        :class="{ 'rd-card__compose-toggle--open': showCompose }"
+        @click="showCompose = !showCompose"
+      >
+        <Icon icon="tabler:message-plus" width="16" height="16" />
+        {{ showCompose ? '收起评论' : '写评论' }}
+      </button>
+    </footer>
+
+    <div v-show="showCompose" class="rd-card__compose">
       <MarkdownEditor
         v-model="commentContent"
         compact
-        placeholder="写下你的评论…"
+        placeholder="写下你的评价…"
         :submit-busy="commentSubmitting"
         @send="submitComment"
       />
     </div>
-  </BasicCard>
+  </article>
 </template>
 
-<style scoped>
-.rating-detail-card__profile {
-  flex: 1 1 auto;
+<style scoped lang="scss">
+.rating-detail-card {
+  border: 1px solid var(--hp-border, var(--chat-border));
+  border-radius: 10px;
+  background: var(--hp-card, var(--chat-bg-elevated));
+  overflow: hidden;
+}
+
+.rd-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hp-border, var(--chat-border));
+}
+
+.rd-card__author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rd-card__author-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
-/* 确保卡片容器有相对定位 */
-.w-15\/16 {
-  position: relative;
-}
-
-.card-title {
-  margin-top: 10px;
-  margin-bottom: 8px;
-}
-
-/* 小型评分统计面板 - 左上方 */
-.rating-panel-small {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
-}
-
-.rating-summary-small {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow:
-    0 6px 16px rgba(0, 0, 0, 0.08),
-    0 3px 6px rgba(0, 0, 0, 0.04);
-  backdrop-filter: blur(16px);
-  min-width: 120px;
-  transform: scale(0.85);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.rating-summary-small:hover {
-  transform: translateY(-2px) scale(0.9);
-  box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.12),
-    0 6px 12px rgba(0, 0, 0, 0.08);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
-}
-
-.rating-main {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(240, 240, 240, 0.6);
-  position: relative;
-}
-
-.rating-main::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 30px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, #4a90e2 50%, transparent 100%);
-}
-
-.rating-number-small {
-  font-size: 14px;
-  font-weight: 800;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-shadow: 0 2px 4px rgba(37, 99, 235, 0.15);
-}
-
-.rating-stars-small {
-  font-size: 12px;
-  color: #4a90e2;
-  filter: drop-shadow(0 2px 4px rgba(74, 144, 226, 0.3));
-  animation: twinkle 2s ease-in-out infinite alternate;
-}
-
-@keyframes twinkle {
-  0% {
-    transform: scale(1);
-  }
-  100% {
-    transform: scale(1.1);
-  }
-}
-
-.rating-breakdown {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.rating-item-small {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 9px;
-  margin-bottom: 2px;
-  padding: 1px 0;
-  border-radius: 3px;
-  transition: background-color 0.2s ease;
-}
-
-.rating-item-small:hover {
-  background: rgba(74, 144, 226, 0.05);
-}
-
-.star-info {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 18px;
-}
-
-.star-num {
-  color: #64748b;
-  font-weight: 600;
-  font-size: 9px;
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.star-icon {
-  color: #4a90e2;
-  font-size: 9px;
-  filter: drop-shadow(0 1px 2px rgba(74, 144, 226, 0.3));
-}
-
-.progress-container-small {
-  flex: 1;
-  height: 4px;
-  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
-  border-radius: 2px;
+.rd-card__author-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hp-text, var(--chat-text));
   overflow: hidden;
-  margin: 0 4px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.progress-bar-small {
-  height: 100%;
-  background: linear-gradient(90deg, #4a90e2 0%, #357abd 50%, #1d4ed8 100%);
-  border-radius: 2px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(74, 144, 226, 0.3);
+.rd-card__time {
+  font-size: 11px;
+  color: var(--hp-muted, var(--chat-text-secondary));
 }
 
-.star-count {
-  color: #2563eb;
-  font-weight: 700;
-  min-width: 14px;
-  text-align: right;
-  font-size: 9px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* 帖子操作容器 */
-.post-actions-container {
-  position: relative;
-  margin: 12px 0;
-  padding: 8px 0;
-  border-top: 1px solid #f0f0f0;
-}
-
-/* 简化的帖子信息 */
-.post-info {
+.rd-card__actions {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  font-size: 14px;
-  color: #666;
-  margin: 0;
-  padding: 0;
-  border: none;
-}
-
-/* 操作按钮容器 - 浮动到右侧 */
-.action-buttons {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  height: auto;
-  max-height: 40px; /* 限制最大高度 */
-}
-
-/* .post-time 样式现在由 text-3 类处理 */
-
-.post-browse {
-  color: #666;
-}
-
-/* 点赞按钮样式 */
-.like-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 14px;
-  min-width: 80px;
-  margin-left: auto;
-  margin-right: 5px;
-}
-
-.like-button:hover {
-  background: #f5f5f5;
-  border-color: #ccc;
-}
-
-.like-button.liked {
-  background: #ffe6e6;
-  border-color: #ff6b6b;
-}
-
-.like-icon {
-  font-size: 16px;
-}
-
-.like-count {
-  color: #666;
-  font-weight: 500;
-}
-
-.like-button.liked .like-count {
-  color: #ff6b6b;
-}
-
-/* 响应式布局控制现在通过 v-if 实现 */
-
-/* 手机端虎扑风格评分分布样式 */
-.mobile-rating-breakdown {
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.mobile-rating-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 12px;
-  padding: 0;
-}
-
-.mobile-stars {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-}
-
-.mobile-star-filled {
-  font-size: 8px;
-  color: #4a90e2;
-  line-height: 1;
-}
-
-.mobile-percentage {
-  font-size: 7px;
-  font-weight: 600;
-  color: #2563eb;
-  min-width: 20px;
-  text-align: right;
-}
-
-/* 手机端用户评分星星样式 */
-.mobile-user-rating {
-  display: flex;
-  align-items: center;
+  flex-shrink: 0;
   gap: 4px;
 }
 
-.mobile-rating-star {
-  font-size: 16px;
-  color: #d1d5db;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-  padding: 2px;
-}
-
-.mobile-rating-star.filled {
-  color: #4a90e2;
-}
-
-.mobile-rating-star:hover {
-  color: #4a90e2;
-  transform: scale(1.2);
-}
-
-/* 手机端评分面板样式 */
-.mobile-rating-panel {
-  margin: 16px 0;
-  padding: 0 8px;
-}
-
-.mobile-rating-container {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  padding: 16px;
-  width: 100%;
-}
-
-.mobile-rating-header {
-  display: flex;
-  justify-content: space-between;
+.rd-card__act {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(240, 240, 240, 0.6);
-}
-
-.mobile-rating-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.mobile-average-rating {
-  font-size: 18px;
-  font-weight: 700;
-  color: #4a90e2;
-}
-
-.mobile-user-rating-section {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background: rgba(74, 144, 226, 0.1);
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--hp-border, var(--chat-border));
   border-radius: 8px;
-  border: 1px solid rgba(74, 144, 226, 0.2);
+  background: transparent;
+  font-size: 12px;
+  color: var(--hp-muted, var(--chat-text-secondary));
+  cursor: pointer;
+
+  &--like-on {
+    color: #e53935;
+    border-color: rgba(229, 57, 53, 0.35);
+    background: rgba(229, 57, 53, 0.06);
+  }
+
+  &--danger {
+    color: #c62828;
+    border-color: rgba(198, 40, 40, 0.25);
+  }
 }
 
-.mobile-user-rating-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #4a90e2;
-}
-
-.mobile-rating-breakdown {
-  display: flex;
-  flex-direction: column;
+.rd-card__zone {
+  display: inline-flex;
+  align-items: center;
   gap: 4px;
-}
-
-.mobile-rating-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 16px;
-  padding: 0;
-}
-
-.mobile-stars {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.mobile-star-filled {
-  font-size: 12px;
-  color: #4a90e2;
-  line-height: 1;
-}
-
-.mobile-percentage {
-  font-size: 12px;
-  font-weight: 600;
-  color: #2563eb;
-  min-width: 30px;
-  text-align: right;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .rating-panel-small {
-    top: 60px;
-    right: 8px;
-  }
-
-  .rating-summary-small {
-    padding: 6px 8px;
-    min-width: 90px;
-    max-width: 100px;
-    transform: scale(0.8);
-  }
-
-  .rating-main {
-    padding-bottom: 6px;
-    gap: 4px;
-    border-bottom: 1px solid rgba(240, 240, 240, 0.6);
-  }
-
-  .rating-number-small {
-    font-size: 12px;
-  }
-
-  .rating-stars-small {
-    font-size: 10px;
-  }
-
-  .user-rating-section {
-    margin: 6px 0;
-    padding: 4px;
-    gap: 4px;
-    background: rgba(74, 144, 226, 0.1);
-    border-radius: 4px;
-    border: 1px solid rgba(74, 144, 226, 0.2);
-  }
-
-  .user-rating-label {
-    font-size: 8px;
-    font-weight: 600;
-    color: #4a90e2;
-  }
-
-  .rating-hint {
-    font-size: 6px;
-    color: #6b7280;
-    font-style: italic;
-  }
-
-  .post-actions-container {
-    position: relative;
-    padding-bottom: 20px; /* 减少为浮动按钮留出的空间 */
-  }
-
-  .post-info {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-  }
-
-  .action-buttons {
-    position: absolute;
-    top: 0;
-    right: 0;
-    flex-direction: column;
-    gap: 4px;
-  }
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .rating-summary-small {
-    background: linear-gradient(135deg, rgba(31, 41, 55, 0.95) 0%, rgba(17, 24, 39, 0.9) 100%);
-    border-color: rgba(55, 65, 81, 0.8);
-  }
-
-  .rating-summary-small:hover {
-    background: linear-gradient(135deg, rgba(31, 41, 55, 0.98) 0%, rgba(17, 24, 39, 0.95) 100%);
-  }
-
-  .rating-main {
-    border-bottom-color: rgba(55, 65, 81, 0.6);
-  }
-
-  .rating-main::after {
-    background: linear-gradient(90deg, transparent 0%, #60a5fa 50%, transparent 100%);
-  }
-
-  .rating-number-small {
-    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .rating-stars-small {
-    color: #60a5fa;
-    filter: drop-shadow(0 2px 4px rgba(96, 165, 250, 0.3));
-  }
-
-  .rating-item-small:hover {
-    background: rgba(96, 165, 250, 0.1);
-  }
-
-  .star-num {
-    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .star-icon {
-    color: #60a5fa;
-    filter: drop-shadow(0 1px 2px rgba(96, 165, 250, 0.3));
-  }
-
-  .progress-container-small {
-    background: linear-gradient(90deg, #374151 0%, #1f2937 100%);
-  }
-
-  .progress-bar-small {
-    background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 50%, #1d4ed8 100%);
-    box-shadow: 0 1px 3px rgba(96, 165, 250, 0.3);
-  }
-
-  .star-count {
-    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .like-button {
-    background: #374151;
-    border-color: #4b5563;
-    color: #d1d5db;
-  }
-
-  .like-button:hover {
-    background: #4b5563;
-  }
-
-  .like-button.liked {
-    background: #451a03;
-    border-color: #dc2626;
-    color: #fca5a5;
-  }
-
-  .rating-selector {
-    background: #1f2937;
-    border-color: #374151;
-  }
-
-  .rating-label {
-    color: #d1d5db;
-  }
-
-  .rating-display {
-    color: #60a5fa;
-  }
-
-  .user-rating-section {
-    background: rgba(96, 165, 250, 0.1);
-    border-color: rgba(96, 165, 250, 0.2);
-  }
-
-  .user-rating-label {
-    color: #60a5fa;
-  }
-
-  .rating-hint {
-    color: #9ca3af;
-  }
-}
-
-/* 评分选择器样式 */
-.rating-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0;
-  padding: 8px 12px;
-  background: #f8fafc;
+  margin: 8px 12px 0;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--chat-accent);
+  background: var(--chat-accent-soft, #fff5eb);
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
-.rating-label {
-  font-size: 14px;
+.rd-card__zone-more {
   font-weight: 500;
-  color: #374151;
+  opacity: 0.85;
 }
 
-.rating-display {
-  font-size: 14px;
-  font-weight: 600;
-  color: #4a90e2;
+.rd-card__title {
+  margin: 6px 12px 4px;
+  padding: 0;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--hp-text, var(--chat-text));
 }
 
-/* 用户评分区域样式 */
-.user-rating-section {
+.rd-card__stats {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 12px 8px;
+  font-size: 11px;
+  color: var(--hp-muted, var(--chat-text-secondary));
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+}
+
+.rd-card__dist {
+  margin: 0 10px 10px;
+}
+
+.rd-card__content {
+  padding: 0 12px 8px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.rd-card__foot {
+  padding: 8px 12px;
+  border-top: 1px solid var(--hp-border, var(--chat-border));
+}
+
+.rd-card__compose-toggle {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 6px 0;
-  padding: 6px;
-  background: rgba(74, 144, 226, 0.1);
-  border-radius: 4px;
-  border: 1px solid rgba(74, 144, 226, 0.2);
-}
-
-.user-rating-label {
-  font-size: 10px;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--chat-accent-soft, #fff5eb);
+  color: var(--chat-accent);
+  font-size: 12px;
   font-weight: 600;
-  color: #4a90e2;
+  cursor: pointer;
+
+  &--open {
+    background: var(--chat-accent);
+    color: var(--chat-unread-text);
+  }
 }
 
-.rating-hint {
-  font-size: 8px;
-  color: #6b7280;
-  font-style: italic;
-  margin-left: auto;
+.rd-card__compose {
+  padding: 0 10px 10px;
+  border-top: 1px dashed var(--hp-border, var(--chat-border));
 }
 </style>

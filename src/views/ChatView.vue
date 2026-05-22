@@ -20,6 +20,11 @@ export interface Message extends MessageCreation {
   createdAt: string
 }
 
+const { embedded = false } = defineProps<{
+  /** 嵌入消息中心时隐藏侧栏标题并铺满父容器 */
+  embedded?: boolean
+}>()
+
 const route = useRoute()
 const { userInfo } = useUserStore()
 const { on, off, contacts, chatHistory, sendChatMessage, selectContact: selectChatContact, addContact, current } = useChat()
@@ -235,15 +240,16 @@ watch([isMobile, mobilePane], () => {
   <div
     class="chat-page"
     :class="{
+      'chat-page--embedded': embedded,
       'chat-page--mobile-list': isMobile && mobilePane === 'list',
       'chat-page--mobile-thread': isMobile && mobilePane === 'thread',
     }"
     :style="{ '--chat-kb-inset': `${keyboardInset}px` }"
   >
     <aside v-show="showContactAside" class="contact-aside">
-      <div class="contact-aside__head">
+      <div v-if="!embedded" class="contact-aside__head">
         <Icon icon="tabler:message-circle" class="contact-aside__head-icon" aria-hidden="true" />
-        <span class="contact-aside__title">消息</span>
+        <span class="contact-aside__title">私信</span>
       </div>
       <div class="lite-scrollbar contact-aside__scroll">
         <div
@@ -377,7 +383,7 @@ watch([isMobile, mobilePane], () => {
           选择聊天对象
         </p>
         <p class="thread-placeholder__desc">
-          在左侧列表中选择一个联系人开始对话
+          {{ embedded ? '在会话列表中选择联系人开始对话' : '在左侧列表中选择一个联系人开始对话' }}
         </p>
       </div>
     </section>
@@ -397,6 +403,13 @@ watch([isMobile, mobilePane], () => {
   flex: 1 1 0;
   min-height: 0;
   height: 100%;
+
+  &--embedded {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    gap: 0;
+  }
 }
 
 @media screen and (min-width: 769px) {
@@ -429,10 +442,25 @@ watch([isMobile, mobilePane], () => {
     flex-shrink: 0;
     max-height: calc(90dvh - 100px);
   }
+
+  .chat-page--embedded .contact-aside {
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+    border-top: none;
+    border-bottom: none;
+  }
+
+  .chat-page--embedded .chat-thread {
+    border-radius: 0;
+    border-top: none;
+    border-bottom: none;
+  }
 }
 
 @media screen and (max-width: 768px) {
-  .chat-page {
+  .chat-page,
+  .chat-page--embedded {
     padding: 0;
     gap: 0;
     max-width: none;
@@ -494,6 +522,10 @@ watch([isMobile, mobilePane], () => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+}
+
+.chat-page--embedded .contact-aside__scroll {
+  padding-top: 4px;
 }
 
 .contact-row {

@@ -36,6 +36,26 @@ const router = createRouter({
           component: () => import('@/views/RatingView.vue'),
         },
         {
+          path: 'rating/category/new',
+          name: 'RatingCategoryNew',
+          component: () => import('@/views/RatingCategoryCreateView.vue'),
+        },
+        {
+          path: 'rating/post',
+          name: 'RatingPost',
+          component: () => import('@/views/RatingPostCreateView.vue'),
+        },
+        {
+          path: 'rating/:id',
+          name: 'RatingDetail',
+          component: () => import('@/views/RatingDetailView.vue'),
+          props: true,
+        },
+        {
+          path: 'partition/打分',
+          redirect: '/rating',
+        },
+        {
           path: 'resume',
           name: 'Resume',
           component: () => import('@/views/ResumeView.vue'),
@@ -95,9 +115,18 @@ const router = createRouter({
           props: true,
         },
         {
+          path: 'messages',
+          name: 'Messages',
+          meta: { layoutFill: true },
+          component: () => import('@/views/MessagesView.vue'),
+        },
+        {
           path: 'notice',
           name: 'Notice',
-          component: () => import('@/views/NoticeView.vue'),
+          redirect: to => ({
+            path: '/messages',
+            query: { tab: 'notice', ...to.query },
+          }),
         },
         {
           path: 'heat',
@@ -132,8 +161,10 @@ const router = createRouter({
         {
           path: 'chat',
           name: 'Chat',
-          meta: { layoutFill: true },
-          component: () => import('@/views/ChatView.vue'),
+          redirect: to => ({
+            path: '/messages',
+            query: { tab: 'chat', ...to.query },
+          }),
         },
         {
           path: 'smart-xiaoqiu',

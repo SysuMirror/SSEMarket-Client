@@ -13,8 +13,10 @@ const route = useRoute()
 const path = computed(() => route.path)
 
 const isHome = computed(() => path.value === '/' || path.value === '/partition' || path.value.startsWith('/partition/'))
-const isNotice = computed(() => path.value === '/notice')
-const isChat = computed(() => path.value === '/chat')
+const isMessages = computed(() =>
+  path.value === '/messages' || path.value === '/notice' || path.value === '/chat',
+)
+const totalMessageNum = computed(() => (noticeNum || 0) + (chatNum || 0))
 const isRanking = computed(() => path.value === '/ranking')
 const isSmartXiaoQiu = computed(() => path.value === '/smart-xiaoqiu' || path.value.startsWith('/smart-xiaoqiu/'))
 const isResume = computed(() => path.value === '/resume' || path.value.startsWith('/resume/'))
@@ -75,28 +77,15 @@ onUnmounted(() => {
 
       <RouterLink
         class="bottom-nav__item bottom-nav__item--badge-wrap"
-        :class="{ 'bottom-nav__item--active': isNotice }"
-        to="/notice"
+        :class="{ 'bottom-nav__item--active': isMessages }"
+        to="/messages"
         @click="closeMyMenu"
       >
         <span class="bottom-nav__icon-slot">
-          <span v-if="noticeNum > 0" class="bottom-nav__badge">{{ noticeNum > 99 ? '99+' : noticeNum }}</span>
-          <Icon icon="tabler:bell" class="bottom-nav__icon bottom-nav__icon--notice" width="24" height="24" aria-hidden="true" />
+          <span v-if="totalMessageNum > 0" class="bottom-nav__badge">{{ totalMessageNum > 99 ? '99+' : totalMessageNum }}</span>
+          <Icon icon="tabler:messages" class="bottom-nav__icon bottom-nav__icon--messages" width="24" height="24" aria-hidden="true" />
         </span>
-        <span class="bottom-nav__text">通知</span>
-      </RouterLink>
-
-      <RouterLink
-        class="bottom-nav__item bottom-nav__item--badge-wrap"
-        :class="{ 'bottom-nav__item--active': isChat }"
-        to="/chat"
-        @click="closeMyMenu"
-      >
-        <span class="bottom-nav__icon-slot">
-          <span v-if="chatNum > 0" class="bottom-nav__badge">{{ chatNum > 99 ? '99+' : chatNum }}</span>
-          <Icon icon="tabler:message-circle" class="bottom-nav__icon bottom-nav__icon--chat" width="24" height="24" aria-hidden="true" />
-        </span>
-        <span class="bottom-nav__text">私信</span>
+        <span class="bottom-nav__text">消息</span>
       </RouterLink>
 
       <RouterLink
@@ -308,10 +297,7 @@ onUnmounted(() => {
 .bottom-nav__icon--shop {
   color: #059669;
 }
-.bottom-nav__icon--notice {
-  color: #ca8a04;
-}
-.bottom-nav__icon--chat {
+.bottom-nav__icon--messages {
   color: #2563eb;
 }
 .bottom-nav__icon--ranking {
@@ -369,10 +355,7 @@ body.dark-mode .bottom-nav__icon--home {
 body.dark-mode .bottom-nav__icon--shop {
   color: #34d399;
 }
-body.dark-mode .bottom-nav__icon--notice {
-  color: #fbbf24;
-}
-body.dark-mode .bottom-nav__icon--chat {
+body.dark-mode .bottom-nav__icon--messages {
   color: #60a5fa;
 }
 body.dark-mode .bottom-nav__icon--ranking {

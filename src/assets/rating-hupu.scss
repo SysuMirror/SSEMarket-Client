@@ -1,0 +1,44 @@
+/* 打分专区 — 布局变量，颜色跟随站点主色 --chat-accent */
+
+.rating-zone,
+.rating-page {
+  --hp-primary: var(--chat-accent);
+  --hp-primary-soft: var(--chat-accent-soft);
+  --hp-bg: var(--chat-bg-main);
+  --hp-card: var(--chat-bg-elevated);
+  --hp-text: var(--chat-text);
+  --hp-muted: var(--chat-text-secondary);
+  --hp-border: var(--chat-border);
+  --hp-bar-bg: var(--chat-bg-main);
+  --hp-score-bg: var(--chat-accent);
+  --hp-score-fg: var(--chat-unread-text);
+  --hp-score-shadow: var(--chat-accent-soft);
+}
+
+.rating-page {
+  background: var(--hp-bg);
+  min-height: 100%;
+}
+
+.rating-feed.post-list--rating {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 10px 1.25rem;
+  box-sizing: border-box;
+}
+
+.rating-feed.post-list--rating .feed-list__item {
+  width: 100%;
+  margin: 0 0 8px;
+}
+
+.rating-feed.post-list--rating .feed-list__footer {
+  color: var(--hp-muted);
+  font-size: 13px;
+}
+
+.rating-detail-page {
+  background: var(--hp-bg);
+  min-height: 100%;
+}

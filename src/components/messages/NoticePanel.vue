@@ -75,37 +75,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="notice-page">
-    <header class="notice-page__head">
-      <div class="notice-page__title-row">
-        <Icon icon="tabler:bell" class="notice-page__title-icon" width="22" height="22" aria-hidden="true" />
-        <h1 class="notice-page__title">
-          通知
-        </h1>
-      </div>
-      <p class="notice-page__subtitle">
-        评论与互动提醒
-      </p>
-    </header>
-
-    <div class="notice-toolbar">
-      <div class="notice-tabs" role="tablist" aria-label="通知分类">
+  <div class="notice-panel">
+    <div class="notice-panel__toolbar">
+      <div class="notice-panel__tabs" role="tablist" aria-label="通知分类">
         <button
           type="button"
           role="tab"
-          class="notice-tabs__btn"
-          :class="{ 'notice-tabs__btn--active': readPage }"
+          class="notice-panel__tab"
+          :class="{ 'notice-panel__tab--active': readPage }"
           :aria-selected="readPage"
           @click="readPage = true"
         >
           未读
-          <span v-if="unreadCount > 0" class="notice-tabs__count">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+          <span v-if="unreadCount > 0" class="notice-panel__tab-count">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
         </button>
         <button
           type="button"
           role="tab"
-          class="notice-tabs__btn"
-          :class="{ 'notice-tabs__btn--active': !readPage }"
+          class="notice-panel__tab"
+          :class="{ 'notice-panel__tab--active': !readPage }"
           :aria-selected="!readPage"
           @click="readPage = false"
         >
@@ -115,7 +103,7 @@ onMounted(async () => {
       <button
         v-if="readPage"
         type="button"
-        class="notice-toolbar__mark-all"
+        class="notice-panel__mark-all"
         :disabled="noticesUnread.length === 0"
         @click="readAll"
       >
@@ -124,7 +112,7 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div class="lite-scrollbar notice-list">
+    <div class="lite-scrollbar notice-panel__list">
       <template v-if="activeList.length">
         <article
           v-for="notice in activeList"
@@ -201,54 +189,25 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
-.notice-page {
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 0 14px 1.5rem;
-  box-sizing: border-box;
-  color: var(--chat-text);
-}
-
-.notice-page__head {
-  margin-bottom: 1rem;
-}
-
-.notice-page__title-row {
+.notice-panel {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.notice-page__title-icon {
-  color: var(--chat-accent);
-  flex-shrink: 0;
-}
-
-.notice-page__title {
-  margin: 0;
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   color: var(--chat-text);
 }
 
-.notice-page__subtitle {
-  margin: 0.35rem 0 0;
-  font-size: 0.875rem;
-  color: var(--chat-text-secondary);
-}
-
-.notice-toolbar {
+.notice-panel__toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  flex-shrink: 0;
+  padding: 0 14px 12px;
 }
 
-.notice-tabs {
+.notice-panel__tabs {
   display: inline-flex;
   padding: 4px;
   background: var(--chat-bg-main);
@@ -257,7 +216,7 @@ onMounted(async () => {
   gap: 2px;
 }
 
-.notice-tabs__btn {
+.notice-panel__tab {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -271,13 +230,10 @@ onMounted(async () => {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  text-transform: none;
-  letter-spacing: 0;
   font-family: inherit;
   transition:
     background 0.15s ease,
     color 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
 
   &--active {
     background: var(--chat-bg-highlight);
@@ -288,14 +244,9 @@ onMounted(async () => {
   &:not(&--active):hover {
     color: var(--chat-text);
   }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 }
 
-.notice-tabs__count {
+.notice-panel__tab-count {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
@@ -308,7 +259,7 @@ onMounted(async () => {
   border-radius: 999px;
 }
 
-.notice-toolbar__mark-all {
+.notice-panel__mark-all {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -320,14 +271,11 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  text-transform: none;
-  letter-spacing: 0;
   font-family: inherit;
   transition:
     border-color 0.15s ease,
     color 0.15s ease,
     background 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
 
   &:hover:not(:disabled) {
     border-color: var(--chat-accent);
@@ -341,11 +289,14 @@ onMounted(async () => {
   }
 }
 
-.notice-list {
+.notice-panel__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: none;
+  padding: 0 14px 14px;
 }
 
 .notice-card {
@@ -357,6 +308,7 @@ onMounted(async () => {
   border-radius: 16px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   transition: border-color 0.15s ease;
+  flex-shrink: 0;
 
   &--unread {
     border-color: var(--chat-bubble-border-self);
@@ -447,8 +399,6 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  text-transform: none;
-  letter-spacing: 0;
   font-family: inherit;
   border: 1px solid transparent;
   transition:
@@ -456,7 +406,6 @@ onMounted(async () => {
     border-color 0.15s ease,
     color 0.15s ease,
     opacity 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
 
   &--ghost {
     background: var(--chat-bg-main);
@@ -481,7 +430,6 @@ onMounted(async () => {
     &:disabled {
       opacity: 0.4;
       cursor: not-allowed;
-      filter: none;
     }
   }
 }
@@ -496,6 +444,7 @@ onMounted(async () => {
   background: var(--chat-bg-main);
   border: 1px dashed var(--chat-border);
   border-radius: 16px;
+  flex: 1;
 }
 
 .notice-empty__icon {
@@ -519,26 +468,22 @@ onMounted(async () => {
   max-width: 260px;
 }
 
-.lite-scrollbar {
-  overflow: visible;
-}
-
 @media screen and (max-width: 480px) {
-  .notice-toolbar {
+  .notice-panel__toolbar {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .notice-tabs {
+  .notice-panel__tabs {
     width: 100%;
     justify-content: stretch;
   }
 
-  .notice-tabs__btn {
+  .notice-panel__tab {
     flex: 1;
   }
 
-  .notice-toolbar__mark-all {
+  .notice-panel__mark-all {
     justify-content: center;
   }
 

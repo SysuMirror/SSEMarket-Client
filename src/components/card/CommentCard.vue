@@ -4,6 +4,7 @@ import { computed, defineAsyncComponent, nextTick, ref, useTemplateRef, watch } 
 import { scrollElementBelowHeader } from '@/utils/scrollBelowHeader'
 import { delComment, sendPComment } from '@/api/editPostAndComment/editComment'
 
+import { likeRatingComment } from '@/api/rating'
 import {
   likePostComment,
 } from '@/api/SaveAndLike/SaveAndLike'
@@ -17,11 +18,12 @@ import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
 import CommentToolbar from '../comment/CommentToolbar.vue'
 
-const { comment, postId, commentable = true, isDense = false } = defineProps<{
+const { comment, postId, commentable = true, isDense = false, likeMode = 'post' } = defineProps<{
   comment: Comment
   postId: number
   commentable?: boolean
   isDense?: boolean
+  likeMode?: 'post' | 'rating'
 }>()
 
 const CCommentCard = defineAsyncComponent(() => import('@/components/card/CCommentCard.vue'))
@@ -152,10 +154,12 @@ watch(showSubComment, (open) => {
 
 async function like() {
   try {
-    const res = await likePostComment(
-      comment.PcommentID,
-      userInfo.phone,
-    )
+    const res = likeMode === 'rating'
+      ? await likeRatingComment(comment.PcommentID)
+      : await likePostComment(
+          comment.PcommentID,
+          userInfo.phone,
+        )
     if (!res) {
       showMsg('点赞失败')
       return

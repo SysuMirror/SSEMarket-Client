@@ -140,7 +140,7 @@ const partitions: { name: string, icon: string, key: string }[] = [
   color: #6366f1;
 }
 .partition-chip--rating .partition-chip__ico {
-  color: #ca8a04;
+  color: var(--chat-accent);
 }
 .partition-chip--shop .partition-chip__ico {
   color: #059669;
@@ -173,7 +173,6 @@ const partitions: { name: string, icon: string, key: string }[] = [
 body.dark-mode .partition-chip--all .partition-chip__ico {
   color: #a5b4fc;
 }
-body.dark-mode .partition-chip--rating .partition-chip__ico,
 body.dark-mode .partition-chip--quality .partition-chip__ico {
   color: #fcd34d;
 }

@@ -163,7 +163,7 @@ async function deleteProduct(): Promise<void> {
 
 function navigateChat(): void {
   if (product.value.SellerID > 0) {
-    router.push({ name: 'Chat', query: { user: product.value.SellerID } })
+    router.push({ name: 'Messages', query: { tab: 'chat', user: String(product.value.SellerID) } })
   }
 }
 

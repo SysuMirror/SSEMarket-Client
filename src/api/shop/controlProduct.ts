@@ -1,59 +1,9 @@
-import { requestFunc } from '../req'
+import { deleteShopProduct, markShopProductSold } from './mutations'
 
-interface DeleteProductRequestBody {
-  productID: number
+export async function deleteProduct(productID: number): Promise<boolean> {
+  return deleteShopProduct(productID)
 }
 
-async function deleteProduct(productID: number): Promise<any> {
-  try {
-    const res = await requestFunc(`/auth/saleProduct`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: {
-        productID,
-      } as DeleteProductRequestBody,
-    }, true)
-
-    // 添加类型检查
-    if (!res) {
-      throw new Error('No response received')
-    }
-
-    const data = await res.json()
-    return data
-  }
-  catch (e) {
-    alert(e)
-    console.error(e)
-  }
+export async function saleProduct(productID: number): Promise<boolean> {
+  return markShopProductSold(productID)
 }
-
-async function saleProduct(productID: number): Promise<any> {
-  try {
-    const res = await requestFunc(`/auth/saleProduct`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: {
-        productID,
-      } as DeleteProductRequestBody,
-    }, true)
-
-    // 添加类型检查
-    if (!res) {
-      throw new Error('No response received')
-    }
-
-    const data = await res.json()
-    return data
-  }
-  catch (e) {
-    alert(e)
-    console.error(e)
-  }
-}
-
-export { deleteProduct, saleProduct }

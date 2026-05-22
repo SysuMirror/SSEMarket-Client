@@ -153,28 +153,19 @@ const {
         />
         历史
       </RouterLink>
-      <router-link to="/notice">
+      <router-link to="/messages">
         <div
           class="icon"
           style="
-								background-image: url(https://img.icons8.com/?size=100&id=32058&format=png&color=000000);
+								background-image: url(https://img.icons8.com/?size=100&id=83142&format=png&color=000000);
 							"
         />
-        通知
+        消息
         <div
-          v-if="unreadNoticeNum"
+          v-if="unreadNoticeNum + unreadChatNum > 0"
           class="notice-num"
         >
-          {{ unreadNoticeNum }}
-        </div>
-      </router-link>
-      <router-link to="/chat">
-        私信
-        <div
-          v-if="unreadChatNum"
-          class="notice-num"
-        >
-          {{ unreadChatNum }}
+          {{ unreadNoticeNum + unreadChatNum > 99 ? '99+' : unreadNoticeNum + unreadChatNum }}
         </div>
       </router-link>
       <router-link to="/options">

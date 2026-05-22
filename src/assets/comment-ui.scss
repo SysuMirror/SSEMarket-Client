@@ -249,7 +249,11 @@ body.dark-mode .comment-row {
   padding-left: calc(var(--comment-avatar-size) + var(--comment-avatar-gap));
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+
+  .hp-stars__item {
+    font-size: 14px;
+  }
 }
 
 /* 子评论线程 — Fluent：浅灰底 + 左侧描边缩进 */

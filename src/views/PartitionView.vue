@@ -62,9 +62,6 @@ onMounted(async () => {
   if (partition === '课程交流')
     // 对于课程交流分区，采用更紧凑的卡片布局
     isDense.value = true
-  if (partition === '打分')
-    // 对于打分分区，采用更紧凑的卡片布局
-    isDense.value = true
   name.value = partition
   if (!hasCache.value)
     await initialize(partition)

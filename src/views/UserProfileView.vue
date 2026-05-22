@@ -139,7 +139,7 @@ watch(
 
 function navigateChat() {
   if (user.value && user.value.userID > 0) {
-    router.push({ name: 'Chat', query: { user: user.value.userID } })
+    router.push({ name: 'Messages', query: { tab: 'chat', user: String(user.value.userID) } })
   }
 }
 

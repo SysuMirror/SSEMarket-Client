@@ -1,4 +1,4 @@
-import type { Post, PostType, Rating } from '@/types/post'
+import type { Post } from '@/types/post'
 import { requestFunc } from '../req'
 
 export type HomeOrderBy =
@@ -43,31 +43,7 @@ const defaultPost: Post = {
   Tag: '',
 }
 
-const defaultRating: Rating = {
-  PostID: 0,
-  UserID: 0,
-  UserName: '',
-  UserScore: 0,
-  UserTelephone: '',
-  UserAvatar: '',
-  UserIdentity: '',
-  Title: '',
-  Content: '',
-  Like: 0,
-  Comment: 0,
-  Browse: 0,
-  Heat: 0,
-  PostTime: '',
-  IsSaved: false,
-  IsLiked: false,
-  Photos: '',
-  Tag: '',
-  Rating: 0,
-  Stars: [0, 0, 0, 0, 0],
-  UserRating: 0,
-}
-
-async function getPosts(object: getPostsObject): Promise<Post[] | Rating[]> {
+async function getPosts(object: getPostsObject): Promise<Post[]> {
   try {
     const res = await requestFunc(
       '/auth/browse',
@@ -197,10 +173,8 @@ async function getHeatPosts(): Promise<HeatPost[]> {
 async function getPostByID(
   PostID: number,
   userTelephone: string,
-  postType: PostType = 'post',
-): Promise<Post | Rating> {
+): Promise<Post> {
   try {
-    // 先拉详情（Browse 来自 Redis INCR），再记首访 Pbrowse，避免与 updateBrowseNum 并行导致展示与 MySQL 竞态
     const res = await requestFunc(
       `/auth/showDetails`,
       {
@@ -211,7 +185,6 @@ async function getPostByID(
         body: {
           postID: PostID,
           userTelephone,
-          postType,
         },
       },
       true,
@@ -221,50 +194,31 @@ async function getPostByID(
       console.error('增加浏览量失败')
     }
     if (!res) {
-      return postType === 'post'
-        ? {
-            ...defaultPost,
-            Title: '网络错误',
-            Content: '网络错误',
-          }
-        : {
-            ...defaultRating,
-            Title: '网络错误',
-            Content: '网络错误',
-          }
+      return {
+        ...defaultPost,
+        Title: '网络错误',
+        Content: '网络错误',
+      }
     }
     try {
-      const data = await res.json()
-      return data
+      return await res.json() as Post
     }
     catch (e) {
       console.error(e)
-      return postType === 'post'
-        ? {
-            ...defaultPost,
-            Title: '帖子不存在',
-            Content: '帖子不存在',
-          }
-        : {
-            ...defaultRating,
-            Title: '帖子不存在',
-            Content: '帖子不存在',
-          }
+      return {
+        ...defaultPost,
+        Title: '帖子不存在',
+        Content: '帖子不存在',
+      }
     }
   }
   catch (e) {
     console.error(e)
-    return postType === 'post'
-      ? {
-          ...defaultPost,
-          Title: '网络错误',
-          Content: '网络错误',
-        }
-      : {
-          ...defaultRating,
-          Title: '网络错误',
-          Content: '网络错误',
-        }
+    return {
+      ...defaultPost,
+      Title: '网络错误',
+      Content: '网络错误',
+    }
   }
 }
 
@@ -292,33 +246,4 @@ async function updateBrowseNum(PostID: number, userTelephone: string) {
   }
 }
 
-async function getPostTypeByID(PostID: number): Promise<PostType> {
-  try {
-    const res = await requestFunc(
-      `/auth/getPostType`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: {
-          postID: PostID,
-        },
-      },
-      true,
-    )
-    if (!res!.ok) {
-      console.error('获取帖子类型失败:', res!.status, res!.statusText)
-      return 'post'
-    }
-
-    const data = await res!.json()
-    return data.data.postType as PostType
-  }
-  catch (e) {
-    console.error(e)
-    return 'post'
-  }
-}
-
-export { getHeatPosts, getPostByID, getPosts, getPostsNum, getPostTypeByID }
+export { getHeatPosts, getPostByID, getPosts, getPostsNum }
