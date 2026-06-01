@@ -64,6 +64,21 @@ function handlePrivacy() {
       :aria-pressed="!!isPrivate"
       @click.stop.prevent="handlePrivacy"
     >
+      <svg
+        class="user-buttons__privacy-icon"
+        viewBox="0 0 16 16"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          v-if="isPrivate"
+          d="M4 7V5a4 4 0 0 1 8 0v2h.5A1.5 1.5 0 0 1 14 8.5v5A1.5 1.5 0 0 1 12.5 15h-9A1.5 1.5 0 0 1 2 13.5v-5A1.5 1.5 0 0 1 3.5 7H4zm1 0h6V5a3 3 0 0 0-6 0v2z"
+        />
+        <path
+          v-else
+          d="M11 7V5a3 3 0 0 0-5.83-1 .5.5 0 0 1-.94-.34A4 4 0 0 1 12 5v2h.5A1.5 1.5 0 0 1 14 8.5v5A1.5 1.5 0 0 1 12.5 15h-9A1.5 1.5 0 0 1 2 13.5v-5A1.5 1.5 0 0 1 3.5 7H11z"
+        />
+      </svg>
       <span class="user-buttons__privacy-label">{{ isPrivate ? '仅自己可见' : '设为私密' }}</span>
     </button>
 
@@ -186,6 +201,13 @@ function handlePrivacy() {
   white-space: nowrap;
 }
 
+.user-buttons__privacy-icon {
+  display: none;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
 .user-buttons--compact {
   gap: 6px;
 
@@ -197,6 +219,11 @@ function handlePrivacy() {
   }
 
   .user-buttons__save-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .user-buttons__privacy-icon {
     width: 14px;
     height: 14px;
   }
@@ -218,9 +245,18 @@ function handlePrivacy() {
   }
 
   .user-buttons__privacy-label {
-    max-width: 4em;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none;
+  }
+
+  .user-buttons__privacy-icon {
+    display: block;
+  }
+
+  .user-buttons__privacy {
+    width: 34px;
+    min-width: 34px;
+    padding: 5px !important;
+    justify-content: center;
   }
 
   .user-buttons__save {
