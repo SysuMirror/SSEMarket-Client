@@ -142,7 +142,7 @@ body.dark-mode {
   --chat-text-secondary: #94a3b8;
   --chat-text-tips: #64748b;
   /* 暗底强调再略提亮，避免和背景糊成一片 */
-  --chat-accent: #d8e0ea;
+  --chat-accent: #5989b8;
   --chat-accent-soft: rgba(216, 224, 234, 0.16);
   --chat-bubble-peer: #2a2f38;
   --chat-bubble-self: #243044;
