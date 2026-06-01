@@ -2,7 +2,7 @@
 import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent, ref, useTemplateRef } from 'vue'
 import { sendComment } from '@/api/editPostAndComment/editComment'
-import { delPost } from '@/api/editPostAndComment/editPost'
+import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
 
 import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
 import { showMsg } from '@/components/MessageBox'
@@ -23,7 +23,9 @@ const { post } = defineProps<{
   post: Post
 }>()
 
-const emits = defineEmits(['infoChange'])
+const emits = defineEmits<{
+  infoChange: [type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?: boolean]
+}>()
 
 const OldImages = defineAsyncComponent(() => import('@/components/OldImages.vue'))
 
@@ -103,7 +105,7 @@ async function handler(type: 'comment') {
 
 const handleUserActionDebounce = debounceAsync(handleUserAction)
 
-async function handleUserAction(type: 'delete' | 'save') {
+async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
   // 后端没有返回数据，不要赋值后再更新
   switch (type) {
     case 'save':{
@@ -129,6 +131,19 @@ async function handleUserAction(type: 'delete' | 'save') {
         console.error(error)
         showMsg('删除失败，请稍后再试')
       }
+      break
+    }
+    case 'privacy': {
+      try {
+        const nextPrivate = !post.IsPrivate
+        await updatePostPrivacy(post.PostID, userInfo.phone, nextPrivate)
+        useCustomEvent('privacy', nextPrivate)
+        showMsg(nextPrivate ? '已设为仅自己可见' : '已公开')
+      }
+      catch (error) {
+        console.error(error)
+        showMsg('设置失败，请稍后再试')
+      }
     }
   }
 }
@@ -148,8 +163,8 @@ async function like() {
   }
 }
 
-function useCustomEvent(type: 'delete' | 'save' | 'like') {
-  emits('infoChange', type)
+function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?: boolean) {
+  emits('infoChange', type, isPrivate)
 }
 </script>
 
@@ -169,6 +184,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
         class="flex-shrink-0"
         :is-saved="post.IsSaved"
         :is-self="post.UserTelephone === userInfo.phone"
+        :is-private="!!post.IsPrivate"
         @user-action="handleUserActionDebounce"
       />
     </div>
@@ -178,6 +194,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
     <div
       class="card-title"
     >
+      <span v-if="post.IsPrivate" class="detail-card__private-badge">仅自己可见</span>
       <h2>
         {{ post.Title || '' }}
       </h2>
@@ -233,6 +250,18 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
 .card-title {
   margin-top: 10px;
   margin-bottom: 8px;
+}
+
+.detail-card__private-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--chat-accent-soft);
+  color: var(--chat-accent);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 </style>

@@ -65,4 +65,30 @@ async function delPost(postID: number) {
   }
 }
 
-export { delPost, sendPost }
+async function updatePostPrivacy(
+  postID: number,
+  userTelephone: string,
+  isPrivate: boolean,
+) {
+  try {
+    const res = await requestFunc(`/auth/updatePostPrivacy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: {
+        postID,
+        userTelephone,
+        isPrivate,
+      },
+    }, true)
+    const data = await res!.json()
+    return data
+  }
+  catch (e) {
+    console.error(e)
+    return null
+  }
+}
+
+export { delPost, sendPost, updatePostPrivacy }

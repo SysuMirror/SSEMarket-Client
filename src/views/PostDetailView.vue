@@ -91,9 +91,9 @@ async function clickHandler(event: MouseEvent) {
   }
 }
 
-function infoChange(type: 'like' | 'save' | 'delete' | 'comment') {
+function infoChange(type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', isPrivate?: boolean) {
   const ID = Number(route.params.id)
-  updatePost(ID, type)
+  updatePost(ID, type, isPrivate)
   switch (type) {
     case 'like':
       post.value!.IsLiked = !post.value!.IsLiked
@@ -107,6 +107,9 @@ function infoChange(type: 'like' | 'save' | 'delete' | 'comment') {
       break
     case 'comment':
       commentHandler()
+      break
+    case 'privacy':
+      post.value!.IsPrivate = isPrivate ?? !post.value!.IsPrivate
       break
   }
 }

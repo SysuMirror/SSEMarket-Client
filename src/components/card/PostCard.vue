@@ -2,7 +2,7 @@
 import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent } from 'vue'
 
-import { delPost } from '@/api/editPostAndComment/editPost'
+import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
 import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
 import { showMsg } from '@/components/MessageBox'
 import { applyPostMutation, usePostStore } from '@/store/postStore'
@@ -52,7 +52,7 @@ async function like() {
 }
 
 const handleUserActionDebounce = debounceAsync(handleUserAction)
-async function handleUserAction(type: 'delete' | 'save') {
+async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
   switch (type) {
     case 'save': {
       try {
@@ -77,14 +77,27 @@ async function handleUserAction(type: 'delete' | 'save') {
         console.error(error)
         showMsg('删除失败，请稍后再试')
       }
+      break
+    }
+    case 'privacy': {
+      try {
+        const nextPrivate = !post.IsPrivate
+        await updatePostPrivacy(post.PostID, userInfo.phone, nextPrivate)
+        useCustomEvent('privacy', nextPrivate)
+        showMsg(nextPrivate ? '已设为仅自己可见' : '已公开')
+      }
+      catch (error) {
+        console.error(error)
+        showMsg('设置失败，请稍后再试')
+      }
     }
   }
 }
 
-function useCustomEvent(type: 'delete' | 'save' | 'like') {
-  const synced = updatePost(post.PostID, type)
-  if (!synced && (type === 'like' || type === 'save'))
-    applyPostMutation(post, type)
+function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?: boolean) {
+  const synced = updatePost(post.PostID, type, isPrivate)
+  if (!synced && (type === 'like' || type === 'save' || type === 'privacy'))
+    applyPostMutation(post, type, isPrivate)
 }
 </script>
 
@@ -103,6 +116,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
         class="post-card__toolbar"
         :is-saved="post.IsSaved"
         :is-self="userInfo.phone === post.UserTelephone"
+        :is-private="!!post.IsPrivate"
         :no-save="noSave"
         @user-action="handleUserActionDebounce"
       />
@@ -112,6 +126,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
     </div>
     <RouterLink class="post-card__link" :to="`/postdetail/${post.PostID}`">
       <div class="post-card__title-wrap">
+        <span v-if="post.IsPrivate" class="post-card__private-badge">仅自己可见</span>
         <h3 class="post-card__title">
           {{ post.Title || '' }}
         </h3>
@@ -177,6 +192,18 @@ function useCustomEvent(type: 'delete' | 'save' | 'like') {
 
 .post-card__title-wrap {
   margin-top: 2px;
+}
+
+.post-card__private-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--chat-accent-soft);
+  color: var(--chat-accent);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .post-card__title {

@@ -87,8 +87,9 @@ function storePosts() {
 
 /** 在列表外（如个人主页）持有的帖子对象上同步点赞/收藏状态 */
 export function applyPostMutation(
-  post: Pick<Post, 'IsLiked' | 'Like' | 'IsSaved'>,
-  type: 'like' | 'save',
+  post: Pick<Post, 'IsLiked' | 'Like' | 'IsSaved' | 'IsPrivate'>,
+  type: 'like' | 'save' | 'privacy',
+  isPrivate?: boolean,
 ) {
   switch (type) {
     case 'like':
@@ -98,10 +99,13 @@ export function applyPostMutation(
     case 'save':
       post.IsSaved = !post.IsSaved
       break
+    case 'privacy':
+      post.IsPrivate = isPrivate ?? !post.IsPrivate
+      break
   }
 }
 
-function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment'): boolean {
+function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', isPrivate?: boolean): boolean {
   // 二分查找
   let left = 0
   let right = posts.length - 1
@@ -128,6 +132,9 @@ function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment'): b
       break
     case 'save':
       applyPostMutation(post, 'save')
+      break
+    case 'privacy':
+      applyPostMutation(post, 'privacy', isPrivate)
       break
     case 'delete':
       posts.splice(target, 1)

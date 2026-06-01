@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-const { noSave = false, compact = false } = defineProps<{
+const { noSave = false, compact = false, isPrivate = false } = defineProps<{
   noSave?: boolean
   isSaved?: boolean
   isSelf: boolean
+  isPrivate?: boolean
   /** 评论区等场景：更小按钮 */
   compact?: boolean
 }>()
@@ -12,6 +13,9 @@ function handleSave() {
 }
 function handleDelete() {
   emits('userAction', 'delete')
+}
+function handlePrivacy() {
+  emits('userAction', 'privacy')
 }
 </script>
 
@@ -49,6 +53,18 @@ function handleDelete() {
         />
       </svg>
       <span class="user-buttons__save-label">{{ isSaved ? '已收藏' : '收藏' }}</span>
+    </button>
+
+    <button
+      v-if="isSelf"
+      type="button"
+      class="user-buttons__privacy"
+      :class="{ 'user-buttons__privacy--private': isPrivate }"
+      :aria-label="isPrivate ? '取消仅自己可见' : '设为仅自己可见'"
+      :aria-pressed="!!isPrivate"
+      @click.stop.prevent="handlePrivacy"
+    >
+      <span class="user-buttons__privacy-label">{{ isPrivate ? '仅自己可见' : '设为私密' }}</span>
     </button>
 
     <button
@@ -135,6 +151,41 @@ function handleDelete() {
   white-space: nowrap;
 }
 
+.user-buttons__privacy {
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-height: 34px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--chat-border);
+  background: var(--chat-bg-highlight);
+  color: var(--chat-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+
+  &:hover {
+    border-color: var(--chat-accent);
+    color: var(--chat-accent);
+  }
+
+  &--private {
+    border-color: var(--chat-accent);
+    background: var(--chat-accent-soft);
+    color: var(--chat-accent);
+  }
+}
+
+.user-buttons__privacy-label {
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .user-buttons--compact {
   gap: 6px;
 
@@ -151,7 +202,8 @@ function handleDelete() {
   }
 
   :deep(.user-buttons__delete),
-  .user-buttons__delete {
+  .user-buttons__delete,
+  .user-buttons__privacy {
     min-width: auto;
     min-height: 26px;
     padding: 3px 10px !important;
@@ -163,6 +215,12 @@ function handleDelete() {
 @media screen and (max-width: 420px) {
   .user-buttons__save-label {
     display: none;
+  }
+
+  .user-buttons__privacy-label {
+    max-width: 4em;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .user-buttons__save {
