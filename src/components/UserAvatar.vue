@@ -234,6 +234,12 @@ function onProfileKeydown(event: KeyboardEvent) {
   }
 
   .user-name {
+    display: inline-block;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+
     color: var(--color-user-text);
   }
 
