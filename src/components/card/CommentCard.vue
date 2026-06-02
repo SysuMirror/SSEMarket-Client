@@ -209,6 +209,7 @@ async function like() {
       class="comment-row__body"
       :markdown-content="comment.Content || 'loading'"
     />
+    <time class="comment-row__time comment-row__time--mobile" :datetime="String(comment.CommentTime)">{{ formattedTime }}</time>
     <CommentToolbar
       v-if="commentable"
       inline

@@ -193,6 +193,7 @@ async function like() {
       class="comment-row__body"
       :markdown-content="subComment.content || 'loading'"
     />
+    <time class="comment-row__time comment-row__time--mobile" :datetime="String(subComment.commentTime)">{{ formattedTime }}</time>
     <CommentToolbar
       inline
       reply-align-end
