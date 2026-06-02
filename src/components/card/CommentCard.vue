@@ -198,6 +198,7 @@ async function like() {
         class="comment-row__actions"
         :no-save="true"
         :is-self="userInfo.phone === comment.AuthorTelephone"
+        :show-privacy="false"
         @user-action="handlerDebounced"
       />
     </header>

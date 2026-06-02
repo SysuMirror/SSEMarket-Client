@@ -180,6 +180,7 @@ async function like() {
         class="comment-row__actions"
         :no-save="true"
         :is-self="true"
+        :show-privacy="false"
         @user-action="handlerDebounced"
       />
     </header>

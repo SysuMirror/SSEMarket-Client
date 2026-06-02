@@ -1,9 +1,10 @@
 <script lang="ts" setup>
-const { noSave = false, compact = false, isPrivate = false } = defineProps<{
+const { noSave = false, compact = false, isPrivate = false, showPrivacy = true } = defineProps<{
   noSave?: boolean
   isSaved?: boolean
   isSelf: boolean
   isPrivate?: boolean
+  showPrivacy?: boolean
   /** 评论区等场景：更小按钮 */
   compact?: boolean
 }>()
@@ -56,7 +57,7 @@ function handlePrivacy() {
     </button>
 
     <button
-      v-if="isSelf"
+      v-if="isSelf && showPrivacy"
       type="button"
       class="user-buttons__privacy"
       :class="{ 'user-buttons__privacy--private': isPrivate }"
