@@ -3,8 +3,9 @@ import type { Post } from '@/types/post'
 import { reactive, ref, unref } from 'vue'
 
 import { getPosts, getPostsNum } from '@/api/browse/getPost'
+import { CONTENT_PARTITIONS } from '@/constants/partitions'
 
-export const Partitions = ['主页', '收藏', '历史', '课程专区', '优质贴', '课程交流', '日常吐槽', '打听求助', '学习交流', '院务', '求职招募', '其他'] as const
+export const Partitions = ['主页', '收藏', '历史', ...CONTENT_PARTITIONS.map(p => p.name)] as const
 export const SearchSort = ['home', 'save', 'history'] as const
 
 export type HomeOrderBy =

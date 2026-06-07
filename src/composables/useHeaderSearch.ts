@@ -57,11 +57,12 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
     if (isSmartSearchMode.value)
       return { sinfo: value, smart: '1' }
 
-    if (route.path === '/partition/课程交流'
-      || route.path === `/partition/${encodeURIComponent('课程交流')}`
-      || route?.query?.partition === '课程交流'
-      || route?.query?.partition === encodeURIComponent('课程交流')) {
-      return { sinfo: value, partition: '课程交流' }
+    if (route.path === '/course'
+      || route.path === '/partition/课程专区'
+      || route.path === `/partition/${encodeURIComponent('课程专区')}`
+      || route?.query?.partition === '课程专区'
+      || route?.query?.partition === encodeURIComponent('课程专区')) {
+      return { sinfo: value, partition: '课程专区' }
     }
 
     return { sinfo: value }

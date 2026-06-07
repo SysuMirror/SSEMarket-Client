@@ -1,17 +1,9 @@
 <script lang="ts" setup>
 import { Icon } from '@iconify/vue'
+import { CONTENT_PARTITIONS } from '@/constants/partitions'
 
 /** 分区条统一用图标库，避免外链图片 404；key 用于图标语义色 */
-const partitions: { name: string, icon: string, key: string }[] = [
-  { name: '优质贴', icon: 'tabler:star', key: 'quality' },
-  { name: '课程交流', icon: 'tabler:book', key: 'course' },
-  { name: '日常吐槽', icon: 'tabler:message-circle', key: 'daily' },
-  { name: '打听求助', icon: 'tabler:help-circle', key: 'help' },
-  { name: '学习交流', icon: 'tabler:school', key: 'study' },
-  { name: '院务', icon: 'tabler:building-community', key: 'affairs' },
-  { name: '求职招募', icon: 'tabler:briefcase', key: 'jobs' },
-  { name: '其他', icon: 'tabler:dots', key: 'misc' },
-]
+const partitions = CONTENT_PARTITIONS
 </script>
 
 <template>
@@ -145,26 +137,32 @@ const partitions: { name: string, icon: string, key: string }[] = [
 .partition-chip--shop .partition-chip__ico {
   color: #059669;
 }
-.partition-chip--quality .partition-chip__ico {
-  color: #ca8a04;
-}
-.partition-chip--course .partition-chip__ico {
-  color: #2563eb;
-}
-.partition-chip--daily .partition-chip__ico {
-  color: #db2777;
-}
-.partition-chip--help .partition-chip__ico {
-  color: #ea580c;
-}
 .partition-chip--study .partition-chip__ico {
   color: #0d9488;
 }
-.partition-chip--affairs .partition-chip__ico {
-  color: #64748b;
+.partition-chip--daily-life .partition-chip__ico {
+  color: #db2777;
 }
-.partition-chip--jobs .partition-chip__ico {
+.partition-chip--club .partition-chip__ico {
+  color: #8b5cf6;
+}
+.partition-chip--internship .partition-chip__ico {
   color: #1d4ed8;
+}
+.partition-chip--materials .partition-chip__ico {
+  color: #ca8a04;
+}
+.partition-chip--dormitory .partition-chip__ico {
+  color: #059669;
+}
+.partition-chip--tech .partition-chip__ico {
+  color: #2563eb;
+}
+.partition-chip--course .partition-chip__ico {
+  color: #ea580c;
+}
+.partition-chip--team-up .partition-chip__ico {
+  color: #f97316;
 }
 .partition-chip--misc .partition-chip__ico {
   color: #78716c;
@@ -173,29 +171,35 @@ const partitions: { name: string, icon: string, key: string }[] = [
 body.dark-mode .partition-chip--all .partition-chip__ico {
   color: #a5b4fc;
 }
-body.dark-mode .partition-chip--quality .partition-chip__ico {
-  color: #fcd34d;
-}
 body.dark-mode .partition-chip--shop .partition-chip__ico {
   color: #34d399;
-}
-body.dark-mode .partition-chip--course .partition-chip__ico {
-  color: #93c5fd;
-}
-body.dark-mode .partition-chip--daily .partition-chip__ico {
-  color: #f9a8d4;
-}
-body.dark-mode .partition-chip--help .partition-chip__ico {
-  color: #fdba74;
 }
 body.dark-mode .partition-chip--study .partition-chip__ico {
   color: #5eead4;
 }
-body.dark-mode .partition-chip--affairs .partition-chip__ico {
-  color: #cbd5e1;
+body.dark-mode .partition-chip--daily-life .partition-chip__ico {
+  color: #f9a8d4;
 }
-body.dark-mode .partition-chip--jobs .partition-chip__ico {
+body.dark-mode .partition-chip--club .partition-chip__ico {
+  color: #c4b5fd;
+}
+body.dark-mode .partition-chip--internship .partition-chip__ico {
   color: #93c5fd;
+}
+body.dark-mode .partition-chip--materials .partition-chip__ico {
+  color: #fcd34d;
+}
+body.dark-mode .partition-chip--dormitory .partition-chip__ico {
+  color: #34d399;
+}
+body.dark-mode .partition-chip--tech .partition-chip__ico {
+  color: #93c5fd;
+}
+body.dark-mode .partition-chip--course .partition-chip__ico {
+  color: #fdba74;
+}
+body.dark-mode .partition-chip--team-up .partition-chip__ico {
+  color: #fdba74;
 }
 body.dark-mode .partition-chip--misc .partition-chip__ico {
   color: #a8a29e;

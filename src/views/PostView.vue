@@ -11,21 +11,14 @@ import { getTeachers } from '@/api/info/getTeacher'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { showMsg } from '@/components/MessageBox'
 import { useDraft } from '@/composables/useDraft'
+import { POST_PARTITION_OPTIONS } from '@/constants/partitions'
+import { isPostContentTooLong, POST_CONTENT_MAX_RUNES } from '@/constants/contentLimits'
 import { useUserStore } from '@/store/userStore'
 
 const router = useRouter()
 const { userInfo } = useUserStore()
 const { current, drafts, addDraft, selectDraft, deleteDraft, updateDraft, syncDrafts } = useDraft()
-const partitions = ref([
-  '主页',
-  '日常吐槽',
-  '打听求助',
-  '学习交流',
-  '院务',
-  '课程专区',
-  '求职招募',
-  '其他',
-])
+const partitions = ref([...POST_PARTITION_OPTIONS])
 const postContent = ref('')
 const title = useTemplateRef('title')
 const partition = ref('主页')
@@ -99,6 +92,10 @@ async function submitPost() {
 
   if (!postTitle || !content) {
     showMsg('请填写完整信息')
+    return
+  }
+  if (isPostContentTooLong(content)) {
+    showMsg(`正文最多 ${POST_CONTENT_MAX_RUNES} 字`)
     return
   }
   submitting.value = true

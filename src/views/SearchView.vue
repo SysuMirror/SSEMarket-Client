@@ -94,7 +94,7 @@ async function initializeFromRoute() {
     timeFrom.value = query.timeFrom
   if (query.timeTo && typeof query.timeTo === 'string')
     timeTo.value = query.timeTo
-  if (partition === '课程交流')
+  if (partition === '课程专区')
     isDense.value = true
   await initialize(partition || '主页', {
     afterRefresh: () => {

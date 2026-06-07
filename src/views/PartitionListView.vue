@@ -1,27 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { Icon } from '@iconify/vue'
 import { useRouter } from 'vue-router'
+import { CONTENT_PARTITIONS } from '@/constants/partitions'
 
 const router = useRouter()
-const coverFallback = `${import.meta.env.BASE_URL}icons/image-fallback.svg`
-
-function onPartitionCoverError(e: Event) {
-  const img = e.target as HTMLImageElement
-  if (img.dataset.fallbackApplied === '1')
-    return
-  img.dataset.fallbackApplied = '1'
-  img.src = coverFallback
-}
-const partitions = ref([
-  { name: '日常吐槽', description: '言短情长，抒发心声。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/daily.jpg' },
-  { name: '优质贴', description: '优质内容，分享交流。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/secondhand.jpg' },
-  { name: '课程交流', description: '课程内容，分享交流。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/study.jpg' },
-  { name: '打听求助', description: '疑虑相询，忧难互助。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/help.jpg' },
-  { name: '学习交流', description: '知识碰撞，学术思辨。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/study.jpg' },
-  { name: '院务', description: '院内事务，信息发布。', src: 'https://pic2.zhimg.com/v2-4fd432574e38d33d52e35041a8e7fd52_720w.jpg?source=172ae18b' },
-  { name: '求职招募', description: '梦想职路，共创未来。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/recruit.jpg' },
-  { name: '其他', description: '畅所欲言，创意无限。', src: 'https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/assets/image/else.jpg' },
-])
+const partitions = CONTENT_PARTITIONS
 
 function sendPartition(p: string) {
   router.push(`/partition/${encodeURIComponent(p)}`)
@@ -35,19 +18,21 @@ function sendPartition(p: string) {
     </h2>
     <div class="picker__grid">
       <article
-        v-for="(p, index) in partitions"
-        :key="index"
+        v-for="p in partitions"
+        :key="p.key"
         class="picker-card"
       >
-        <div class="picker-card__media">
-          <img
-            :src="p.src"
-            class="picker-card__img"
-            :alt="p.name"
-            loading="lazy"
-            decoding="async"
-            @error="onPartitionCoverError"
-          >
+        <div
+          class="picker-card__media"
+          :class="`picker-card__media--${p.key}`"
+        >
+          <Icon
+            :icon="p.icon"
+            class="picker-card__icon"
+            width="32"
+            height="32"
+            aria-hidden="true"
+          />
         </div>
         <div class="picker-card__body">
           <h3 class="picker-card__name">
@@ -126,18 +111,59 @@ function sendPartition(p: string) {
 }
 
 .picker-card__media {
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   aspect-ratio: 5 / 3;
   max-height: 88px;
   background: var(--chat-bg-main, #f1f5f9);
 }
 
-.picker-card__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.picker-card__icon {
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+.picker-card__media--study {
+  background: rgba(13, 148, 136, 0.1);
+  .picker-card__icon { color: #0d9488; }
+}
+.picker-card__media--daily-life {
+  background: rgba(219, 39, 119, 0.1);
+  .picker-card__icon { color: #db2777; }
+}
+.picker-card__media--club {
+  background: rgba(139, 92, 246, 0.1);
+  .picker-card__icon { color: #8b5cf6; }
+}
+.picker-card__media--internship {
+  background: rgba(29, 78, 216, 0.1);
+  .picker-card__icon { color: #1d4ed8; }
+}
+.picker-card__media--materials {
+  background: rgba(202, 138, 4, 0.1);
+  .picker-card__icon { color: #ca8a04; }
+}
+.picker-card__media--dormitory {
+  background: rgba(5, 150, 105, 0.1);
+  .picker-card__icon { color: #059669; }
+}
+.picker-card__media--tech {
+  background: rgba(37, 99, 235, 0.1);
+  .picker-card__icon { color: #2563eb; }
+}
+.picker-card__media--course {
+  background: rgba(234, 88, 12, 0.1);
+  .picker-card__icon { color: #ea580c; }
+}
+.picker-card__media--team-up {
+  background: rgba(249, 115, 22, 0.1);
+  .picker-card__icon { color: #f97316; }
+}
+.picker-card__media--misc {
+  background: rgba(120, 113, 108, 0.1);
+  .picker-card__icon { color: #78716c; }
 }
 
 .picker-card__body {
@@ -202,4 +228,15 @@ body.dark-mode .picker-card {
 body.dark-mode .picker-card__desc {
   color: var(--chat-text-secondary, #94a3b8);
 }
+
+body.dark-mode .picker-card__media--study .picker-card__icon { color: #5eead4; }
+body.dark-mode .picker-card__media--daily-life .picker-card__icon { color: #f9a8d4; }
+body.dark-mode .picker-card__media--club .picker-card__icon { color: #c4b5fd; }
+body.dark-mode .picker-card__media--internship .picker-card__icon { color: #93c5fd; }
+body.dark-mode .picker-card__media--materials .picker-card__icon { color: #fcd34d; }
+body.dark-mode .picker-card__media--dormitory .picker-card__icon { color: #34d399; }
+body.dark-mode .picker-card__media--tech .picker-card__icon { color: #93c5fd; }
+body.dark-mode .picker-card__media--course .picker-card__icon { color: #fdba74; }
+body.dark-mode .picker-card__media--team-up .picker-card__icon { color: #fdba74; }
+body.dark-mode .picker-card__media--misc .picker-card__icon { color: #a8a29e; }
 </style>
