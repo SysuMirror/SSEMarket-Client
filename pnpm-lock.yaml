@@ -5896,6 +5896,7 @@ snapshots:
       dompurify: 3.2.6
       github-markdown-css: 5.8.1
       markdown-it: 14.1.0
+      pdfjs-dist: 2.16.105
       prismjs: 1.30.0
       vue: 3.5.17(typescript@5.8.3)
       vue-router: 4.5.1(vue@3.5.17(typescript@5.8.3))
@@ -5903,6 +5904,7 @@ snapshots:
       - supports-color
       - typescript
       - vite
+      - worker-loader
 
   node-addon-api@7.1.1:
     optional: true

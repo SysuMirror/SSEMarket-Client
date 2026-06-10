@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent } from 'vue'
+import { isPostOwner } from '@/utils/postOwner'
 
 import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
 import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
@@ -22,16 +23,16 @@ const { isDense, post, isNew, noSave = false } = defineProps<{
   noSave?: boolean
 }>()
 
-type PostWithOwnerKeys = Post & { userID?: number, user_id?: number }
-
 const { updatePost } = usePostStore()
 const OldImages = defineAsyncComponent(() => import('@/components/OldImages.vue'))
 
 const { userInfo } = useUserStore()
 
+const isSelf = computed(() => isPostOwner(post, userInfo))
+
 const profileOwnerId = computed(() => {
-  const p = post as PostWithOwnerKeys
-  const n = Number(p.UserID ?? p.userID ?? p.user_id)
+  const p = post
+  const n = Number(p.UserID ?? (p as { userID?: number }).userID ?? (p as { user_id?: number }).user_id)
   if (Number.isFinite(n) && n > 0)
     return n
   const phone = (p.UserTelephone || '').trim()
@@ -103,6 +104,16 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
 
 <template>
   <BasicCard class="post-card feed-card" :class="[{ 'post-card--dense': isDense, 'new-post': isNew }]">
+    <div v-if="isDense && isSelf" class="post-card__dense-toolbar">
+      <UserButton
+        class="post-card__toolbar"
+        compact
+        no-save
+        :is-self="true"
+        :is-private="!!post.IsPrivate"
+        @user-action="handleUserActionDebounce"
+      />
+    </div>
     <div v-show="!isDense" class="post-card__head">
       <UserAvatar
         :src="post.UserAvatar"
@@ -115,7 +126,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
       <UserButton
         class="post-card__toolbar"
         :is-saved="post.IsSaved"
-        :is-self="userInfo.phone === post.UserTelephone"
+        :is-self="isSelf"
         :is-private="!!post.IsPrivate"
         :no-save="noSave"
         @user-action="handleUserActionDebounce"
@@ -158,6 +169,12 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
 </template>
 
 <style scoped lang="scss">
+.post-card__dense-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
 .post-card__head {
   display: flex;
   flex-direction: row;

@@ -8,6 +8,7 @@ import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
 import { showMsg } from '@/components/MessageBox'
 
 import { useUserStore } from '@/store/userStore'
+import { isPostOwner } from '@/utils/postOwner'
 
 import { debounceAsync } from '@/utils/debounced'
 
@@ -39,11 +40,11 @@ const commentSubmitting = ref(false)
 
 const { userInfo } = useUserStore()
 
-type PostWithOwnerKeys = Post & { userID?: number, user_id?: number }
+const isSelf = computed(() => isPostOwner(post, userInfo))
 
 const profileOwnerId = computed(() => {
-  const p = post as PostWithOwnerKeys
-  const n = Number(p.UserID ?? p.userID ?? p.user_id)
+  const p = post
+  const n = Number(p.UserID ?? (p as { userID?: number }).userID ?? (p as { user_id?: number }).user_id)
   if (Number.isFinite(n) && n > 0)
     return n
   const phone = (p.UserTelephone || '').trim()
@@ -170,8 +171,8 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
 
 <template>
   <BasicCard class="w-15/16">
-    <div ref="root" class="detail-card__head flex flex-row flex-wrap items-center justify-between gap-2">
-      <div class="detail-card__profile min-w-0">
+    <div ref="root" class="detail-card__head">
+      <div class="detail-card__profile">
         <UserAvatar
           :src="post.UserAvatar"
           :user-id="profileOwnerId"
@@ -181,9 +182,10 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
         />
       </div>
       <UserButton
-        class="flex-shrink-0"
+        class="detail-card__toolbar"
+        compact
         :is-saved="post.IsSaved"
-        :is-self="post.UserTelephone === userInfo.phone"
+        :is-self="isSelf"
         :is-private="!!post.IsPrivate"
         @user-action="handleUserActionDebounce"
       />
@@ -231,15 +233,39 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
   </BasicCard>
 </template>
 
-<style>
-/* 头像区：与按钮同一行，头像区可收缩 */
+<style scoped lang="scss">
+/* 头像与操作按钮同一行：垂直居中，按钮靠右 */
 .detail-card__head {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
+  margin-bottom: 4px;
 }
 
 .detail-card__profile {
   flex: 1 1 auto;
   min-width: 0;
+
+  :deep(.user) {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    min-height: var(--userImage, 50px);
+  }
+
+  :deep(.user__cluster) {
+    align-items: center;
+  }
+}
+
+.detail-card__toolbar {
+  flex-shrink: 0;
+  align-self: center;
 }
 
 /* 扩展插槽定位 */
@@ -263,5 +289,4 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
   font-size: 12px;
   font-weight: 600;
 }
-
 </style>

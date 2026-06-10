@@ -28,6 +28,7 @@ const teacher = ref('')
 
 const draftsOpen = ref(false)
 const submitting = ref(false)
+const postPrivate = ref(false)
 
 let autoSaveTimer: number | null = null
 
@@ -107,6 +108,7 @@ async function submitPost() {
       teacher.value,
       postTitle,
       userInfo.phone,
+      postPrivate.value,
     )
     if (!res || typeof res.msg !== 'string') {
       showMsg('发帖失败，请检查网络后重试')
@@ -220,6 +222,11 @@ onUnmounted(() => {
               </select>
             </label>
           </div>
+
+          <label class="post-page__privacy">
+            <input v-model="postPrivate" type="checkbox" class="post-page__privacy-input">
+            <span class="post-page__privacy-text">仅自己可见（发帖后也可在帖子卡片上修改）</span>
+          </label>
         </div>
 
         <div class="post-page__editor">
@@ -431,6 +438,30 @@ onUnmounted(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 4px;
+}
+
+.post-page__privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--chat-border);
+  background: var(--chat-bg-highlight);
+  cursor: pointer;
+}
+
+.post-page__privacy-input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--chat-accent);
+}
+
+.post-page__privacy-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--chat-text-secondary);
 }
 
 .post-page__field-label {

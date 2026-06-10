@@ -210,11 +210,11 @@ function handlePrivacy() {
 }
 
 .user-buttons--compact {
-  gap: 6px;
+  gap: 5px;
 
   .user-buttons__save {
-    min-height: 26px;
-    padding: 3px 8px;
+    min-height: 28px;
+    padding: 2px 8px;
     font-size: 11px;
     border-radius: 6px;
   }
@@ -229,12 +229,11 @@ function handlePrivacy() {
     height: 14px;
   }
 
-  :deep(.user-buttons__delete),
   .user-buttons__delete,
   .user-buttons__privacy {
     min-width: auto;
-    min-height: 26px;
-    padding: 3px 10px !important;
+    min-height: 28px;
+    padding: 2px 8px !important;
     font-size: 11px !important;
     border-radius: 6px !important;
   }

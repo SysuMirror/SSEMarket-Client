@@ -1,4 +1,5 @@
 import type { Post } from '@/types/post'
+import { normalizePosts } from '@/utils/postOwner'
 import { requestFunc } from '../req'
 
 export interface UserProfilePostsParams {
@@ -22,7 +23,8 @@ export async function getUserProfilePosts(params: UserProfilePostsParams): Promi
     if (!res?.ok) {
       return []
     }
-    return await res.json()
+    const data = await res.json()
+    return normalizePosts(data)
   }
   catch (e) {
     console.error(e)

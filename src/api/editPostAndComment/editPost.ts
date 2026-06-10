@@ -16,6 +16,7 @@ async function sendPost(
   tagList: string,
   title: string,
   userTelephone: string,
+  isPrivate = false,
 ) {
   try {
     const res = await requestFunc(`/auth/post`, {
@@ -30,6 +31,7 @@ async function sendPost(
         tagList,
         title,
         userTelephone,
+        isPrivate,
       },
     }, true)
     const data = await res!.json()

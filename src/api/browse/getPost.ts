@@ -1,4 +1,5 @@
 import type { Post } from '@/types/post'
+import { normalizePost, normalizePosts } from '@/utils/postOwner'
 import { requestFunc } from '../req'
 
 export type HomeOrderBy =
@@ -65,7 +66,8 @@ async function getPosts(object: getPostsObject): Promise<Post[]> {
     }
 
     try {
-      return await res.json()
+      const data = await res.json()
+      return normalizePosts(data)
     }
     catch (e) {
       console.error('getPosts: 解析响应失败', e)
@@ -202,7 +204,8 @@ async function getPostByID(
       }
     }
     try {
-      return await res.json() as Post
+      const data = await res.json()
+      return normalizePost(data as Record<string, unknown>)
     }
     catch (e) {
       console.error(e)
