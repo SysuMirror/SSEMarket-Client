@@ -19,6 +19,7 @@ export function normalizePost(raw: Record<string, unknown>): Post {
     ...p,
     UserID: Number(raw.UserID ?? raw.userID ?? p.UserID ?? 0) || undefined,
     IsPrivate: Boolean(raw.IsPrivate ?? raw.isPrivate ?? p.IsPrivate),
+    IsLottery: Boolean(raw.IsLottery ?? raw.isLottery ?? p.IsLottery),
   }
 }
 

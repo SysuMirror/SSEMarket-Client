@@ -5,10 +5,14 @@ import type { Tag } from '@/api/info/getTeacher'
 import { Icon } from '@iconify/vue'
 import { onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
+import type { LotteryMode, LotteryPrizeInput } from '@/api/lottery/lottery'
+
 import { sendPost } from '@/api/editPostAndComment/editPost'
+import { createLotteryPost } from '@/api/lottery/lottery'
 
 import { getTeachers } from '@/api/info/getTeacher'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import LotteryConfigPanel from '@/components/LotteryConfigPanel.vue'
 import { showMsg } from '@/components/MessageBox'
 import { useDraft } from '@/composables/useDraft'
 import { POST_PARTITION_OPTIONS } from '@/constants/partitions'
@@ -30,7 +34,33 @@ const draftsOpen = ref(false)
 const submitting = ref(false)
 const postPrivate = ref(false)
 
+type PostKind = 'normal' | 'lottery'
+const postKind = ref<PostKind>('normal')
+const lotteryOpen = ref(true)
+const lotteryMode = ref<LotteryMode>('random')
+const lotteryDrawAt = ref('')
+const lotteryPrizes = ref<LotteryPrizeInput[]>([
+  { name: '', quantity: 1, wishKeyword: '' },
+])
+
 let autoSaveTimer: number | null = null
+
+function validateLotteryConfig(): string | null {
+  if (!lotteryDrawAt.value)
+    return '请设置开奖时间'
+  const drawTime = Date.parse(lotteryDrawAt.value)
+  if (!Number.isFinite(drawTime) || drawTime <= Date.now())
+    return '开奖时间须晚于当前时间'
+  for (const p of lotteryPrizes.value) {
+    if (!p.name.trim())
+      return '请填写奖品名称'
+    if (!p.quantity || p.quantity < 1)
+      return '奖品数量须大于 0'
+    if (lotteryMode.value === 'wish' && !p.wishKeyword?.trim())
+      return '许愿模式须为每个奖品设置关键词'
+  }
+  return null
+}
 
 async function loadDraft(id: number) {
   selectDraft(id)
@@ -99,8 +129,42 @@ async function submitPost() {
     showMsg(`正文最多 ${POST_CONTENT_MAX_RUNES} 字`)
     return
   }
+  if (postKind.value === 'lottery') {
+    const err = validateLotteryConfig()
+    if (err) {
+      showMsg(err)
+      return
+    }
+  }
+
   submitting.value = true
   try {
+    if (postKind.value === 'lottery') {
+      const drawAt = lotteryDrawAt.value.replace('T', ' ') + ':00'
+      const { ok, msg, postID } = await createLotteryPost({
+        title: postTitle,
+        content,
+        partition: postPartition,
+        userTelephone: userInfo.phone,
+        mode: lotteryMode.value,
+        drawAt,
+        prizes: lotteryPrizes.value.map(p => ({
+          name: p.name.trim(),
+          quantity: p.quantity,
+          wishKeyword: lotteryMode.value === 'wish' ? p.wishKeyword?.trim() : '',
+        })),
+        isPrivate: postPrivate.value,
+      })
+      showMsg(msg)
+      if (ok) {
+        if (postID)
+          router.push(`/postdetail/${postID}`)
+        else
+          router.push('/')
+      }
+      return
+    }
+
     const res = await sendPost(
       content,
       postPartition,
@@ -227,6 +291,40 @@ onUnmounted(() => {
             <input v-model="postPrivate" type="checkbox" class="post-page__privacy-input">
             <span class="post-page__privacy-text">仅自己可见（发帖后也可在帖子卡片上修改）</span>
           </label>
+
+          <div class="post-page__kind">
+            <span class="post-page__field-label">帖子类型</span>
+            <div class="post-page__kind-tabs" role="tablist">
+              <button
+                type="button"
+                class="post-page__kind-tab"
+                :class="{ 'post-page__kind-tab--active': postKind === 'normal' }"
+                role="tab"
+                :aria-selected="postKind === 'normal'"
+                @click="postKind = 'normal'"
+              >
+                普通帖
+              </button>
+              <button
+                type="button"
+                class="post-page__kind-tab"
+                :class="{ 'post-page__kind-tab--active': postKind === 'lottery' }"
+                role="tab"
+                :aria-selected="postKind === 'lottery'"
+                @click="postKind = 'lottery'"
+              >
+                抽奖帖
+              </button>
+            </div>
+          </div>
+
+          <LotteryConfigPanel
+            v-if="postKind === 'lottery'"
+            v-model:mode="lotteryMode"
+            v-model:draw-at="lotteryDrawAt"
+            v-model:prizes="lotteryPrizes"
+            v-model:open="lotteryOpen"
+          />
         </div>
 
         <div class="post-page__editor">
@@ -778,6 +876,43 @@ onUnmounted(() => {
 
   .post-page__draft-list {
     max-height: min(28dvh, 220px);
+  }
+}
+
+.post-page__kind {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.post-page__kind-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--chat-bg-main);
+  border: 1px solid var(--chat-border);
+}
+
+.post-page__kind-tab {
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--chat-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &--active {
+    background: var(--chat-bg-highlight);
+    color: var(--chat-text);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   }
 }
 </style>

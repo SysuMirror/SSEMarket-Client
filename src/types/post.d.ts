@@ -16,6 +16,7 @@ export interface Post {
   IsSaved: boolean
   IsLiked: boolean
   IsPrivate?: boolean
+  IsLottery?: boolean
   Photos: string
   Tag: string
 }

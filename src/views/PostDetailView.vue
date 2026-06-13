@@ -4,8 +4,12 @@ import type { Post } from '@/types/post'
 
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import type { LotteryDetail } from '@/api/lottery/lottery'
+
 import { getCommentsByPostID } from '@/api/browse/getComment'
 import { getPostByID } from '@/api/browse/getPost'
+import { getLotteryDetail } from '@/api/lottery/lottery'
+import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
 import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import DetailCard from '@/components/card/DetailCard.vue'
 import { showImg } from '@/components/ImageShower'
@@ -27,6 +31,7 @@ const { userInfo } = useUserStore()
 
 const post = ref<Post>()
 const comments = ref<Comment[]>([])
+const lottery = ref<LotteryDetail | null>(null)
 
 type CommentTimeOrder = 'desc' | 'asc'
 
@@ -62,6 +67,7 @@ async function commentHandler() {
   if (!post.value)
     return
   await getCommentList()
+  await loadLottery()
   let len = 0
   for (const comment of comments.value) {
     if (comment.SubComments)
@@ -69,6 +75,15 @@ async function commentHandler() {
     len += 1
   }
   post.value.Comment = len
+}
+
+async function loadLottery() {
+  if (!post.value?.IsLottery) {
+    lottery.value = null
+    return
+  }
+  const ID = Number(route.params.id)
+  lottery.value = await getLotteryDetail(ID, userInfo.phone)
 }
 
 async function getCommentList() {
@@ -121,6 +136,7 @@ onMounted(async () => {
     post.value = curPost as Post
     setTitle(post.value.Title)
     await getCommentList()
+    await loadLottery()
     removeNewPostId(ID)
   }
   catch (e) {
@@ -140,9 +156,13 @@ onMounted(async () => {
       :post="post"
       @info-change="infoChange"
     />
-    <div v-else>
-      loading...
-    </div>
+    <section v-if="post && lottery" class="lottery-detail-wrap">
+      <LotteryDetailBox
+        :post-i-d="post.PostID"
+        :lottery="lottery"
+        @refresh="loadLottery"
+      />
+    </section>
     <section v-if="post" class="comment-panel mx-a w-15/16">
       <header class="comment-panel__header">
         <h2 class="comment-panel__title">
@@ -164,6 +184,13 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
+.lottery-detail-wrap {
+  box-sizing: border-box;
+  width: 93.75%;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
 .comment-panel__header {
   display: flex;
   align-items: center;
