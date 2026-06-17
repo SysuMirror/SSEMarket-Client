@@ -340,6 +340,14 @@ body.dark-mode .comment-row > .sub-comments-thread {
   clear: both;
 }
 
+:deep(.md-mention) {
+  color: var(--chat-accent);
+  font-weight: 600;
+  background: var(--chat-accent-soft);
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
 /* 投票入口：详情页醒目藏青 / 信息流淡雅 */
 .vote-link {
   display: inline-flex;
@@ -425,6 +433,73 @@ body.dark-mode .vote-link--prominent {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 
   &:hover {
+    filter: brightness(1.06);
+  }
+}
+
+/* 详情页：投票降权为文字链，写评论升为实心主按钮（位置不变，降低误触投票） */
+.detail-card .comment-toolbar--split {
+  .vote-link--prominent {
+    padding: 4px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--chat-accent);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    box-shadow: none;
+    filter: none;
+
+    &:hover:not(:disabled) {
+      filter: none;
+      box-shadow: none;
+      background: transparent;
+      color: var(--chat-accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    &.vote-link--voted {
+      color: var(--chat-text-secondary);
+      background: transparent;
+      border: none;
+      text-decoration: none;
+    }
+  }
+
+  .comment-toolbar__btn--prominent {
+    padding: 7px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--chat-unread-text) !important;
+    background: var(--chat-accent) !important;
+    border: 1px solid var(--chat-accent) !important;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(44, 61, 86, 0.22);
+
+    &:hover,
+    &:focus-visible {
+      filter: brightness(1.08);
+      box-shadow: 0 3px 10px rgba(44, 61, 86, 0.28);
+      text-decoration: none !important;
+      background: var(--chat-accent) !important;
+      color: var(--chat-unread-text) !important;
+    }
+
+    &.comment-toolbar__btn--active {
+      filter: brightness(0.96);
+      border-color: var(--chat-accent) !important;
+    }
+  }
+}
+
+body.dark-mode .detail-card .comment-toolbar--split .comment-toolbar__btn--prominent {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+
+  &:hover,
+  &:focus-visible {
     filter: brightness(1.06);
   }
 }

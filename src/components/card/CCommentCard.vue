@@ -11,6 +11,7 @@ import {
 import { useUserStore } from '@/store/userStore'
 
 import { debounceAsync } from '@/utils/debounced'
+import { buildMentionPrefix } from '@/utils/mention'
 import BasicInfo from '../BasicInfo.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
 
@@ -97,42 +98,34 @@ async function deleteFunc() {
     return false
   }
 }
-const handlerDebounced = debounceAsync(handler)
-async function handler(type: 'delete' | 'comment') {
-  let event
-  switch (type) {
-    case 'delete': {
-      const result = await deleteFunc()
-      if (!result) {
-        showMsg('删除失败')
-        return
-      }
-      event = new CustomEvent('comment-handle', {
-        bubbles: true,
-      })
-      break
-    }
-    case 'comment': {
-      commentSubmitting.value = true
-      try {
-        const result = await sendCommentFunc()
-        if (!result) {
-          showMsg('评论失败')
-          return
-        }
-        event = new CustomEvent('comment-handle', {
-          bubbles: true,
-        })
-      }
-      finally {
-        commentSubmitting.value = false
-      }
-      break
-    }
-    default:
-      return
+const deleteDebounced = debounceAsync(async () => {
+  const result = await deleteFunc()
+  if (!result) {
+    showMsg('删除失败')
+    return
   }
-  root.value?.dispatchEvent(event)
+  root.value?.dispatchEvent(new CustomEvent('comment-handle', {
+    bubbles: true,
+  }))
+})
+
+async function submitComment() {
+  if (commentSubmitting.value)
+    return
+  commentSubmitting.value = true
+  try {
+    const result = await sendCommentFunc()
+    if (!result) {
+      showMsg('评论失败')
+      return
+    }
+    root.value?.dispatchEvent(new CustomEvent('comment-handle', {
+      bubbles: true,
+    }))
+  }
+  finally {
+    commentSubmitting.value = false
+  }
 }
 
 async function like() {
@@ -154,6 +147,16 @@ async function like() {
     console.error(e)
     showMsg('失败了:-(')
     return false
+  }
+}
+
+function toggleReply() {
+  const opening = !commentButtonIsShow.value
+  commentButtonIsShow.value = opening
+  if (opening && !commentContent.value.trim()) {
+    const prefix = buildMentionPrefix(subComment.author)
+    if (prefix)
+      commentContent.value = prefix
   }
 }
 </script>
@@ -181,7 +184,7 @@ async function like() {
         :no-save="true"
         :is-self="true"
         :show-privacy="false"
-        @user-action="handlerDebounced"
+        @user-action="deleteDebounced"
       />
     </header>
     <div v-if="replyTargetLabel" class="comment-row__meta">
@@ -199,7 +202,7 @@ async function like() {
       reply-align-end
       :reply-open="commentButtonIsShow"
       :show-sub-toggle="false"
-      @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+      @toggle-reply="toggleReply"
     >
       <template #leading>
         <BasicInfo
@@ -217,9 +220,9 @@ async function like() {
       <MarkdownEditor
         v-model="commentContent"
         compact
-        placeholder="回复 TA…"
+        placeholder="回复 TA…（@昵称+空格 可通知对方）"
         :submit-busy="commentSubmitting"
-        @send="handlerDebounced('comment')"
+        @send="submitComment"
       />
     </div>
     <slot name="showComment" />

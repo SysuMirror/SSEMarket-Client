@@ -332,6 +332,8 @@ onUnmounted(() => {
             v-model="postContent"
             fill
             placeholder="在这里写下正文…"
+            :submit-busy="submitting"
+            @send="submitPost"
           />
         </div>
       </article>

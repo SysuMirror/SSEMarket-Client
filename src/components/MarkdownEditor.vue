@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/html-self-closing -->
 <script setup lang="ts">
-import { nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 
 import { uploadPhoto } from '@/api/editPostAndComment/utils'
 
@@ -29,11 +29,25 @@ const emit = defineEmits<{
   send: []
 }>()
 
+/** 点击瞬间置位，避免等父组件 prop 回传前重复触发 send */
+const sending = ref(false)
+
+const isBusy = computed(() => props.submitBusy || sending.value)
+
 function emitSend() {
-  if (props.submitBusy)
+  if (isBusy.value)
     return
+  sending.value = true
   emit('send')
 }
+
+watch(
+  () => props.submitBusy,
+  (busy) => {
+    if (!busy)
+      sending.value = false
+  },
+)
 
 // const route = useRoute()
 
@@ -276,13 +290,26 @@ watch(isPreview, (preview) => {
     <div v-if="!fill" class="md-editor__actions">
       <div
         class="md-editor__action md-editor__action--primary"
-        :class="{ 'md-editor__action--busy': submitBusy }"
+        :class="{ 'md-editor__action--busy': isBusy }"
         role="button"
         tabindex="0"
         @click="emitSend"
         @keydown.enter="emitSend"
       >
-        {{ submitBusy ? '发送中…' : '发送' }}
+        {{ isBusy ? '发送中…' : '发送' }}
+      </div>
+    </div>
+    <div v-else class="md-editor__actions md-editor__actions--fill">
+      <span class="md-editor__fill-hint">支持 Markdown · 图片可粘贴</span>
+      <div
+        class="md-editor__action md-editor__action--primary"
+        :class="{ 'md-editor__action--busy': isBusy }"
+        role="button"
+        tabindex="0"
+        @click="emitSend"
+        @keydown.enter="emitSend"
+      >
+        {{ isBusy ? '发送中…' : '发送' }}
       </div>
     </div>
   </div>
@@ -517,6 +544,8 @@ watch(isPreview, (preview) => {
       font-size: 15px;
       line-height: 1.55;
       padding: 12px 14px;
+      border-radius: 10px 10px 0 0;
+      border-bottom: none;
       scrollbar-width: thin;
       scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
 
@@ -544,6 +573,8 @@ watch(isPreview, (preview) => {
     overflow: auto;
     font-size: 15px;
     padding: 12px 14px;
+    border-radius: 10px 10px 0 0;
+    border-bottom: none;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
 
@@ -561,6 +592,25 @@ watch(isPreview, (preview) => {
       border-radius: 4px;
     }
   }
+}
+
+.md-editor__actions--fill {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 10px 12px;
+  justify-content: space-between;
+  border: 1px solid var(--chat-border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: var(--chat-bg-main);
+}
+
+.md-editor__fill-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--chat-text-tips);
+  line-height: 1.4;
 }
 
 .md-editor--compact {

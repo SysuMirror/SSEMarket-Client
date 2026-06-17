@@ -74,37 +74,26 @@ async function sendCommentFunc() {
   }
 }
 
-const handlerDebounce = debounceAsync(handler)
-
-async function handler(type: 'comment') {
-  let event
-  switch (type) {
-    case 'comment':{
-      commentSubmitting.value = true
-      try {
-        const result = await sendCommentFunc()
-        if (!result) {
-          showMsg('评论失败，请稍后再试')
-          return
-        }
-        event = new CustomEvent('comment-handle', {
-          bubbles: true,
-        })
-      }
-      finally {
-        commentSubmitting.value = false
-      }
-      break
-    }
-    default:
-      break
-  }
-  if (!event)
-    return
-  root.value?.dispatchEvent(event)
-}
-
 const handleUserActionDebounce = debounceAsync(handleUserAction)
+
+async function submitComment() {
+  if (commentSubmitting.value)
+    return
+  commentSubmitting.value = true
+  try {
+    const result = await sendCommentFunc()
+    if (!result) {
+      showMsg('评论失败，请稍后再试')
+      return
+    }
+    root.value?.dispatchEvent(new CustomEvent('comment-handle', {
+      bubbles: true,
+    }))
+  }
+  finally {
+    commentSubmitting.value = false
+  }
+}
 
 async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
   // 后端没有返回数据，不要赋值后再更新
@@ -225,9 +214,9 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
       <MarkdownEditor
         v-model="commentContent"
         compact
-        placeholder="写下你的评论…"
+        placeholder="写下你的评论…（@昵称+空格 可通知对方）"
         :submit-busy="commentSubmitting"
-        @send="handlerDebounce('comment')"
+        @send="submitComment"
       />
     </div>
   </BasicCard>

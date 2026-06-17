@@ -5,6 +5,7 @@ import MarkdownIt from 'markdown-it'
 import Prism from 'prismjs'
 import { computed, nextTick, useTemplateRef } from 'vue'
 import { showMsg } from '@/components/MessageBox'
+import { injectMentionHighlightHTML } from '@/utils/mention'
 import 'prismjs/plugins/autoloader/prism-autoloader'
 import 'github-markdown-css'
 import 'prismjs/themes/prism-tomorrow.css'
@@ -109,6 +110,8 @@ function preprocessMarkdown(content: string): string {
   let text = content
   if (variant === 'chat')
     text = normalizeChatMarkdown(text)
+  if (variant !== 'chat')
+    text = injectMentionHighlightHTML(text)
   // 先用正则匹配一下
   return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, urlPart) => {
     const titleIndex = urlPart.lastIndexOf(' "')

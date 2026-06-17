@@ -2,6 +2,7 @@
 import type { Comment } from '@/types/comment'
 import { computed, defineAsyncComponent, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { scrollElementBelowHeader } from '@/utils/scrollBelowHeader'
+import { buildMentionPrefix } from '@/utils/mention'
 import { delComment, sendPComment } from '@/api/editPostAndComment/editComment'
 
 import { likeRatingComment } from '@/api/rating'
@@ -100,42 +101,34 @@ async function deleteFunc() {
   }
 }
 
-const handlerDebounced = debounceAsync(handler)
-async function handler(type: 'delete' | 'comment') {
-  let event
-  switch (type) {
-    case 'delete':{
-      const result = await deleteFunc()
-      if (!result) {
-        showMsg('删除失败')
-        return
-      }
-      event = new CustomEvent('comment-handle', {
-        bubbles: true,
-      })
-      break
-    }
-    case 'comment':{
-      commentSubmitting.value = true
-      try {
-        const result = await sendCommentFunc()
-        if (!result) {
-          showMsg('评论失败')
-          return
-        }
-        event = new CustomEvent('comment-handle', {
-          bubbles: true,
-        })
-      }
-      finally {
-        commentSubmitting.value = false
-      }
-      break
-    }
-    default:
-      return
+const deleteDebounced = debounceAsync(async () => {
+  const result = await deleteFunc()
+  if (!result) {
+    showMsg('删除失败')
+    return
   }
-  root.value?.dispatchEvent(event)
+  root.value?.dispatchEvent(new CustomEvent('comment-handle', {
+    bubbles: true,
+  }))
+})
+
+async function submitComment() {
+  if (commentSubmitting.value)
+    return
+  commentSubmitting.value = true
+  try {
+    const result = await sendCommentFunc()
+    if (!result) {
+      showMsg('评论失败')
+      return
+    }
+    root.value?.dispatchEvent(new CustomEvent('comment-handle', {
+      bubbles: true,
+    }))
+  }
+  finally {
+    commentSubmitting.value = false
+  }
 }
 
 async function scrollToFirstSubComment() {
@@ -151,6 +144,16 @@ watch(showSubComment, (open) => {
   if (open)
     void scrollToFirstSubComment()
 })
+
+function toggleReply() {
+  const opening = !commentButtonIsShow.value
+  commentButtonIsShow.value = opening
+  if (opening && !commentContent.value.trim()) {
+    const prefix = buildMentionPrefix(comment.Author)
+    if (prefix)
+      commentContent.value = prefix
+  }
+}
 
 async function like() {
   try {
@@ -199,7 +202,7 @@ async function like() {
         :no-save="true"
         :is-self="userInfo.phone === comment.AuthorTelephone"
         :show-privacy="false"
-        @user-action="handlerDebounced"
+        @user-action="deleteDebounced"
       />
     </header>
     <div v-if="$slots['right-extension']" class="rating-display-area">
@@ -217,7 +220,7 @@ async function like() {
       :reply-open="commentButtonIsShow"
       :sub-count="comment.SubComments.length"
       :sub-open="showSubComment"
-      @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+      @toggle-reply="toggleReply"
       @toggle-sub="showSubComment = !showSubComment"
     >
       <template #leading>
@@ -251,9 +254,9 @@ async function like() {
       <MarkdownEditor
         v-model="commentContent"
         compact
-        placeholder="写下你的回复…"
+        placeholder="写下你的回复…（输入 @昵称 可通知对方，后接空格）"
         :submit-busy="commentSubmitting"
-        @send="handlerDebounced('comment')"
+        @send="submitComment"
       />
     </div>
     <div
