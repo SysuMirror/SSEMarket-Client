@@ -2,14 +2,20 @@
 import type {
   TimelineAssistant,
   TimelineItem,
+  TimelinePostDraft,
   TimelineStep,
   TimelineUser,
 } from '@/composables/useOpsAgentStream'
 import { computed, ref } from 'vue'
 import MarkdownContainer from '@/components/MarkdownContainer.vue'
+import PostDraftCard from './PostDraftCard.vue'
 
 const props = defineProps<{
   items: TimelineItem[]
+}>()
+
+const emit = defineEmits<{
+  (e: 'draft-update', item: TimelinePostDraft): void
 }>()
 
 const xiaoQiuAvatarUrl = `${import.meta.env.BASE_URL}xiaoqiu-avatar.png`
@@ -19,6 +25,7 @@ interface TimelineTurn {
   user?: TimelineUser
   steps: TimelineStep[]
   assistant?: TimelineAssistant
+  drafts: TimelinePostDraft[]
 }
 
 function markdownForAssistant(raw: string) {
@@ -38,13 +45,13 @@ const turns = computed(() => {
       continue
 
     if (item.kind === 'user') {
-      current = { id: item.id, user: item, steps: [] }
+      current = { id: item.id, user: item, steps: [], drafts: [] }
       out.push(current)
       continue
     }
 
     if (!current) {
-      current = { id: `turn-${item.id}`, steps: [] }
+      current = { id: `turn-${item.id}`, steps: [], drafts: [] }
       out.push(current)
     }
 
@@ -52,6 +59,8 @@ const turns = computed(() => {
       current.steps.push(item)
     else if (item.kind === 'assistant')
       current.assistant = item
+    else if (item.kind === 'post_draft')
+      current.drafts.push(item)
   }
 
   return out
@@ -71,6 +80,10 @@ function stepExpanded(id: string, collapsed: boolean) {
 
 function isThinking(text: string, status: TimelineAssistant['status']) {
   return status === 'streaming' && (text === '小秋在想一下…' || text.trim() === '')
+}
+
+function onDraftUpdate(updated: TimelinePostDraft) {
+  emit('draft-update', updated)
 }
 </script>
 
@@ -164,6 +177,13 @@ function isThinking(text: string, status: TimelineAssistant['status']) {
             />
             <time v-if="turn.assistant.time" class="bubble-time">{{ turn.assistant.time }}</time>
           </div>
+
+          <PostDraftCard
+            v-for="draft in turn.drafts"
+            :key="draft.id"
+            :item="draft"
+            @update="onDraftUpdate"
+          />
         </div>
       </div>
     </article>

@@ -40,7 +40,27 @@ export interface TimelineMeta {
   detail: string
 }
 
-export type TimelineItem = TimelineUser | TimelineAssistant | TimelineStep | TimelineMeta
+export interface PostDraftPayload {
+  type: 'post' | 'product'
+  title: string
+  content: string
+  partition?: string
+  tags?: string[]
+  price?: number
+  is_anonymous?: boolean
+  is_private?: boolean
+}
+
+export interface TimelinePostDraft {
+  kind: 'post_draft'
+  id: string
+  draft: PostDraftPayload
+  status: 'editing' | 'submitting' | 'success' | 'error'
+  result?: { post_id?: number, product_id?: number, url?: string }
+  error?: string
+}
+
+export type TimelineItem = TimelineUser | TimelineAssistant | TimelineStep | TimelineMeta | TimelinePostDraft
 
 const SPECIALIST_PREFIX_RE = /^【[^】]+】/
 
@@ -318,12 +338,10 @@ export function useOpsAgentStream() {
           if (eventName === 'error') {
             const msg = str(payload.message) || '对话服务异常'
             globalError.value = msg
-            const tail = timeline.value[timeline.value.length - 1]
-            if (tail && tail.kind === 'assistant' && tail.status === 'streaming') {
-              tail.status = 'error'
-              tail.text = tail.text || msg
-              bump()
-            }
+            const assistant = ensureAssistantTail()
+            assistant.status = 'error'
+            assistant.text = assistant.text.trim() ? assistant.text : msg
+            bump()
             onAfterUpdate?.()
             continue
           }
@@ -333,6 +351,31 @@ export function useOpsAgentStream() {
               handleMetaEvent(eventName, payload)
               onAfterUpdate?.()
             }
+            continue
+          }
+
+          if (eventName === 'post_draft') {
+            const draft: PostDraftPayload = {
+              type: payload.type === 'product' ? 'product' : 'post',
+              title: str(payload.title),
+              content: str(payload.content),
+              partition: str(payload.partition) || undefined,
+              tags: Array.isArray(payload.tags)
+                ? (payload.tags as unknown[]).filter((x): x is string => typeof x === 'string')
+                : undefined,
+              price: num(payload.price, 0) || undefined,
+              is_anonymous: typeof payload.is_anonymous === 'boolean' ? payload.is_anonymous : undefined,
+              is_private: typeof payload.is_private === 'boolean' ? payload.is_private : undefined,
+            }
+            const item: TimelinePostDraft = {
+              kind: 'post_draft',
+              id: newId('draft'),
+              draft,
+              status: 'editing',
+            }
+            timeline.value = [...timeline.value, item]
+            bump()
+            onAfterUpdate?.()
             continue
           }
         }

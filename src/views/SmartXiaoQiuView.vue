@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { BootstrapMessage } from '@/api/opsagent/conversation'
-import type { TimelineItem } from '@/composables/useOpsAgentStream'
+import type { TimelineItem, TimelinePostDraft } from '@/composables/useOpsAgentStream'
 import { nextTick, onMounted, ref, useTemplateRef } from 'vue'
 import { closeConversation, fetchConversationBootstrap } from '@/api/opsagent/conversation'
 import { OpsAgentRequestError, shouldRebootstrapAfterTaskError } from '@/api/opsagent/errors'
@@ -149,6 +149,15 @@ onMounted(() => {
     sessionReady.value = false
   })
 })
+
+function onDraftUpdate(updated: TimelinePostDraft) {
+  const idx = timeline.value.findIndex(it => it.kind === 'post_draft' && it.id === updated.id)
+  if (idx < 0)
+    return
+  const newTimeline = [...timeline.value]
+  newTimeline[idx] = updated
+  timeline.value = newTimeline
+}
 </script>
 
 <template>
@@ -184,7 +193,7 @@ onMounted(() => {
 
     <main ref="historyDiv" class="lite-scrollbar chat-scroll">
       <div class="chat-inner">
-        <SmartXiaoQiuTimeline :items="timeline" />
+        <SmartXiaoQiuTimeline :items="timeline" @draft-update="onDraftUpdate" />
       </div>
     </main>
 
