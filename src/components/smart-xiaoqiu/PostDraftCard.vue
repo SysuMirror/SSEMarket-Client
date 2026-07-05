@@ -3,6 +3,7 @@ import type { PostDraftPayload, TimelinePostDraft } from '@/composables/useOpsAg
 import { computed, ref } from 'vue'
 import { uploadDraftImage, submitDraft } from '@/api/post/draft'
 import { showMsg } from '@/components/MessageBox'
+import { POST_PARTITION_OPTIONS } from '@/constants/partitions'
 
 const props = defineProps<{
   item: TimelinePostDraft
@@ -180,13 +181,14 @@ function handleCancel() {
       <template v-if="!isProduct">
         <div class="draft-field">
           <label class="draft-field__label">分区</label>
-          <input
-            v-model="partition"
-            type="text"
-            class="draft-field__input"
-            :disabled="submitting"
-            placeholder="如：二手交易、校园生活（不能为课程交流）"
-          >
+          <select v-model="partition" class="draft-field__input" :disabled="submitting">
+            <option value="" disabled>
+              请选择分区
+            </option>
+            <option v-for="p in POST_PARTITION_OPTIONS" :key="p" :value="p">
+              {{ p }}
+            </option>
+          </select>
         </div>
 
         <div class="draft-field">
