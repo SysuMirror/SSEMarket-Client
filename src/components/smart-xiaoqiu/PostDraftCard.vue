@@ -18,7 +18,7 @@ const title = ref(props.item.draft.title)
 const content = ref(props.item.draft.content)
 const partition = ref(props.item.draft.partition || '')
 const tagsInput = ref((props.item.draft.tags || []).join(', '))
-const price = ref<number>((props.item.draft.price || 0) / 100) // 元
+const price = ref<number>(props.item.draft.price || 0) // 元（与主站 Price 字段一致）
 const isAnonymous = ref(props.item.draft.is_anonymous ?? false)
 const isPrivate = ref(props.item.draft.is_private ?? false)
 const photos = ref<string[]>([])
@@ -47,7 +47,7 @@ function buildDraft(): PostDraftPayload {
     content: content.value,
     partition: isProduct.value ? undefined : partition.value.trim(),
     tags: isProduct.value ? undefined : tags,
-    price: isProduct.value ? Math.round(price.value * 100) : undefined,
+    price: isProduct.value ? Math.round(price.value) : undefined,
     is_anonymous: isProduct.value ? isAnonymous.value : undefined,
     is_private: isProduct.value ? undefined : isPrivate.value,
   }
