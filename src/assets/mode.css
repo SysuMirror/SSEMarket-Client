@@ -1,161 +1,250 @@
-/* 存放明亮模式和黑暗模式的颜色 */
-/* 子元素使用css变量 */
+/* 全站色彩 Token：统一到藏青 slate 冷灰体系（与 Workbench/Chat 一致）
+   - 主色：藏青 --accent (#2c3d56)
+   - 中性色：Tailwind slate 家族（冷灰，无暖调）
+   - 语义色：降饱和版本（非 Material 默认高饱和色）
+   - 老变量名保留以兼容现有组件，值映射到新体系
+*/
 
 body {
-  /* 与卡片白底拉开一点层次，避免整屏灰度过于接近 */
-  --color-bg: #eef2f6;
+  /* ===== 基础中性色 ===== */
+  --color-bg: #f6f7f9;
   background-color: var(--color-bg);
 
-  --color-scroll: rgba(0, 0, 0, 0.1);
-  --color-scroll-thumb: rgba(0, 0, 0, 0.5);
+  --color-scroll: rgba(71, 85, 105, 0.12);
+  --color-scroll-thumb: rgba(71, 85, 105, 0.3);
 
-  --color-button-bg: #a8b4b08f;
-  --color-button: #333;
+  /* ===== 文字层级 ===== */
+  --color-text: #1e293b;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+  --color-text-tips: #94a3b8;
+  --color-hr: rgba(71, 85, 105, 0.15);
+  --color-border: rgba(71, 85, 105, 0.12);
+  --color-border-strong: rgba(71, 85, 105, 0.2);
 
-  --color-text: #181818;
-  --color-hr: #3333339d;
+  /* ===== 主色 / 强调 ===== */
+  --accent: #2c3d56;
+  --accent-soft: rgba(44, 61, 86, 0.08);
+  --accent-hover: #3d5170;
 
-  --color-border: rgba(0, 0, 0, 0.1);
+  /* ===== 卡片 / 阴影 ===== */
+  --color-card: #ffffff;
+  --color-card-shadow: 0 1px 2px rgba(71, 85, 105, 0.04), 0 2px 8px rgba(71, 85, 105, 0.04);
+  --color-card-hover-shadow: 0 2px 8px rgba(71, 85, 105, 0.08), 0 4px 16px rgba(71, 85, 105, 0.06);
 
-  --color-nav-bg: #f0f0f0;
-  --color-nav-hover: rgba(241, 236, 226, 0.901);
+  /* ===== 按钮 ===== */
+  --color-button-bg: var(--accent);
+  --color-button: #ffffff;
+  --color-button-bg-secondary: #f1f5f9;
+  --color-button-secondary: #334155;
+  --color-button-bg-hover: var(--accent-hover);
+  --color-button-hover: #ffffff;
 
-  --color-ball-bg: #fffdfd;
-  --color-ball-text: #181818;
-  --color-ball-box-shadow: rgba(0, 0, 0, 0.35);
+  /* ===== 导航 / 头部 ===== */
+  --color-nav-bg: #fffffff2;
+  --color-nav-hover: rgba(44, 61, 86, 0.06);
+  --color-nav-active: var(--accent);
 
-  --color-selected-shadow-first: rgba(70, 70, 94, 0.25);
-  --color-selected-shadow-second: rgba(0, 0, 0, 0.3);
+  /* ===== 悬浮球（FAB） ===== */
+  --color-ball-bg: #ffffff;
+  --color-ball-text: var(--accent);
+  --color-ball-box-shadow: 0 2px 8px rgba(71, 85, 105, 0.12);
 
-  --color-hover: rgba(70, 70, 94, 0.1);
-  --color-active: rgba(0, 0, 0, 0.2);
+  /* ===== 选中态 ===== */
+  --color-selected-shadow-first: rgba(44, 61, 86, 0.15);
+  --color-selected-shadow-second: rgba(44, 61, 86, 0.1);
+  --color-title-selected: var(--accent);
+  --color-title-bg: var(--accent-soft);
 
-  --color-title-selected: #00a4af;
-  --color-title-bg: rgba(136, 243, 255, 0.683);
+  /* ===== 交互 ===== */
+  --color-hover: rgba(44, 61, 86, 0.06);
+  --color-active: rgba(44, 61, 86, 0.12);
+  --color-link: var(--accent);
+  --color-link-hover: var(--accent-hover);
 
-  --color-to-post: white;
-  --color-to-post-bg: #a1a1a1e1;
-  --color-to-post-border: #333;
+  /* ===== 发帖按钮 ===== */
+  --color-to-post: #ffffff;
+  --color-to-post-bg: var(--accent);
+  --color-to-post-border: transparent;
 
-  --color-a-in-post: #00d9ff;
-  --color-a-hover-in-post: #ffd900;
-  --color-a-hover-bg-in-post: #9cff817e;
+  /* ===== 帖子内链接（Markdown） ===== */
+  --color-a-in-post: var(--accent);
+  --color-a-hover-in-post: var(--accent-hover);
+  --color-a-hover-bg-in-post: var(--accent-soft);
 
-  --color-user-text: #333;
-  --color-user-avatar-bg: #6c757d;
-  --color-user-avatar: #fff;
+  /* ===== 用户 ===== */
+  --color-user-text: #334155;
+  --color-user-avatar-bg: #cbd5e1;
+  --color-user-avatar: #ffffff;
+  --color-user-name: #1e293b;
 
-  --color-post-card-box-shadow: rgba(0, 0, 0, 0.24);
-  --color-post-card-hover-box-shadow: rgba(0, 0, 0, 0.35);
+  /* ===== 帖子卡片阴影（兼容旧名） ===== */
+  --color-post-card-box-shadow: 0 1px 3px rgba(71, 85, 105, 0.08), 0 1px 2px rgba(71, 85, 105, 0.04);
+  --color-post-card-hover-box-shadow: var(--color-card-hover-shadow);
 
-  --color-level-undefined-box-shadow: #1e1e1eae;
-  --color-level-6-bg: #4545454e;
+  /* ===== 等级 ===== */
+  --color-level-undefined-box-shadow: #47556980;
+  --color-level-6-bg: #f1f5f9;
+  --color-level: #b45309;
 
-  /* 私信 / 对话：清新简约（浅底、弱分割、柔和气泡） */
-  --chat-bg-main: #e9ebee;
-  --chat-bg-highlight: #f7f8f9;
-  --chat-bg-elevated: #f3f4f5;
-  --chat-border: rgba(0, 0, 0, 0.1);
-  --chat-border-strong: rgba(0, 0, 0, 0.18);
+  /* ===== 未读红点（红色语义） ===== */
+  --color-unread: #ef4444;
+  --color-unread-bg: #ef4444;
+  --color-unread-text: #ffffff;
+
+  /* ===== 私信 / 对话 ===== */
+  --chat-bg-main: #e9edf1;
+  --chat-bg-highlight: #f6f7f9;
+  --chat-bg-elevated: #f1f5f9;
+  --chat-border: rgba(71, 85, 105, 0.1);
+  --chat-border-strong: rgba(71, 85, 105, 0.18);
   --chat-text: #1e293b;
   --chat-text-secondary: #64748b;
   --chat-text-tips: #94a3b8;
-  /* 藏青强调：比顶栏 #0f172a 略浅一线，减少「死黑」感 */
-  --chat-accent: #2c3d56;
-  --chat-accent-soft: rgba(44, 61, 86, 0.11);
+  --chat-accent: var(--accent);
+  --chat-accent-soft: rgba(44, 61, 86, 0.08);
   --chat-bubble-peer: #ffffff;
-  --chat-bubble-self: #f1f4f9;
-  --chat-bubble-border-peer: rgba(15, 23, 42, 0.06);
-  --chat-bubble-border-self: rgba(44, 61, 86, 0.14);
-  --chat-unread-bg: #2c3d56;
+  --chat-bubble-self: #e8edf4;
+  --chat-bubble-border-peer: rgba(71, 85, 105, 0.06);
+  --chat-bubble-border-self: rgba(44, 61, 86, 0.1);
+  --chat-unread-bg: var(--color-unread);
   --chat-unread-text: #ffffff;
 
-  --color-success: #4caf50;
-  --color-error: #f44336;
-  --color-info: #2196f3;
-  --color-warning: #ff9800;
+  /* ===== 语义色（降饱和，避免荧光感） ===== */
+  --color-success: #10b981;
+  --color-success-soft: rgba(16, 185, 129, 0.1);
+  --color-error: #ef4444;
+  --color-error-soft: rgba(239, 68, 68, 0.1);
+  --color-info: #3b82f6;
+  --color-info-soft: rgba(59, 130, 246, 0.1);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.1);
 
-  /* 商城相关变量 */
+  /* ===== 商城变量（统一到冷灰） ===== */
   --shop-card-bg: #ffffff;
   --shop-section-bg: #ffffff;
   --shop-filter-bg: #ffffff;
-  --shop-text-secondary: #666;
-  --shop-text-muted: #7f8c8d;
-  --shop-skeleton-bg: #eee;
+  --shop-text-secondary: #64748b;
+  --shop-text-muted: #94a3b8;
+  --shop-skeleton-bg: #f1f5f9;
+  --shop-price: #dc2626;
+  --shop-tag-bg: var(--accent-soft);
+  --shop-tag-text: var(--accent);
+
+  /* ===== 统一圆角 / 间距 Token ===== */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
 }
 
+/* ===== 深色模式 ===== */
 body.dark-mode {
-  --color-bg: rgb(35, 35, 35);
+  --color-bg: #0f172a;
   background-color: var(--color-bg);
 
-  --color-scroll: rgba(255, 255, 255, 0.1);
-  --color-scroll-thumb: rgba(255, 255, 255, 0.5);
+  --color-scroll: rgba(148, 163, 184, 0.12);
+  --color-scroll-thumb: rgba(148, 163, 184, 0.3);
 
-  --color-button-bg: #333;
-  --color-button: #f1f1f18f;
+  --color-text: #e2e8f0;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #64748b;
+  --color-text-tips: #64748b;
+  --color-hr: rgba(148, 163, 184, 0.15);
+  --color-border: rgba(148, 163, 184, 0.12);
+  --color-border-strong: rgba(148, 163, 184, 0.2);
 
-  --color-text: rgb(218, 211, 197);
-  --color-hr: #f1f1f18f;
+  --accent: #5989b8;
+  --accent-soft: rgba(89, 137, 184, 0.15);
+  --accent-hover: #7aa3cf;
 
-  --color-border: rgba(214, 214, 214, 0.8);
+  --color-card: #1e293b;
+  --color-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --color-card-hover-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
 
-  --color-nav-bg: #383737;
-  --color-nav-hover: rgba(68, 68, 68, 0.901);
+  --color-button-bg: var(--accent);
+  --color-button: #0f172a;
+  --color-button-bg-secondary: #334155;
+  --color-button-secondary: #e2e8f0;
+  --color-button-bg-hover: var(--accent-hover);
+  --color-button-hover: #0f172a;
 
-  --color-ball-bg: #3d3d3d;
-  --color-ball-text: #bababa;
-  --color-ball-box-shadow: rgba(255, 255, 255, 0.35);
+  --color-nav-bg: #1e293bf2;
+  --color-nav-hover: rgba(89, 137, 184, 0.12);
+  --color-nav-active: var(--accent);
 
-  --color-selected-shadow-first: rgba(255, 255, 255, 0.1);
-  --color-selected-shadow-second: rgba(255, 255, 255, 0.2);
+  --color-ball-bg: #1e293b;
+  --color-ball-text: var(--accent);
+  --color-ball-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 
-  --color-hover: rgba(255, 255, 255, 0.1);
-  --color-active: rgba(255, 255, 255, 0.2);
+  --color-selected-shadow-first: rgba(89, 137, 184, 0.2);
+  --color-selected-shadow-second: rgba(0, 0, 0, 0.3);
+  --color-title-selected: var(--accent);
+  --color-title-bg: var(--accent-soft);
 
-  --color-title-selected: #b8860b;
-  --color-title-bg: #ffb700cd;
+  --color-hover: rgba(148, 163, 184, 0.08);
+  --color-active: rgba(148, 163, 184, 0.15);
+  --color-link: var(--accent);
+  --color-link-hover: var(--accent-hover);
 
-  --color-to-post: white;
-  --color-to-post-bg: #a1a1a1e1;
-  --color-to-post-border: #333;
+  --color-to-post: #0f172a;
+  --color-to-post-bg: var(--accent);
+  --color-to-post-border: transparent;
 
-  --color-level: #c79900;
+  --color-a-in-post: var(--accent);
+  --color-a-hover-in-post: var(--accent-hover);
+  --color-a-hover-bg-in-post: var(--accent-soft);
 
-  --color-a-in-post: #00d9ff;
-  --color-a-hover-in-post: #ffd900;
-  --color-a-hover-bg-in-post: #9cff817e;
+  --color-user-text: #93c5fd;
+  --color-user-avatar-bg: #475569;
+  --color-user-avatar: #e2e8f0;
+  --color-user-name: #e2e8f0;
 
-  --color-user-text: #6C9ED9;
+  --color-post-card-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --color-post-card-hover-box-shadow: var(--color-card-hover-shadow);
 
-  --color-post-card-box-shadow: rgba(255, 255, 255, 0.24);
-  --color-post-card-hover-box-shadow: rgba(255, 255, 255, 0.35);
+  --color-level-undefined-box-shadow: #94a3b880;
+  --color-level-6-bg: #334155;
+  --color-level: #fbbf24;
 
-  --color-level-undefined-box-shadow: #9d9d9dde;
-  --color-level-6-bg: #a9a9a94e;
+  --color-unread: #f87171;
+  --color-unread-bg: #f87171;
+  --color-unread-text: #0f172a;
 
-  --chat-bg-main: #12151a;
-  --chat-bg-highlight: #242830;
-  --chat-bg-elevated: #2a3038;
-  --chat-border: rgba(255, 255, 255, 0.1);
-  --chat-border-strong: rgba(255, 255, 255, 0.14);
+  --chat-bg-main: #0f172a;
+  --chat-bg-highlight: #1e293b;
+  --chat-bg-elevated: #243044;
+  --chat-border: rgba(148, 163, 184, 0.1);
+  --chat-border-strong: rgba(148, 163, 184, 0.18);
   --chat-text: #e2e8f0;
   --chat-text-secondary: #94a3b8;
   --chat-text-tips: #64748b;
-  /* 暗底强调再略提亮，避免和背景糊成一片 */
-  --chat-accent: #5989b8;
-  --chat-accent-soft: rgba(216, 224, 234, 0.16);
-  --chat-bubble-peer: #2a2f38;
+  --chat-accent: var(--accent);
+  --chat-accent-soft: rgba(89, 137, 184, 0.15);
+  --chat-bubble-peer: #1e293b;
   --chat-bubble-self: #243044;
-  --chat-bubble-border-peer: rgba(255, 255, 255, 0.06);
-  --chat-bubble-border-self: rgba(186, 199, 216, 0.3);
-  --chat-unread-bg: #d8e0ea;
-  --chat-unread-text: #1e293b;
+  --chat-bubble-border-peer: rgba(148, 163, 184, 0.06);
+  --chat-bubble-border-self: rgba(89, 137, 184, 0.2);
+  --chat-unread-bg: var(--color-unread);
+  --chat-unread-text: #0f172a;
 
-  /* 商城相关变量 - 夜间模式 */
-  --shop-card-bg: #2e2e2e;
-  --shop-section-bg: #2e2e2e;
-  --shop-filter-bg: #2e2e2e;
-  --shop-text-secondary: #aaa;
-  --shop-text-muted: #888;
-  --shop-skeleton-bg: #3a3a3a;
+  --color-success: #34d399;
+  --color-success-soft: rgba(52, 211, 153, 0.1);
+  --color-error: #f87171;
+  --color-error-soft: rgba(248, 113, 113, 0.1);
+  --color-info: #60a5fa;
+  --color-info-soft: rgba(96, 165, 250, 0.1);
+  --color-warning: #fbbf24;
+  --color-warning-soft: rgba(251, 191, 36, 0.1);
+
+  --shop-card-bg: #1e293b;
+  --shop-section-bg: #1e293b;
+  --shop-filter-bg: #1e293b;
+  --shop-text-secondary: #94a3b8;
+  --shop-text-muted: #64748b;
+  --shop-skeleton-bg: #334155;
+  --shop-price: #f87171;
+  --shop-tag-bg: var(--accent-soft);
+  --shop-tag-text: var(--accent);
 }

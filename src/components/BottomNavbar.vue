@@ -91,8 +91,8 @@ onUnmounted(() => {
         class="bottom-nav__item bottom-nav__item--post"
         :class="{ 'bottom-nav__item--active': isPost }"
         to="/post"
-        @click="closeMyMenu"
         aria-label="发帖"
+        @click="closeMyMenu"
       >
         <span class="bottom-nav__post-btn">
           <Icon icon="tabler:plus" width="26" height="26" aria-hidden="true" />
@@ -164,11 +164,11 @@ onUnmounted(() => {
   max-width: none;
   margin: 0;
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
-  background: var(--chat-bg-highlight);
+  background: var(--color-nav-bg, var(--chat-bg-highlight));
   border: none;
-  border-top: 1px solid var(--chat-border);
+  border-top: 1px solid var(--color-border, var(--chat-border));
   border-radius: 0;
-  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 -2px 12px rgba(71, 85, 105, 0.06);
 }
 
 .bottom-nav__item {
@@ -199,8 +199,8 @@ onUnmounted(() => {
   }
 
   &:not(.bottom-nav__item--my):hover {
-    background: rgba(59, 130, 246, 0.1);
-    box-shadow: inset 0 0 0 1px rgba(44, 61, 86, 0.08);
+    background: var(--accent-soft, rgba(44, 61, 86, 0.06));
+    box-shadow: none;
 
     .bottom-nav__text {
       color: var(--chat-text);
@@ -212,8 +212,12 @@ onUnmounted(() => {
     background: transparent;
     box-shadow: none;
 
+    .bottom-nav__icon {
+      color: var(--accent, var(--chat-accent));
+    }
+
     .bottom-nav__text {
-      color: var(--chat-accent);
+      color: var(--accent, var(--chat-accent));
       font-weight: 700;
     }
   }
@@ -262,8 +266,8 @@ onUnmounted(() => {
   }
 
   &:hover {
-    background: rgba(59, 130, 246, 0.1);
-    box-shadow: inset 0 0 0 1px rgba(44, 61, 86, 0.08);
+    background: var(--accent-soft, rgba(44, 61, 86, 0.06));
+    box-shadow: none;
 
     .bottom-nav__text {
       color: var(--chat-text);
@@ -276,33 +280,23 @@ onUnmounted(() => {
   background: transparent;
   box-shadow: none;
 
+  .bottom-nav__icon {
+    color: var(--accent, var(--chat-accent));
+  }
+
   .bottom-nav__text {
-    color: var(--chat-accent);
+    color: var(--accent, var(--chat-accent));
     font-weight: 700;
   }
 }
 
 .bottom-nav__icon {
   flex-shrink: 0;
-  opacity: 0.95;
-  transition: opacity 0.18s ease;
-}
-
-/* 未选中：按入口语义着色（悬停 / 选中不改变图标色） */
-.bottom-nav__icon--home {
-  color: #ea580c;
-}
-.bottom-nav__icon--shop {
-  color: #059669;
-}
-.bottom-nav__icon--messages {
-  color: #2563eb;
-}
-.bottom-nav__icon--workbench {
-  color: #6366f1;
-}
-.bottom-nav__icon--user {
-  color: #475569;
+  opacity: 0.8;
+  color: var(--color-text-secondary, var(--chat-text-secondary));
+  transition:
+    color 0.18s ease,
+    opacity 0.18s ease;
 }
 
 /* 中间凸起发帖按钮：藏青底色 + 白色加号，垂直突出于导航条 */
@@ -314,42 +308,42 @@ onUnmounted(() => {
   height: 46px;
   margin-top: -16px;
   border-radius: 50%;
-  color: #fff;
-  background: var(--chat-accent, #2c3d56);
+  color: var(--color-to-post, #fff);
+  background: var(--accent, var(--chat-accent));
   box-shadow:
-    0 4px 12px rgba(44, 61, 86, 0.35),
-    0 0 0 3px var(--chat-bg-highlight, #fff);
+    0 4px 12px rgba(44, 61, 86, 0.3),
+    0 0 0 3px var(--color-card, var(--chat-bg-highlight));
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
 }
 
 .bottom-nav__item--post:hover .bottom-nav__post-btn {
-  transform: translateY(-2px) rotate(90deg);
+  transform: translateY(-2px);
   box-shadow:
-    0 6px 16px rgba(44, 61, 86, 0.45),
-    0 0 0 3px var(--chat-bg-highlight, #fff);
+    0 6px 16px rgba(44, 61, 86, 0.4),
+    0 0 0 3px var(--color-card, var(--chat-bg-highlight));
 }
 
 .bottom-nav__item--post:active .bottom-nav__post-btn {
-  transform: translateY(0) rotate(0);
+  transform: translateY(0);
 }
 
 .bottom-nav__item--post.bottom-nav__item--active .bottom-nav__post-btn {
-  filter: brightness(1.08);
+  background: var(--accent-hover, var(--chat-accent));
 }
 
 body.dark-mode .bottom-nav__post-btn {
-  background: var(--chat-accent, #5989b8);
-  color: #fff;
+  color: var(--color-to-post);
+  background: var(--accent);
   box-shadow:
-    0 4px 12px rgba(89, 137, 184, 0.4),
-    0 0 0 3px var(--chat-bg-highlight, #1e293b);
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 3px var(--color-card);
 }
 
 body.dark-mode .bottom-nav__item:not(.bottom-nav__item--my):hover {
-  background: rgba(96, 165, 250, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+  background: var(--accent-soft);
+  box-shadow: none;
 
   .bottom-nav__text {
     color: var(--chat-text);
@@ -360,14 +354,18 @@ body.dark-mode .bottom-nav__item--active:not(.bottom-nav__item--my) {
   background: transparent;
   box-shadow: none;
 
+  .bottom-nav__icon {
+    color: var(--accent);
+  }
+
   .bottom-nav__text {
-    color: var(--chat-accent);
+    color: var(--accent);
   }
 }
 
 body.dark-mode .bottom-nav__my-trigger:hover {
-  background: rgba(96, 165, 250, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+  background: var(--accent-soft);
+  box-shadow: none;
 
   .bottom-nav__text {
     color: var(--chat-text);
@@ -378,25 +376,13 @@ body.dark-mode .bottom-nav__item--active.bottom-nav__item--my .bottom-nav__my-tr
   background: transparent;
   box-shadow: none;
 
-  .bottom-nav__text {
-    color: var(--chat-accent);
+  .bottom-nav__icon {
+    color: var(--accent);
   }
-}
 
-body.dark-mode .bottom-nav__icon--home {
-  color: #fb923c;
-}
-body.dark-mode .bottom-nav__icon--shop {
-  color: #34d399;
-}
-body.dark-mode .bottom-nav__icon--messages {
-  color: #60a5fa;
-}
-body.dark-mode .bottom-nav__icon--workbench {
-  color: #a5b4fc;
-}
-body.dark-mode .bottom-nav__icon--user {
-  color: #94a3b8;
+  .bottom-nav__text {
+    color: var(--accent);
+  }
 }
 
 .bottom-nav__text {
@@ -422,10 +408,10 @@ body.dark-mode .bottom-nav__icon--user {
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-  color: #ffffff;
-  background: #ef4444;
+  color: var(--color-unread-text, #fff);
+  background: var(--color-unread, #ef4444);
   border-radius: 999px;
-  box-shadow: 0 0 0 2px var(--chat-bg-highlight);
+  box-shadow: 0 0 0 2px var(--color-card, var(--chat-bg-highlight));
 }
 
 .bottom-nav__dropdown {
@@ -435,16 +421,16 @@ body.dark-mode .bottom-nav__icon--user {
   left: auto;
   min-width: 148px;
   padding: 6px;
-  background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
-  border-radius: 16px;
-  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
+  background: var(--color-card, var(--chat-bg-highlight));
+  border: 1px solid var(--color-border, var(--chat-border));
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: var(--color-card-hover-shadow, 0 8px 28px rgba(71, 85, 105, 0.12));
 }
 
 .bottom-nav__drop-link {
   display: block;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md, 8px);
   text-align: left;
   text-decoration: none;
   font-size: 14px;
@@ -453,23 +439,23 @@ body.dark-mode .bottom-nav__icon--user {
   transition: background 0.12s ease;
 
   &:hover {
-    background: rgba(59, 130, 246, 0.1);
+    background: var(--color-hover);
+    color: var(--color-text);
   }
 
   &.router-link-active {
-    color: var(--chat-accent);
-    background: linear-gradient(180deg, rgba(59, 130, 246, 0.14) 0%, rgba(44, 61, 86, 0.08) 100%);
-    box-shadow: inset 0 0 0 1px rgba(44, 61, 86, 0.12);
+    color: var(--accent, var(--chat-accent));
+    background: var(--accent-soft);
   }
 }
 
 body.dark-mode .bottom-nav__drop-link:hover {
-  background: rgba(96, 165, 250, 0.12);
+  background: var(--color-hover);
 }
 
 body.dark-mode .bottom-nav__drop-link.router-link-active {
-  background: linear-gradient(180deg, rgba(96, 165, 250, 0.18) 0%, rgba(44, 61, 86, 0.28) 100%);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.22);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .bottom-nav-drop-enter-active,

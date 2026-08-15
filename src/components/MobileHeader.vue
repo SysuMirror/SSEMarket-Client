@@ -45,15 +45,8 @@ const {
           </span>
         </Transition>
       </label>
-      <button type="submit">
-        <div
-          class="icon"
-          style="
-                  background-image: url(https://img.icons8.com/?size=100&id=131&format=png&color=000000);
-                  background-size: 75% 75%;
-                  background-position: 0px 0px;
-                "
-        />
+      <button type="submit" class="search-submit" aria-label="搜索">
+        <Icon icon="tabler:search" width="18" height="18" />
       </button>
     </form>
   </div>
@@ -65,12 +58,13 @@ const {
   flex-shrink: 0;
   min-height: var(--layout-nav-h, 2.125rem);
   height: var(--layout-nav-h, 2.125rem);
-  background: #fffffff2;
-  backdrop-filter: blur(2px);
-  color: #444;
+  background: var(--color-nav-bg, #fffffff2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--color-text);
   align-items: center;
   padding: 0 0.45em;
-  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(71, 85, 105, 0.08);
   overflow: hidden;
 
   .links {
@@ -82,18 +76,18 @@ const {
       border-radius: 4px;
       margin-right: 0.2em;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
     a:hover,
     .router-link-active {
-      background: #444;
+      background: var(--accent);
       color: #fff !important;
     }
 
     a:link,
     a:visited {
-      color: #444;
+      color: var(--color-text-secondary);
     }
 
     .notice-num {
@@ -101,13 +95,15 @@ const {
       top: -4px;
       right: -3px;
       border-radius: 9px;
-      background: #ff5050;
-      color: #eee;
+      background: var(--color-unread);
+      color: #fff;
       height: 1rem;
       text-align: center;
       line-height: 1;
-      font-size: 13px;
+      font-size: 10px;
+      font-weight: 600;
       padding: 2px 4px;
+      min-width: 1rem;
     }
   }
 
@@ -136,11 +132,19 @@ const {
       height: 100%;
       padding: 0 calc(var(--search-toggle-w) + 0.35em) 0 0.5em;
       font-size: 12px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm, 6px);
       line-height: 0.8;
       vertical-align: middle;
       box-sizing: border-box;
+      background: var(--color-card);
+      color: var(--color-text);
+      transition: border-color 0.15s ease;
+
+      &:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
     }
 
     .search-mode-toggle--in-field {
@@ -154,14 +158,19 @@ const {
       margin: 0;
       padding: 0 2px;
       border: none;
-      border-left: 1px solid #d7d7d7;
+      border-left: 1px solid var(--color-border);
       border-radius: 0 4px 4px 0;
-      background: #f3f3f3;
-      color: #555;
+      background: var(--color-button-bg-secondary, #f1f5f9);
+      color: var(--color-text-secondary);
       font-size: 10px;
       line-height: 1.1;
       white-space: nowrap;
       cursor: pointer;
+      transition: background 0.15s;
+
+      &:hover {
+        background: var(--color-hover);
+      }
     }
 
     .rolling-placeholder {
@@ -173,7 +182,7 @@ const {
       display: flex;
       align-items: center;
       overflow: hidden;
-      color: #777;
+      color: var(--color-text-muted);
       font-size: 12px;
       line-height: 1;
       white-space: nowrap;
@@ -181,9 +190,10 @@ const {
       pointer-events: none;
     }
 
-    button[type='submit'] {
+    .search-submit {
       flex-shrink: 0;
-      background: unset;
+      background: transparent;
+      color: var(--color-text-secondary);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -191,15 +201,22 @@ const {
       width: 1.86em;
       padding: 0;
       margin: 0;
+      border-radius: var(--radius-sm, 6px);
       vertical-align: middle;
-    }
 
+      &:hover {
+        background: var(--color-hover);
+        color: var(--accent);
+      }
+    }
   }
 }
 
 .hot-query-roll-enter-active,
 .hot-query-roll-leave-active {
-  transition: opacity 0.24s ease, transform 0.24s ease;
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
 .hot-query-roll-enter-from {
@@ -213,76 +230,67 @@ const {
 }
 
 .dark-mode .site-header {
-  background: #000000a0;
-  color: #ddd;
+  background: var(--color-nav-bg);
+  color: var(--color-text);
 
   .links {
     a:hover,
     .router-link-active {
-      background: #66666680;
+      background: var(--accent);
     }
 
     a:link,
     a:visited {
-      color: #ddd;
+      color: var(--color-text-secondary);
     }
 
     .notice-num {
-      background: #ff5050;
+      background: var(--color-unread);
     }
   }
 
   .search {
-    height: 30px;
+    height: auto;
 
     input {
-      background: #88888880;
-      border: 1px solid #ccc;
-      color: #ccc;
+      background: var(--color-card);
+      border-color: var(--color-border);
+      color: var(--color-text);
     }
 
     .rolling-placeholder {
-      color: #aaa;
+      color: var(--color-text-muted);
     }
 
     input::placeholder {
-      color: #aaa;
+      color: var(--color-text-muted);
     }
-    button[type='submit'] {
+
+    .search-submit {
       overflow: hidden;
     }
 
     .search-mode-toggle--in-field {
-      background: #ffffff18;
-      border-left-color: #666;
-      color: #ddd;
+      background: var(--color-button-bg-secondary);
+      border-left-color: var(--color-border);
+      color: var(--color-text-secondary);
     }
-
   }
 }
 
-.icon {
-  width: 20px;
-  height: 20px;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-size: contain;
-  background-position: 0px 3px;
-  display: inline-block;
-}
-
-body.dark-mode .icon {
-  filter: invert(1);
-}
-
-/* 移动端顶栏左侧入口（小秋） */
 .lesson {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #0ea5e9;
+  border-radius: var(--radius-sm, 6px);
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(14, 165, 233, 0.1);
+  }
 }
 
 .lesson--xiaoqiu {
@@ -290,8 +298,7 @@ body.dark-mode .icon {
 }
 
 body.dark-mode .lesson {
-  filter: brightness(1.1) saturate(1.2) drop-shadow(0 0 6px rgba(150, 200, 255, 0.4))
-    drop-shadow(0 0 10px rgba(150, 200, 255, 0.2));
+  color: #38bdf8;
 }
 
 body.dark-mode .lesson--xiaoqiu {

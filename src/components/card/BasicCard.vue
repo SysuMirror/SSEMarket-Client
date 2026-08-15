@@ -7,22 +7,22 @@
 <style lang="scss">
 .card-root {
   position: relative;
-  padding: 10px 12px;
-  background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 12px 14px;
+  background: var(--color-card, var(--chat-bg-highlight));
+  border: 1px solid var(--color-border, var(--chat-border));
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: var(--color-card-shadow);
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
 
   &:hover {
-    border-color: var(--chat-border-strong);
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
+    border-color: var(--color-border-strong, var(--chat-border-strong));
+    box-shadow: var(--color-card-hover-shadow);
   }
 }
 
-/* 帖子正文多为 Markdown，不再统一首行缩进，避免与信息流风格冲突 */
 .card-root p {
   text-indent: 0;
 }

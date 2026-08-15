@@ -1,10 +1,8 @@
-/* 主页 / 分区等信息流帖子卡片 */
-
 .feed-card {
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
 }
 
 .post-card__head {
@@ -12,23 +10,16 @@
 }
 
 .post-card__title {
-  color: var(--chat-text);
+  color: var(--color-text);
+  font-weight: 600;
 }
 
 .post-card__excerpt {
-  color: var(--chat-text-secondary);
+  color: var(--color-text-secondary);
 }
 
-/* 新帖标记：藏青强调 */
 .post-card.new-post {
-  border-left: 4px solid var(--chat-accent) !important;
-}
-
-.post-card.new-post::before {
-  background: var(--chat-accent);
-  color: #fff;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  border-left: 3px solid var(--accent) !important;
 }
 
 .feed-list__item {
@@ -37,22 +28,30 @@
   max-width: 100%;
   margin-left: auto;
   margin-right: auto;
-  margin-top: 10px;
-  margin-bottom: 10px;
+  margin-top: 12px;
+  margin-bottom: 12px;
 }
 
 .feed-list__footer {
   text-align: center;
-  padding: 14px 0 10px;
+  padding: 20px 0 16px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--chat-text-secondary);
+  color: var(--color-text-muted);
 }
 
 @media screen and (min-width: 768px) {
   .feed-card.post-card:hover {
-    border-color: var(--chat-border-strong);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--color-card-hover-shadow);
+    transform: translateY(-2px);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .feed-list__item {
+    width: calc(100% - 24px);
+    margin-top: 8px;
+    margin-bottom: 8px;
   }
 }
