@@ -15,10 +15,10 @@ defineProps<{
 
 <style scoped lang="scss">
 .settings-group {
-  margin-top: 18px;
+  margin-top: 12px;
 
   &__title {
-    margin: 0 0 6px 4px;
+    margin: 0 0 4px 4px;
     font-size: 12px;
     font-weight: 500;
     letter-spacing: 0.04em;

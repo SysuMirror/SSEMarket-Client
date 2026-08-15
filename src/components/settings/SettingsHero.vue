@@ -12,15 +12,14 @@ defineProps<{
   nextLevelLabel: string
 }>()
 defineEmits<{
-  'upload-avatar': [event: Event]
-  'edit-profile': []
-  'avatar-error': []
+  uploadAvatar: [event: Event]
+  editProfile: []
+  avatarError: []
 }>()
 </script>
 
 <template>
   <section class="settings-hero">
-    <div class="settings-hero__banner" />
     <div class="settings-hero__card">
       <div class="settings-hero__main">
         <label class="settings-hero__avatar-wrap" title="点击更换头像">
@@ -29,7 +28,7 @@ defineEmits<{
             :src="avatarSrc"
             alt="头像"
             loading="lazy"
-            @error="$emit('avatar-error')"
+            @error="$emit('avatarError')"
           >
           <span class="settings-hero__avatar-badge" aria-hidden="true">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
@@ -41,7 +40,7 @@ defineEmits<{
             type="file"
             accept="image/*"
             class="settings-hero__file-input"
-            @change="$emit('upload-avatar', $event)"
+            @change="$emit('uploadAvatar', $event)"
           >
         </label>
         <div class="settings-hero__info">
@@ -67,7 +66,7 @@ defineEmits<{
           </div>
         </div>
       </div>
-      <button type="button" class="settings-hero__edit-btn" @click="$emit('edit-profile')">
+      <button type="button" class="settings-hero__edit-btn" @click="$emit('editProfile')">
         编辑资料
       </button>
     </div>
@@ -78,14 +77,8 @@ defineEmits<{
 .settings-hero {
   position: relative;
 
-  &__banner {
-    height: 88px;
-    background: linear-gradient(135deg, var(--accent) 0%, #1e293b 100%);
-  }
-
   &__card {
     position: relative;
-    margin: -36px 0 0;
     padding: 16px;
     background: var(--color-card);
     border-radius: var(--radius-lg);
@@ -103,10 +96,10 @@ defineEmits<{
     flex-shrink: 0;
     width: 60px;
     height: 60px;
-    border-radius: 50%;
+    border-radius: 0;
     overflow: hidden;
     cursor: pointer;
-    border: 3px solid var(--color-card);
+    border: 2px solid var(--color-card);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 

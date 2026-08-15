@@ -107,7 +107,8 @@ defineEmits<{
 
   &__body {
     padding: 14px 16px;
-    background: var(--color-hover);
+    background: var(--color-card);
+    border-top: 1px solid var(--color-border);
   }
 }
 </style>
