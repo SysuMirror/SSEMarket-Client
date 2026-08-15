@@ -29,25 +29,13 @@ const emit = defineEmits<{
   send: []
 }>()
 
-/** 点击瞬间置位，避免等父组件 prop 回传前重复触发 send */
-const sending = ref(false)
-
-const isBusy = computed(() => props.submitBusy || sending.value)
+const isBusy = computed(() => props.submitBusy)
 
 function emitSend() {
   if (isBusy.value)
     return
-  sending.value = true
   emit('send')
 }
-
-watch(
-  () => props.submitBusy,
-  (busy) => {
-    if (!busy)
-      sending.value = false
-  },
-)
 
 // const route = useRoute()
 
@@ -81,16 +69,49 @@ const modelValue = defineModel({
   required: true,
 })
 
+/** 评论区 compact：最少 2 行，最多 6 行，超出后框内滚动 */
+const COMPACT_MIN_LINES = 2
+const COMPACT_MAX_LINES = 6
+
+function getCompactLineMetrics(el: HTMLTextAreaElement) {
+  const style = window.getComputedStyle(el)
+  const lineHeight = Number.parseFloat(style.lineHeight) || 21
+  const paddingTop = Number.parseFloat(style.paddingTop) || 10
+  const paddingBottom = Number.parseFloat(style.paddingBottom) || 10
+  return { lineHeight, padding: paddingTop + paddingBottom }
+}
+
 function autoResize() {
-  const minHeight = props.compact ? 96 : props.fill ? 280 : 450
   if (!textarea.value)
     return
+  const el = textarea.value
   if (props.fill) {
-    textarea.value.style.height = ''
+    el.style.height = ''
+    el.style.maxHeight = ''
+    el.style.overflowY = ''
     return
   }
-  textarea.value.style.height = `${minHeight}px`
-  textarea.value.style.height = `${Math.max(minHeight, textarea.value.scrollHeight)}px`
+  if (props.compact) {
+    const { lineHeight, padding } = getCompactLineMetrics(el)
+    const minH = Math.ceil(padding + lineHeight * COMPACT_MIN_LINES)
+    const maxH = Math.ceil(padding + lineHeight * COMPACT_MAX_LINES)
+    el.style.minHeight = `${minH}px`
+    el.style.maxHeight = `${maxH}px`
+    // 先重置高度再测量，避免 scrollHeight 被旧高度卡住
+    el.style.height = 'auto'
+    el.style.overflowY = 'hidden'
+    const scrollH = el.scrollHeight
+    const next = Math.min(maxH, Math.max(minH, scrollH))
+    el.style.height = `${next}px`
+    el.style.overflowY = scrollH > maxH ? 'auto' : 'hidden'
+    return
+  }
+  el.style.minHeight = ''
+  el.style.maxHeight = ''
+  const minHeight = 450
+  el.style.height = `${minHeight}px`
+  el.style.overflowY = 'hidden'
+  el.style.height = `${Math.max(minHeight, el.scrollHeight)}px`
 }
 
 function handleInput(event: Event) {
@@ -213,11 +234,26 @@ function editContent(type: EditType) {
 }
 
 onMounted(() => {
-  if (props.fill)
-    nextTick(autoResize)
+  nextTick(() => {
+    autoResize()
+    requestAnimationFrame(() => autoResize())
+  })
+})
+
+watch(textarea, (el) => {
+  if (el)
+    nextTick(() => autoResize())
 })
 
 watch(() => props.fill, () => {
+  nextTick(autoResize)
+})
+
+watch(() => props.compact, () => {
+  nextTick(autoResize)
+})
+
+watch(modelValue, () => {
   nextTick(autoResize)
 })
 
@@ -394,9 +430,8 @@ watch(isPreview, (preview) => {
   gap: 0;
 
   textarea {
-    flex: 1;
+    flex: 0 0 auto;
     width: 100%;
-    min-height: 96px;
     border: 1px solid var(--chat-border);
     border-radius: 10px;
     padding: 10px 12px;
@@ -406,7 +441,7 @@ watch(isPreview, (preview) => {
     font-size: 14px;
     line-height: 1.5;
     resize: none;
-    overflow: hidden;
+    box-sizing: border-box;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
     &::placeholder {
@@ -419,6 +454,12 @@ watch(isPreview, (preview) => {
       box-shadow: 0 0 0 2px var(--chat-accent-soft);
     }
   }
+}
+
+/* 非 compact / 非 fill：默认约 3 行起 */
+.md-editor:not(.md-editor--compact):not(.md-editor--fill) .md-editor__body textarea {
+  min-height: 96px;
+  overflow: hidden;
 }
 
 .md-editor__body--preview {
@@ -437,10 +478,6 @@ watch(isPreview, (preview) => {
 
 .md-editor--fill .md-editor__body--preview .md-editor__preview-pane {
   min-height: 240px;
-}
-
-.md-editor--compact .md-editor__body--preview .md-editor__preview-pane {
-  min-height: 88px;
 }
 
 .md-editor__actions {
@@ -620,8 +657,34 @@ watch(isPreview, (preview) => {
   }
 
   .md-editor__body textarea {
-    min-height: 88px;
+    min-height: calc(20px + 1.5em * 2);
+    max-height: calc(20px + 1.5em * 6);
+    height: auto;
     font-size: 14px;
+    line-height: 1.5;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.28);
+      border-radius: 3px;
+    }
+  }
+
+  .md-editor__body--preview .md-editor__preview-pane {
+    min-height: calc(20px + 1.5em * 2);
+    max-height: calc(20px + 1.5em * 6);
+    overflow-y: auto;
   }
 }
 

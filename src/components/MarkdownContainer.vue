@@ -3,22 +3,53 @@ import mk from '@vscode/markdown-it-katex'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import Prism from 'prismjs'
-import { computed, nextTick, useTemplateRef } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { showMsg } from '@/components/MessageBox'
-import { injectMentionHighlightHTML } from '@/utils/mention'
+import { useMentionResolve, primeMentionCache } from '@/composables/useMentionResolve'
+import { injectMentionsInRenderedHTML } from '@/utils/mention'
 import 'prismjs/plugins/autoloader/prism-autoloader'
 import 'github-markdown-css'
 import 'prismjs/themes/prism-tomorrow.css'
 
-const { markdownContent, openLinksInNewTab = false, variant = 'default' } = defineProps<{
+const { markdownContent, openLinksInNewTab = false, variant = 'default', extraMentionUsers = [] } = defineProps<{
   markdownContent: string
   /** 聊天等场景：站内链接在新标签打开，避免 SPA 跳转中断进行中的 SSE */
   openLinksInNewTab?: boolean
   /** chat：紧凑排版、去首行缩进、清理空段落（对话气泡） */
   variant?: 'default' | 'chat'
+  /** 已知昵称→用户 ID，用于评论作者等，避免等待接口解析 */
+  extraMentionUsers?: Array<{ name: string, userID: number }>
 }>()
 
 const content = useTemplateRef<HTMLDivElement>('content')
+const router = useRouter()
+const mentionMap = useMentionResolve(computed(() => markdownContent))
+const mentionMapVersion = ref(0)
+watch(mentionMap, () => {
+  mentionMapVersion.value += 1
+}, { deep: true })
+
+watch(
+  () => extraMentionUsers,
+  (users) => {
+    for (const u of users ?? []) {
+      if (u.name && u.userID > 0)
+        primeMentionCache(u.name, u.userID)
+    }
+    mentionMapVersion.value += 1
+  },
+  { immediate: true, deep: true },
+)
+
+const effectiveMentionMap = computed(() => {
+  const map = { ...mentionMap.value }
+  for (const u of extraMentionUsers ?? []) {
+    if (u.name && u.userID > 0)
+      map[u.name] = u.userID
+  }
+  return map
+})
 
 Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/'
 
@@ -110,8 +141,6 @@ function preprocessMarkdown(content: string): string {
   let text = content
   if (variant === 'chat')
     text = normalizeChatMarkdown(text)
-  if (variant !== 'chat')
-    text = injectMentionHighlightHTML(text)
   // 先用正则匹配一下
   return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, urlPart) => {
     const titleIndex = urlPart.lastIndexOf(' "')
@@ -129,6 +158,8 @@ const safeHTML = computed(() => {
   if (!markdownContent) {
     return ''
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+  mentionMapVersion.value
 
   // 预处理 markdown 内容，编码图片链接中的空格
   const processedContent = preprocessMarkdown(markdownContent)
@@ -143,6 +174,8 @@ const safeHTML = computed(() => {
   let rendered = md.render(processedContent, { openLinksInNewTab })
   if (variant === 'chat')
     rendered = stripLeadingEmptyBlocks(rendered)
+  else
+    rendered = injectMentionsInRenderedHTML(rendered, effectiveMentionMap.value)
   const finalHTML = DOMPurify.sanitize(rendered, {
     ADD_TAGS: [
       'math',
@@ -170,6 +203,9 @@ const safeHTML = computed(() => {
       'href',
       'target',
       'aria-hidden',
+      'data-user-id',
+      'role',
+      'tabindex',
     ],
     FORBID_ATTR: ['style', 'onerror', 'onload', 'onmouseover', 'onmouseout'],
   })
@@ -182,6 +218,17 @@ const safeHTML = computed(() => {
 
 async function handleMarkdownClick(event: MouseEvent) {
   const target = event.target as HTMLElement
+
+  const mentionEl = target.closest('[data-user-id].md-mention') as HTMLElement | null
+  if (mentionEl) {
+    event.preventDefault()
+    event.stopPropagation()
+    const id = Number(mentionEl.dataset.userId)
+    if (id > 0)
+      await router.push({ name: 'UserProfile', params: { id: String(id) } })
+    return
+  }
+
   const copyBtn = target.closest('.md-code-block__copy')
   if (!copyBtn)
     return
@@ -278,6 +325,23 @@ async function handleMarkdownClick(event: MouseEvent) {
 
 .markdown-body :deep(table tbody tr:nth-child(even) th) {
   background-color: #f6f8fa;
+}
+
+.markdown-body :deep(.md-mention) {
+  color: #0969da;
+  font-weight: inherit;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.markdown-body :deep(.md-mention--link) {
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 }
 
 .markdown-body :deep(.md-code-block) {

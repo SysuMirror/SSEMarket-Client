@@ -14,7 +14,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  voted: []
+  voted: [voted: boolean]
 }>()
 
 const { userInfo } = useUserStore()
@@ -52,15 +52,15 @@ watch(() => props.postID, () => {
 async function handleVote(event: Event) {
   event.preventDefault()
   event.stopPropagation()
-  if (!props.postID || voted.value || submitting.value || checking.value)
+  if (!props.postID || submitting.value || checking.value)
     return
   submitting.value = true
   try {
-    const { ok, msg } = await submitVote(props.postID, userInfo.phone)
+    const { ok, msg, voted: nextVoted } = await submitVote(props.postID, userInfo.phone)
     showMsg(msg)
     if (ok) {
-      voted.value = true
-      emit('voted')
+      voted.value = nextVoted
+      emit('voted', nextVoted)
     }
   }
   catch (e) {
@@ -94,7 +94,7 @@ const label = computed(() => {
         'vote-link--busy': checking || submitting,
       },
     ]"
-    :disabled="!postID || voted || checking || submitting"
+    :disabled="!postID || checking || submitting"
     :aria-pressed="voted"
     @click="handleVote"
   >

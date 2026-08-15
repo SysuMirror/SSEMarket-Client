@@ -21,20 +21,18 @@ function startObserver() {
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting) {
+        if (entry.isIntersecting)
           emits('bottom')
-        }
       })
     },
     {
       root: null,
-      rootMargin: '0px',
-      threshold: 0.5,
+      rootMargin: '240px 0px',
+      threshold: 0,
     },
   )
-  if (bottom.value) {
+  if (bottom.value)
     observer.observe(bottom.value)
-  }
 }
 
 function endObserver() {
@@ -71,11 +69,11 @@ onUnmounted(() => {
     />
     <template v-if="hasMore">
       <div
-        v-if="!isLoading"
         ref="bottom"
         class="feed-list__footer"
+        :class="{ 'feed-list__footer--loading': isLoading }"
       >
-        loading...
+        {{ isLoading ? '加载中…' : '继续下滑加载更多' }}
       </div>
     </template>
     <template v-else>
@@ -87,6 +85,12 @@ onUnmounted(() => {
 </template>
 
 <style scoped lang="scss">
+.feed-list__footer {
+  &--loading {
+    opacity: 0.7;
+  }
+}
+
 .list-enter-active,
 .list-leave-active {
   opacity: 1;

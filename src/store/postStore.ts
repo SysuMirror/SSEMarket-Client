@@ -28,12 +28,15 @@ export interface Condition {
   timeTo: string
 }
 
+/** 瀑布流每页条数（与后端 browse 默认 15 对齐） */
+export const FEED_PAGE_SIZE = 15
+
 const totalNum = ref(0)
 
 const posts = reactive<Post[]>([])
 
 const conditions = reactive<Condition>({
-  limit: initLimit() + 1,
+  limit: FEED_PAGE_SIZE,
   offset: 0,
   partition: '主页',
   searchsort: 'home',
@@ -57,8 +60,8 @@ async function addPost(userTelephone: string): Promise<boolean> {
   if (!data || data.length === 0)
     return false
   posts.push(...data)
-  conditions.offset += conditions.limit
-  return conditions.limit === data.length
+  conditions.offset += data.length
+  return data.length >= conditions.limit
 }
 
 async function restorePosts(userTelephone: string, cachePosts: Post[], cacheTotalNum: number, cacheConditions: typeof conditions) {
@@ -106,7 +109,7 @@ export function applyPostMutation(
   }
 }
 
-function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', isPrivate?: boolean): boolean {
+function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', isPrivate?: boolean, isSaved?: boolean): boolean {
   // 二分查找
   let left = 0
   let right = posts.length - 1
@@ -131,9 +134,18 @@ function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment' | '
     case 'like':
       applyPostMutation(post, 'like')
       break
-    case 'save':
-      applyPostMutation(post, 'save')
+    case 'save': {
+      if (typeof isSaved === 'boolean')
+        post.IsSaved = isSaved
+      else
+        applyPostMutation(post, 'save')
+      if (conditions.searchsort === 'save' && !post.IsSaved) {
+        posts.splice(target, 1)
+        conditions.offset = Math.max(0, conditions.offset - 1)
+        totalNum.value = Math.max(0, totalNum.value - 1)
+      }
       break
+    }
     case 'privacy':
       applyPostMutation(post, 'privacy', isPrivate)
       break
@@ -167,7 +179,7 @@ async function getNewPosts(userTelephone: string) {
       return
     posts.unshift(...newPosts)
   })
-  conditions.offset = oldOffset + conditions.limit
+  conditions.offset = oldOffset + (num - totalNum.value)
   conditions.limit = oldLimit
   totalNum.value = num
 }
@@ -234,12 +246,6 @@ function search(sinfo: string, p?: typeof Partitions[number]) {
 function setSearchTimeRange(timeFrom: string, timeTo: string) {
   conditions.timeFrom = timeFrom.trim()
   conditions.timeTo = timeTo.trim()
-}
-
-function initLimit() {
-  const h = window.innerHeight
-  const num = Math.floor(h / 250)
-  return num
 }
 
 export function usePostStore() {

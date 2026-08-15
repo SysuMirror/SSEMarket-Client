@@ -15,7 +15,10 @@ export interface Post {
   PostTime: string
   IsSaved: boolean
   IsLiked: boolean
+  IsWatched?: boolean
   IsPrivate?: boolean
+  IsAnonymous?: boolean
+  IsOwner?: boolean
   IsLottery?: boolean
   Photos: string
   Tag: string

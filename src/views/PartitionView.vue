@@ -71,6 +71,7 @@ onActivated(async () => {
     return
   isLoading.value = true
   await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition)
+  hasMore.value = cachePosts.length < cacheTotalNum.value
   isLoading.value = false
   await nextTick()
   requestAnimationFrame(() => {

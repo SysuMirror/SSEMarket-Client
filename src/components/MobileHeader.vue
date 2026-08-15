@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Icon } from '@iconify/vue'
 import { useTemplateRef } from 'vue'
 import { useHeaderSearch } from '@/composables/useHeaderSearch'
 
@@ -16,12 +17,12 @@ const {
 <template>
   <div class="site-header">
     <RouterLink
-      to="/course"
-      class="lesson"
-      style="
-              background-image: url(https://img.icons8.com/?size=100&id=kmUrp7YjifpP&format=png&color=000000);
-            "
-    />
+      to="/smart-xiaoqiu"
+      class="lesson lesson--xiaoqiu"
+      aria-label="智能小秋"
+    >
+      <Icon icon="tabler:sparkles" width="24" height="24" aria-hidden="true" />
+    </RouterLink>
     <form class="search" @submit.prevent="search">
       <label class="search-input-wrap" for="sinfo">
         <input
@@ -55,16 +56,6 @@ const {
         />
       </button>
     </form>
-    <router-link
-      to="/post"
-      class="icon bright-icon post-button"
-      style="
-              width: 26px;
-              height: 26px;
-              background-position: 1px -1px;
-              background-image: url(https://ssemarket.cn/new/webp/sendPostButton.webp)
-            "
-    />
   </div>
 </template>
 
@@ -74,7 +65,7 @@ const {
   flex-shrink: 0;
   min-height: var(--layout-nav-h, 2.125rem);
   height: var(--layout-nav-h, 2.125rem);
-  background: #ffffffa0;
+  background: #fffffff2;
   backdrop-filter: blur(2px);
   color: #444;
   align-items: center;
@@ -284,15 +275,18 @@ body.dark-mode .icon {
   filter: invert(1);
 }
 
-/* 课程专区（暂时） */
+/* 移动端顶栏左侧入口（小秋） */
 .lesson {
   width: 26px;
   height: 26px;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-size: contain;
-  background-position: 0px 3px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0ea5e9;
+}
+
+.lesson--xiaoqiu {
+  color: #0ea5e9;
 }
 
 body.dark-mode .lesson {
@@ -300,21 +294,7 @@ body.dark-mode .lesson {
     drop-shadow(0 0 10px rgba(150, 200, 255, 0.2));
 }
 
-.bright-icon {
-  display: block;
-  width: 26px;
-  height: 26px;
-  text-align: center;
-  margin: 5px;
-  background-size: 100%;
-  background-repeat: no-repeat;
-}
-body.dark-mode .bright-icon {
-  filter: invert(1) brightness(1.4) saturate(1.2) drop-shadow(0 0 6px rgba(150, 200, 255, 0.4))
-    drop-shadow(0 0 10px rgba(150, 200, 255, 0.2));
-}
-.post-button {
-  color: #444;
-  font-weight: bold;
+body.dark-mode .lesson--xiaoqiu {
+  color: #38bdf8;
 }
 </style>

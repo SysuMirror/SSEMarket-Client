@@ -8,6 +8,8 @@ import { requestFunc } from '../req'
  * @param {string} tagList 如果专区是课程专区，是一个老师；不是，为空
  * @param {string} title 标题
  * @param {string} userTelephone
+ * @param {boolean} isPrivate 仅自己可见
+ * @param {boolean} isAnonymous 匿名发帖（隐藏作者身份）
  */
 async function sendPost(
   content: string,
@@ -17,6 +19,7 @@ async function sendPost(
   title: string,
   userTelephone: string,
   isPrivate = false,
+  isAnonymous = false,
 ) {
   try {
     const res = await requestFunc(`/auth/post`, {
@@ -32,6 +35,7 @@ async function sendPost(
         title,
         userTelephone,
         isPrivate,
+        isAnonymous,
       },
     }, true)
     const data = await res!.json()

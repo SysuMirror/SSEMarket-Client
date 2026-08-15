@@ -7,7 +7,6 @@ import { createRatingComment, deleteRatingPost, likeRatingPost, submitRatingStar
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
 import { ratingZonePath } from '@/utils/ratingRoute'
-import { debounceAsync } from '@/utils/debounced'
 import UserAvatar from '../UserAvatar.vue'
 import RatingDistribution from './RatingDistribution.vue'
 
@@ -108,11 +107,13 @@ async function onDelete() {
   }
 }
 
-const submitComment = debounceAsync(async () => {
+async function submitComment() {
   if (!commentContent.value.trim() && currRating.value === 0) {
     showMsg('请写评论或先评分')
     return
   }
+  if (commentSubmitting.value)
+    return
   commentSubmitting.value = true
   try {
     const ok = await createRatingComment(
@@ -133,7 +134,7 @@ const submitComment = debounceAsync(async () => {
   finally {
     commentSubmitting.value = false
   }
-})
+}
 </script>
 
 <template>

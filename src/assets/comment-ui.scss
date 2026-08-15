@@ -341,11 +341,90 @@ body.dark-mode .comment-row > .sub-comments-thread {
 }
 
 :deep(.md-mention) {
-  color: var(--chat-accent);
+  color: #0969da;
+  font-weight: inherit;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+:deep(.md-mention--link) {
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+/* 码住入口 */
+.watch-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  text-decoration: none;
+  font-family: inherit;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  box-sizing: border-box;
+  appearance: none;
+  /* 覆盖 main.css 全局 button 的灰底/大写等，避免码住态被 hover/focus 冲掉 */
+  background-color: transparent;
+  text-transform: none;
+  letter-spacing: inherit;
+  font-weight: inherit;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.72;
+  }
+
+  &--active.watch-link--prominent,
+  &--active.watch-link--prominent:hover,
+  &--active.watch-link--prominent:focus,
+  &--active.watch-link--prominent:focus-visible,
+  &--active.watch-link--prominent:active {
+    color: var(--chat-unread-text) !important;
+    background: var(--chat-accent) !important;
+    background-color: var(--chat-accent) !important;
+    border-color: var(--chat-accent) !important;
+    box-shadow: none;
+    filter: none;
+    outline: none;
+  }
+
+  &--busy {
+    pointer-events: none;
+  }
+}
+
+.watch-link--prominent {
+  padding: 7px 16px;
+  font-size: 14px;
   font-weight: 600;
-  background: var(--chat-accent-soft);
-  padding: 0 2px;
-  border-radius: 3px;
+  letter-spacing: 0.04em;
+  color: var(--chat-accent);
+  background: var(--chat-bg);
+  border: 1px solid var(--chat-accent);
+  border-radius: 8px;
+
+  &:hover:not(.watch-link--active):not(:disabled) {
+    background: var(--chat-accent-soft);
+    background-color: var(--chat-accent-soft);
+    color: var(--chat-accent);
+  }
 }
 
 /* 投票入口：详情页醒目藏青 / 信息流淡雅 */
@@ -397,8 +476,8 @@ body.dark-mode .comment-row > .sub-comments-thread {
 }
 
 .vote-link--muted {
-  padding: 3px 9px;
-  font-size: 12px;
+  padding: 4px 10px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--chat-text-secondary);
   border: 1px solid var(--chat-border);
@@ -440,9 +519,9 @@ body.dark-mode .vote-link--prominent {
 /* 详情页：投票降权为文字链，写评论升为实心主按钮（位置不变，降低误触投票） */
 .detail-card .comment-toolbar--split {
   .vote-link--prominent {
-    padding: 4px 10px;
-    font-size: 13px;
-    font-weight: 500;
+    padding: 5px 12px;
+    font-size: 15px;
+    font-weight: 600;
     letter-spacing: 0;
     color: var(--chat-accent);
     background: transparent;
@@ -461,10 +540,44 @@ body.dark-mode .vote-link--prominent {
     }
 
     &.vote-link--voted {
-      color: var(--chat-text-secondary);
+      color: var(--chat-accent);
       background: transparent;
       border: none;
       text-decoration: none;
+      font-weight: 600;
+    }
+  }
+
+  .watch-link--prominent {
+    padding: 5px 12px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--chat-accent);
+    background: transparent;
+    border: 1px solid var(--chat-border);
+    border-radius: 4px;
+    box-shadow: none;
+
+    &:hover:not(:disabled):not(.watch-link--active) {
+      background: var(--chat-accent-soft);
+      background-color: var(--chat-accent-soft);
+      border-color: var(--chat-accent);
+      color: var(--chat-accent);
+    }
+
+    &.watch-link--active,
+    &.watch-link--active:hover:not(:disabled),
+    &.watch-link--active:focus,
+    &.watch-link--active:focus-visible,
+    &.watch-link--active:active {
+      color: var(--chat-unread-text) !important;
+      background: var(--chat-accent) !important;
+      background-color: var(--chat-accent) !important;
+      border-color: var(--chat-accent) !important;
+      outline: none;
+      filter: none;
+      box-shadow: none;
     }
   }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Notice } from '@/api/notice/notice'
 import { Icon } from '@iconify/vue'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getNotices, readNotice } from '@/api/notice/notice'
 import { showMsg } from '@/components/MessageBox'
@@ -9,68 +9,211 @@ import UserAvatar from '@/components/UserAvatar.vue'
 import { useNoticeStore } from '@/store/noticeStore'
 import { strHandler } from '@/utils/strHandler'
 
+const PAGE_SIZE = 20
+
 const router = useRouter()
 const { noticeNum, refreshNoticeNum } = useNoticeStore()
 
-/** true：未读，false：已读 */
+/** true：未读 Tab，false：已读 Tab */
 const readPage = ref(true)
 const noticesRead = ref<Notice[]>([])
 const noticesUnread = ref<Notice[]>([])
+const unreadLastID = ref(0)
+const readLastID = ref(0)
+const unreadHasMore = ref(true)
+const readHasMore = ref(true)
+const readLoaded = ref(false)
+const loading = ref(false)
+const loadingMore = ref(false)
+
+const listRef = useTemplateRef('listRef')
+const sentinelRef = useTemplateRef('sentinelRef')
+let observer: IntersectionObserver | null = null
 
 const activeList = computed(() => (readPage.value ? noticesUnread.value : noticesRead.value))
-const unreadCount = computed(() => noticesUnread.value.length)
+const unreadCount = computed(() => noticeNum.unreadTotalNum || 0)
+const hasMore = computed(() => (readPage.value ? unreadHasMore.value : readHasMore.value))
 
-async function readComment(noticeID: number) {
-  const res = await readNotice(noticeID)
-  if (res.status === 'success') {
-    getNoticesFunc()
-    await refreshNoticeNum()
+const NOTICE_TYPE_LABEL: Record<string, string> = {
+  pcomment: '评论了你的帖子',
+  ccomment: '回复了你的评论',
+  post_watch: '码住的帖子有新回复',
+  post: '帖子通知',
+  lottery_win: '抽奖中奖',
+  rating_comment: '评分区评论',
+  punish: '处罚通知',
+  feedback: '反馈回复',
+  sue: '举报处理',
+}
+
+function noticeTypeLabel(type: string): string {
+  return NOTICE_TYPE_LABEL[type] ?? type
+}
+
+function applyNoticePage(read: 0 | 1, res: { noticeList: Notice[], lastID: number }, append: boolean) {
+  const isUnread = read === 0
+  const list = isUnread ? res.noticeList : res.noticeList.filter(item => item.postID !== 0)
+  const fetchedCount = res.noticeList.length
+
+  if (isUnread) {
+    noticesUnread.value = append ? [...noticesUnread.value, ...list] : list
+    unreadLastID.value = res.lastID
+    unreadHasMore.value = fetchedCount >= PAGE_SIZE
+  }
+  else {
+    noticesRead.value = append ? [...noticesRead.value, ...list] : list
+    readLastID.value = res.lastID
+    readHasMore.value = fetchedCount >= PAGE_SIZE
+    readLoaded.value = true
   }
 }
 
+async function fetchNotices(read: 0 | 1, append: boolean) {
+  const isUnread = read === 0
+  const cursor = append ? (isUnread ? unreadLastID.value : readLastID.value) : 0
+  const res = await getNotices(cursor, PAGE_SIZE, read)
+
+  if (!('noticeList' in res)) {
+    if (isUnread) {
+      if (!append)
+        noticesUnread.value = []
+      unreadHasMore.value = false
+    }
+    else {
+      if (!append)
+        noticesRead.value = []
+      readHasMore.value = false
+      readLoaded.value = true
+    }
+    return
+  }
+
+  applyNoticePage(read, res, append)
+}
+
+async function loadCurrentTab(append = false) {
+  if (append ? loadingMore.value : loading.value)
+    return
+
+  if (append)
+    loadingMore.value = true
+  else
+    loading.value = true
+
+  try {
+    await fetchNotices(readPage.value ? 0 : 1, append)
+    // 已读列表会过滤原帖已删除项；若整页被滤空但仍有更多，继续自动加载
+    let guard = 0
+    while (!readPage.value && readHasMore.value && noticesRead.value.length === 0 && guard < 10) {
+      guard += 1
+      await fetchNotices(1, true)
+    }
+  }
+  finally {
+    loading.value = false
+    loadingMore.value = false
+  }
+}
+
+function teardownObserver() {
+  observer?.disconnect()
+  observer = null
+}
+
+function setupObserver() {
+  teardownObserver()
+
+  const root = listRef.value
+  const sentinel = sentinelRef.value
+  if (!root || !sentinel || !hasMore.value || activeList.value.length === 0)
+    return
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting)
+          continue
+        if (loading.value || loadingMore.value || !hasMore.value)
+          continue
+        void loadCurrentTab(true)
+      }
+    },
+    {
+      root,
+      rootMargin: '160px 0px',
+      threshold: 0,
+    },
+  )
+  observer.observe(sentinel)
+}
+
+watch(
+  [sentinelRef, listRef, hasMore, readPage, () => activeList.value.length, loading, loadingMore],
+  () => {
+    setupObserver()
+  },
+  { flush: 'post' },
+)
+
+async function readComment(noticeID: number) {
+  const res = await readNotice(noticeID)
+  if (res.status !== 'success')
+    return
+
+  noticesUnread.value = noticesUnread.value.filter(n => n.noticeID !== noticeID)
+  if (noticeNum.unreadTotalNum > 0)
+    noticeNum.unreadTotalNum -= 1
+  if (noticeNum.readTotalNum >= 0)
+    noticeNum.readTotalNum += 1
+
+  await refreshNoticeNum()
+}
+
 async function readAll() {
+  if (noticesUnread.value.length === 0)
+    return
+
   const promises = noticesUnread.value.map(notice => readNotice(notice.noticeID))
   try {
     await Promise.all(promises)
+    noticesUnread.value = []
+    unreadLastID.value = 0
+    unreadHasMore.value = false
+    readLoaded.value = false
     await refreshNoticeNum()
     showMsg('已全部标记为已读')
-    nextTick(getNoticesFunc)
   }
   catch (error) {
     showMsg('一键已读失败')
     console.error('一键已读失败:', error)
+    await refreshNoticeNum()
+    await loadCurrentTab(false)
   }
 }
 
 async function changeToPost(postID: number, noticeID: number) {
-  await readComment(noticeID)
-  setTimeout(() => {
-    router.push(`/postdetail/${postID}`)
-  }, 500)
+  if (readPage.value)
+    await readComment(noticeID)
+  await router.push(`/postdetail/${postID}`)
 }
 
-async function getNoticesFunc() {
-  const read = await getNotices(0, noticeNum.readTotalNum, 1)
-  const unread = await getNotices(0, noticeNum.unreadTotalNum, 0)
-  if ('noticeList' in read) {
-    noticesRead.value = read.noticeList.filter(item => item.postID !== 0)
+watch(readPage, (isUnreadTab) => {
+  if (isUnreadTab) {
+    if (noticesUnread.value.length === 0 && unreadHasMore.value)
+      void loadCurrentTab(false)
+    return
   }
-  else {
-    noticesRead.value = []
-  }
-  if ('noticeList' in unread) {
-    noticesUnread.value = unread.noticeList
-  }
-  else {
-    noticesUnread.value = []
-  }
-}
+  if (!readLoaded.value)
+    void loadCurrentTab(false)
+})
 
 onMounted(async () => {
-  if (!noticeNum.readTotalNum || !noticeNum.unreadTotalNum) {
-    await refreshNoticeNum()
-  }
-  await getNoticesFunc()
+  await refreshNoticeNum()
+  await loadCurrentTab(false)
+})
+
+onUnmounted(() => {
+  teardownObserver()
 })
 </script>
 
@@ -104,7 +247,7 @@ onMounted(async () => {
         v-if="readPage"
         type="button"
         class="notice-panel__mark-all"
-        :disabled="noticesUnread.length === 0"
+        :disabled="noticesUnread.length === 0 || loading"
         @click="readAll"
       >
         <Icon icon="tabler:checks" width="18" height="18" aria-hidden="true" />
@@ -112,7 +255,11 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div class="lite-scrollbar notice-panel__list">
+    <div v-if="loading" class="notice-panel__status">
+      加载中…
+    </div>
+
+    <div v-else ref="listRef" class="lite-scrollbar notice-panel__list">
       <template v-if="activeList.length">
         <article
           v-for="notice in activeList"
@@ -132,7 +279,7 @@ onMounted(async () => {
               {{ notice.content }}
             </p>
             <div v-if="notice.type" class="notice-card__type">
-              {{ notice.type }}
+              {{ noticeTypeLabel(notice.type) }}
             </div>
             <div class="notice-card__actions">
               <template v-if="readPage">
@@ -168,6 +315,17 @@ onMounted(async () => {
             </div>
           </div>
         </article>
+        <div
+          v-if="hasMore"
+          ref="sentinelRef"
+          class="notice-panel__footer"
+          :class="{ 'notice-panel__footer--loading': loadingMore }"
+        >
+          {{ loadingMore ? '加载中…' : '继续下滑加载更多' }}
+        </div>
+        <div v-else class="notice-panel__footer">
+          暂无更多
+        </div>
       </template>
       <div v-else class="notice-empty">
         <Icon
@@ -205,6 +363,27 @@ onMounted(async () => {
   gap: 0.75rem;
   flex-shrink: 0;
   padding: 0 14px 12px;
+}
+
+.notice-panel__status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--chat-text-secondary);
+  font-size: 14px;
+}
+
+.notice-panel__footer {
+  flex-shrink: 0;
+  padding: 12px 0 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--chat-text-tips);
+
+  &--loading {
+    opacity: 0.7;
+  }
 }
 
 .notice-panel__tabs {

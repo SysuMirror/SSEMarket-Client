@@ -18,7 +18,7 @@ const searching = ref(false)
 const submitting = ref(false)
 const alreadyVoted = ref(false)
 
-const canVote = computed(() => !!selectedPost.value && !alreadyVoted.value && !submitting.value)
+const canVote = computed(() => !!selectedPost.value && !submitting.value)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let skipSearch = false
@@ -64,14 +64,14 @@ async function selectPost(post: VoteSearchPost) {
 }
 
 async function handleVote() {
-  if (!selectedPost.value || alreadyVoted.value)
+  if (!selectedPost.value)
     return
   submitting.value = true
   try {
-    const { ok, msg } = await submitVote(selectedPost.value.postID, userInfo.phone)
+    const { ok, msg, voted } = await submitVote(selectedPost.value.postID, userInfo.phone)
     showMsg(msg)
     if (ok)
-      alreadyVoted.value = true
+      alreadyVoted.value = voted
   }
   catch (e) {
     console.error(e)

@@ -43,17 +43,22 @@ export async function searchPostsByTitle(keyword: string, userTelephone: string)
   }))
 }
 
-export async function submitVote(postID: number, userTelephone: string): Promise<{ ok: boolean, msg: string }> {
+export async function submitVote(postID: number, userTelephone: string): Promise<{ ok: boolean, msg: string, voted: boolean }> {
   const res = await requestFunc('/auth/submitVote', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: { postID, userTelephone },
   }, true)
   if (!res) {
-    return { ok: false, msg: '请求失败' }
+    return { ok: false, msg: '请求失败', voted: false }
   }
   const json = await res.json()
-  return { ok: json.code === 200, msg: json.msg || (json.code === 200 ? '投票成功' : '投票失败') }
+  const voted = json.data?.voted === true
+  return {
+    ok: json.code === 200,
+    msg: json.msg || (json.code === 200 ? '投票成功' : '投票失败'),
+    voted,
+  }
 }
 
 export interface UserRankItem {

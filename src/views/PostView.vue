@@ -33,6 +33,7 @@ const teacher = ref('')
 const draftsOpen = ref(false)
 const submitting = ref(false)
 const postPrivate = ref(false)
+const postAnonymous = ref(false)
 
 type PostKind = 'normal' | 'lottery'
 const postKind = ref<PostKind>('normal')
@@ -173,6 +174,7 @@ async function submitPost() {
       postTitle,
       userInfo.phone,
       postPrivate.value,
+      postAnonymous.value,
     )
     if (!res || typeof res.msg !== 'string') {
       showMsg('发帖失败，请检查网络后重试')
@@ -290,6 +292,11 @@ onUnmounted(() => {
           <label class="post-page__privacy">
             <input v-model="postPrivate" type="checkbox" class="post-page__privacy-input">
             <span class="post-page__privacy-text">仅自己可见（发帖后也可在帖子卡片上修改）</span>
+          </label>
+
+          <label class="post-page__privacy">
+            <input v-model="postAnonymous" type="checkbox" class="post-page__privacy-input">
+            <span class="post-page__privacy-text">匿名发帖（隐藏我的昵称、头像与等级）</span>
           </label>
 
           <div class="post-page__kind">

@@ -8,6 +8,7 @@ import { getAllInfo, isEmailNotificationBlocked, normalizeAllInfo } from '@/api/
 import { updateEmailPush, updateUserInfo, uploadAvatar } from '@/api/info/updateInfo'
 import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
 import { sendCode } from '@/api/LoginAndRegister/utils'
+import ApiTokenPanel from '@/components/ApiTokenPanel.vue'
 import { showMsg } from '@/components/MessageBox'
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/store/userStore'
@@ -415,6 +416,9 @@ async function toggleHideProfile() {
         </button>
       </div>
     </section>
+
+    <!-- 开发者：个人访问令牌（PAT，用于 MCP 等对外调用） -->
+    <ApiTokenPanel />
 
     <button type="button" class="options-btn options-btn--full options-btn--danger" @click="logout">
       <Icon icon="tabler:logout" width="18" height="18" aria-hidden="true" />

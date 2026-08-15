@@ -8,6 +8,15 @@ import { showMsg } from '@/components/MessageBox'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useChat } from '@/composables/useChat'
 import { useUserStore } from '@/store/userStore'
+import {
+  ANONYMOUS_DISPLAY_NAME,
+  bubbleSenderLabel,
+  contactDisplayAvatar,
+  contactDisplayName,
+  contactProfileBlocked,
+  canRecallMessage,
+  recalledBubbleText,
+} from '@/utils/chatAnonymous'
 
 export interface MessageCreation {
   senderUserID: number
@@ -27,9 +36,10 @@ const { embedded = false } = defineProps<{
 
 const route = useRoute()
 const { userInfo } = useUserStore()
-const { on, off, contacts, chatHistory, sendChatMessage, selectContact: selectChatContact, addContact, current } = useChat()
+const { on, off, contacts, chatHistory, sendChatMessage, recallMessage, selectContact: selectChatContact, addContact, current, isAnonymousMode, setAnonymousMode, leaveCurrentView } = useChat()
 
 const draft = ref('')
+const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
 type Contact = RelevantUser & Partial<{ ban: string, phone: string, punishnum: number, intro: string, unRead: number, emailpush: boolean }>
 
 const historyDiv = useTemplateRef<HTMLDivElement>('historyDiv')
@@ -111,6 +121,10 @@ function backToContacts() {
   mobilePane.value = 'list'
 }
 
+function openContact(sel: Contact) {
+  selectContact(sel)
+}
+
 function selectContact(sel: Contact) {
   draft.value = ''
 
@@ -147,7 +161,70 @@ function sendMessage() {
 }
 
 function toggleAnonymousMode() {
-  showMsg('匿名聊天功能未开放，敬请期待！')
+  if (current.threadAnonymous) {
+    setAnonymousMode(!isAnonymousMode.value)
+    return
+  }
+  startAnonymousThread()
+}
+
+function startAnonymousThread() {
+  if (!current.userID)
+    return
+  const existing = contacts.find(c => c.userID === current.userID && c.threadAnonymous)
+  if (existing) {
+    selectContact(existing)
+    return
+  }
+  addContact({ ...current }, { threadAnonymous: true })
+  const created = contacts.find(c => c.userID === current.userID && c.threadAnonymous)
+  if (created)
+    selectContact(created)
+}
+
+function messageShowsAnonymous(entry: ChatMessageItem) {
+  return Boolean(entry.isAnonymous) && !entry.isRecalled
+}
+
+async function handleRecall(entry: ChatMessageItem) {
+  if (!canRecallMessage(entry, userInfo.userID))
+    return
+  const ok = await recallMessage(entry.chatMsgID)
+  if (!ok)
+    showMsg('撤回失败，请稍后重试')
+}
+
+function senderLabel(entry: ChatMessageItem) {
+  return bubbleSenderLabel(
+    entry,
+    userInfo.userID,
+    userInfo.name,
+    contactDisplayName(current),
+  )
+}
+
+function avatarForMessage(entry: ChatMessageItem) {
+  if (messageShowsAnonymous(entry)) {
+    return { src: defaultAvatar, userId: 0, alt: ANONYMOUS_DISPLAY_NAME }
+  }
+  if (entry.senderUserID === userInfo.userID) {
+    return { src: userInfo.avatarURL, userId: userInfo.userID, alt: userInfo.name }
+  }
+  return {
+    src: contactDisplayAvatar(current),
+    userId: contactProfileBlocked(current) ? 0 : current.userID,
+    alt: contactDisplayName(current),
+  }
+}
+
+function threadHeadSub() {
+  if (current.threadAnonymous && isAnonymousMode.value)
+    return '匿名通道 · 你的消息将隐藏身份'
+  if (current.threadAnonymous && current.peerMasked)
+    return '匿名通道 · 对方身份已隐藏'
+  if (current.threadAnonymous)
+    return '匿名通道'
+  return current.intro || ''
 }
 
 function getTimeShow(idx: number) {
@@ -192,6 +269,7 @@ onMounted(() => {
   on('NewMessage', onNewMessage)
   on('MessageAck', onMessageAck)
   const reqId = route.query.user
+  const openAnonymous = route.query.anonymous === '1'
   if (!reqId) {
     if (current.userID) {
       selectContact(current)
@@ -208,11 +286,10 @@ onMounted(() => {
         unRead: 0,
         identity: '',
       }
-      addContact(contact)
-      return contact
-    })
-    .then((contact) => {
-      selectContact(contact)
+      addContact(contact, { threadAnonymous: openAnonymous })
+      const toOpen = contacts.find(c => c.userID === contact.userID && Boolean(c.threadAnonymous) === openAnonymous)
+      if (toOpen)
+        selectContact(toOpen)
     })
     .catch((error) => {
       if (error.response) {
@@ -229,6 +306,7 @@ onUnmounted(() => {
   window.visualViewport?.removeEventListener('scroll', onVisualViewportChange)
   off('NewMessage', onNewMessage)
   off('MessageAck', onMessageAck)
+  void leaveCurrentView()
 })
 
 watch([isMobile, mobilePane], () => {
@@ -254,21 +332,30 @@ watch([isMobile, mobilePane], () => {
       <div class="lite-scrollbar contact-aside__scroll">
         <div
           v-for="entry in contacts"
-          :key="entry.userID"
+          :key="entry.conversationKey || entry.userID"
           class="contact-row"
-          :class="{ 'contact-row--active': current.userID === entry.userID }"
+          :class="{
+            'contact-row--active': current.conversationKey === entry.conversationKey || (current.userID === entry.userID && Boolean(current.threadAnonymous) === Boolean(entry.threadAnonymous)),
+            'contact-row--masked': entry.peerMasked,
+          }"
           role="button"
           tabindex="0"
-          @click="selectContact(entry)"
-          @keydown.enter.prevent="selectContact(entry)"
+          @click="openContact(entry)"
+          @keydown.enter.prevent="openContact(entry)"
         >
-          <div class="contact-row__avatar-wrap">
-            <UserAvatar class="contact-row__avatar" :src="entry.avatarURL" :user-id="entry.userID" :alt="entry.name" />
+          <div class="contact-row__avatar-wrap" :class="{ 'contact-row__avatar-wrap--anon': entry.peerMasked }">
+            <UserAvatar
+              class="contact-row__avatar"
+              :src="contactDisplayAvatar(entry)"
+              :user-id="contactProfileBlocked(entry) ? 0 : entry.userID"
+              :alt="contactDisplayName(entry)"
+              :no-profile-link="contactProfileBlocked(entry)"
+            />
             <span v-if="entry.unRead" class="contact-row__badge">{{ entry.unRead > 99 ? '99+' : entry.unRead }}</span>
           </div>
           <div class="contact-row__meta">
             <div class="contact-row__name">
-              {{ entry.name }}
+              {{ contactDisplayName(entry) }}
             </div>
             <div class="contact-row__preview">
               {{ entry.lastMessagePreview || entry.intro }}
@@ -293,48 +380,62 @@ watch([isMobile, mobilePane], () => {
           >
             <Icon icon="tabler:chevron-left" width="22" height="22" />
           </button>
-          <UserAvatar class="thread-head__avatar" :src="current.avatarURL" :user-id="current.userID" :alt="current.name" />
+          <UserAvatar
+            class="thread-head__avatar"
+            :src="contactDisplayAvatar(current)"
+            :user-id="contactProfileBlocked(current) ? 0 : current.userID"
+            :alt="contactDisplayName(current)"
+            :no-profile-link="contactProfileBlocked(current)"
+          />
           <div class="thread-head__text">
             <div class="thread-head__name">
-              {{ current.name }}
+              {{ contactDisplayName(current) }}
             </div>
-            <div v-if="current.intro" class="thread-head__sub">
-              {{ current.intro }}
+            <div v-if="threadHeadSub()" class="thread-head__sub">
+              {{ threadHeadSub() }}
             </div>
           </div>
         </header>
 
         <div ref="historyDiv" class="lite-scrollbar thread-body">
-          <div v-for="(entry, i) in chatHistory" :key="entry.chatMsgID" class="thread-msg-group">
+          <div v-for="(entry, i) in chatHistory" :key="entry.chatMsgID || `pending-${i}-${entry.createdAt}`" class="thread-msg-group">
             <div v-if="getTimeShow(i)" class="thread-time">
               {{ getTimeShow(i) }}
             </div>
+            <div v-if="entry.isRecalled" class="thread-recalled">
+              {{ recalledBubbleText(userInfo.userID, entry.senderUserID) }}
+            </div>
             <div
+              v-else
               class="thread-bubble-row"
               :class="{ 'thread-bubble-row--self': entry.senderUserID === userInfo.userID }"
             >
               <UserAvatar
-                v-if="entry.senderUserID !== userInfo.userID"
                 class="thread-bubble-row__avatar"
-                :src="current.avatarURL"
-                :user-id="current.userID"
-                :alt="current.name"
-              />
-              <UserAvatar
-                v-else
-                class="thread-bubble-row__avatar"
-                :src="userInfo.avatarURL"
-                :user-id="userInfo.userID"
-                :alt="userInfo.name"
+                :src="avatarForMessage(entry).src"
+                :user-id="avatarForMessage(entry).userId"
+                :alt="avatarForMessage(entry).alt"
+                no-profile-link
               />
               <div class="thread-bubble-stack">
                 <div class="thread-bubble-sender">
-                  {{ entry.isAnonymous ? '匿名用户' : (entry.senderUserID === userInfo.userID ? userInfo.name : current.name) }}
-                  <span v-if="entry.isAnonymous" class="thread-anon" aria-hidden="true">· 匿名</span>
+                  {{ senderLabel(entry) }}
+                  <span v-if="messageShowsAnonymous(entry)" class="thread-anon" aria-hidden="true">· 匿名</span>
+                  <button
+                    v-if="canRecallMessage(entry, userInfo.userID)"
+                    type="button"
+                    class="thread-recall-btn"
+                    @click="handleRecall(entry)"
+                  >
+                    撤回
+                  </button>
                 </div>
                 <div
                   class="thread-bubble"
-                  :class="entry.senderUserID === userInfo.userID ? 'thread-bubble--self' : 'thread-bubble--peer'"
+                  :class="[
+                    entry.senderUserID === userInfo.userID ? 'thread-bubble--self' : 'thread-bubble--peer',
+                    { 'thread-bubble--anon': messageShowsAnonymous(entry) },
+                  ]"
                 >
                   {{ entry.content }}
                 </div>
@@ -350,11 +451,13 @@ watch([isMobile, mobilePane], () => {
           <button
             type="button"
             class="thread-composer__hint"
-            title="匿名聊天功能未开放"
+            :class="{ 'thread-composer__hint--active': current.threadAnonymous && isAnonymousMode }"
+            :title="current.threadAnonymous ? (isAnonymousMode ? '关闭本条匿名发送' : '开启本条匿名发送') : '与此人发起匿名会话'"
             @click="toggleAnonymousMode"
           >
             <Icon icon="tabler:mask" width="18" height="18" />
-            <span>匿名（即将开放）</span>
+            <span v-if="current.threadAnonymous">{{ isAnonymousMode ? '匿名发送已开启' : '匿名发送已关闭' }}</span>
+            <span v-else>发起匿名会话</span>
           </button>
           <div class="thread-composer__bar">
             <textarea
@@ -577,6 +680,16 @@ watch([isMobile, mobilePane], () => {
   box-shadow: 0 0 0 2px var(--chat-bg-highlight);
 }
 
+.contact-row--masked .contact-row__name {
+  color: var(--chat-text-secondary);
+}
+
+.contact-row__avatar-wrap--anon {
+  .contact-row__avatar {
+    opacity: 0.88;
+  }
+}
+
 .contact-row__meta {
   min-width: 0;
   flex: 1;
@@ -774,12 +887,49 @@ watch([isMobile, mobilePane], () => {
   border-bottom-right-radius: 6px;
 }
 
+.thread-bubble--anon {
+  border-style: dashed;
+}
+
 .thread-bubble-row--self .thread-bubble-sender {
   text-align: right;
 }
 
 .thread-anon {
   opacity: 0.85;
+}
+
+.thread-recalled {
+  margin: 8px auto;
+  width: fit-content;
+  max-width: 90%;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--chat-text-tips);
+  background: var(--chat-bg-highlight);
+  border: 1px dashed var(--chat-border);
+  border-radius: 999px;
+  text-align: center;
+}
+
+.thread-recall-btn {
+  margin-left: 8px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--chat-accent);
+  cursor: pointer;
+  font-family: inherit;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.thread-bubble-row--self .thread-recall-btn {
+  margin-left: 0;
+  margin-right: 8px;
 }
 
 .thread-empty {
@@ -802,8 +952,9 @@ watch([isMobile, mobilePane], () => {
   align-items: center;
   gap: 6px;
   margin: 0 0 8px 2px;
-  padding: 0;
-  border: none;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   background: none;
   font-size: 12px;
   color: var(--chat-text-tips);
@@ -813,6 +964,12 @@ watch([isMobile, mobilePane], () => {
   &:hover {
     color: var(--chat-text-secondary);
   }
+}
+
+.thread-composer__hint--active {
+  color: var(--chat-accent);
+  background: var(--chat-accent-soft);
+  border-color: var(--chat-accent);
 }
 
 .thread-composer__bar {

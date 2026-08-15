@@ -18,6 +18,7 @@ import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
 import CommentToolbar from '../comment/CommentToolbar.vue'
 import VoteLink from '../VoteLink.vue'
+import PostWatchButton from '../PostWatchButton.vue'
 import BasicCard from './BasicCard.vue'
 
 const { post } = defineProps<{
@@ -25,7 +26,8 @@ const { post } = defineProps<{
 }>()
 
 const emits = defineEmits<{
-  infoChange: [type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?: boolean]
+  infoChange: [type: 'delete' | 'save' | 'like' | 'privacy', payload?: boolean]
+  watchChange: [watched: boolean]
 }>()
 
 const OldImages = defineAsyncComponent(() => import('@/components/OldImages.vue'))
@@ -51,6 +53,15 @@ const profileOwnerId = computed(() => {
   if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
     return userInfo.userID
   return 0
+})
+
+const extraMentionUsers = computed(() => {
+  const list: Array<{ name: string, userID: number }> = []
+  const name = (post.UserName || '').trim()
+  const id = profileOwnerId.value
+  if (name && id > 0)
+    list.push({ name, userID: id })
+  return list
 })
 
 const root = useTemplateRef('root')
@@ -79,6 +90,10 @@ const handleUserActionDebounce = debounceAsync(handleUserAction)
 async function submitComment() {
   if (commentSubmitting.value)
     return
+  if (!commentContent.value.trim()) {
+    showMsg('请输入评论内容')
+    return
+  }
   commentSubmitting.value = true
   try {
     const result = await sendCommentFunc()
@@ -100,11 +115,15 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
   switch (type) {
     case 'save':{
       try {
-        await savePost(
+        const { ok, msg, isSaved } = await savePost(
           post.PostID,
           userInfo.phone,
         )
-        useCustomEvent('save')
+        if (!ok) {
+          showMsg(msg || '失败了:-(')
+          return
+        }
+        useCustomEvent('save', isSaved ?? !post.IsSaved)
       }
       catch (e) {
         console.error(e)
@@ -153,13 +172,13 @@ async function like() {
   }
 }
 
-function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?: boolean) {
-  emits('infoChange', type, isPrivate)
+function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: boolean) {
+  emits('infoChange', type, payload)
 }
 </script>
 
 <template>
-  <BasicCard class="w-15/16">
+  <BasicCard class="detail-card w-15/16">
     <div ref="root" class="detail-card__head">
       <div class="detail-card__profile">
         <UserAvatar
@@ -192,6 +211,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
     </div>
     <MarkdownContainer
       :markdown-content="post.Content || 'loading'"
+      :extra-mention-users="extraMentionUsers"
     />
     <template v-if="post.Photos">
       <OldImages :photos="post.Photos" />
@@ -207,7 +227,15 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
       @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
     >
       <template #leading>
-        <VoteLink :post-i-d="post.PostID" variant="prominent" />
+        <div class="detail-card__leading">
+          <PostWatchButton
+            :post-i-d="post.PostID"
+            :watched="!!post.IsWatched"
+            variant="prominent"
+            @watched-change="(w) => emits('watchChange', w)"
+          />
+          <VoteLink :post-i-d="post.PostID" variant="prominent" />
+        </div>
       </template>
     </CommentToolbar>
     <div v-if="commentButtonIsShow" class="comment-compose max-w-full">
@@ -277,5 +305,12 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?
   color: var(--chat-accent);
   font-size: 12px;
   font-weight: 600;
+}
+
+.detail-card__leading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 </style>

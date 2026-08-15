@@ -40,6 +40,7 @@ const defaultPost: Post = {
   PostTime: '',
   IsSaved: false,
   IsLiked: false,
+  IsWatched: false,
   IsPrivate: false,
   Photos: '',
   Tag: '',

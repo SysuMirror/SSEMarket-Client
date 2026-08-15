@@ -78,11 +78,13 @@ async function likeCommentComment(ccommentID: number, userTelephone: string) {
 }
 
 /***
- * @param {number} postID 要收藏的帖子id
- * @param {string} userTelephone
- * @returns 如果状态码2xx，返回true
+ * @param postID 要收藏的帖子id
+ * @param userTelephone
  */
-async function savePost(postID: number, userTelephone: string) {
+async function savePost(
+  postID: number,
+  userTelephone: string,
+): Promise<{ ok: boolean, msg: string, isSaved: boolean | null }> {
   try {
     const res = await requestFunc(`/auth/updateSave`, {
       method: 'POST',
@@ -94,11 +96,32 @@ async function savePost(postID: number, userTelephone: string) {
         userTelephone,
       },
     }, true)
-    return res?.ok || false
+    if (!res) {
+      return { ok: false, msg: '请求失败', isSaved: null }
+    }
+    const text = await res.text()
+    if (!text.trim()) {
+      return {
+        ok: res.ok,
+        msg: res.ok ? '操作成功' : '操作失败',
+        isSaved: null,
+      }
+    }
+    const json = JSON.parse(text)
+    const isSaved = json.data?.isSaved === true
+      ? true
+      : json.data?.isSaved === false
+        ? false
+        : null
+    return {
+      ok: json.code === 200 || (json.code === undefined && res.ok),
+      msg: json.msg || (res.ok ? '操作成功' : '操作失败'),
+      isSaved,
+    }
   }
   catch (e) {
     console.error(e)
-    return false
+    return { ok: false, msg: '操作失败', isSaved: null }
   }
 }
 

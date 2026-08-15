@@ -46,6 +46,15 @@ const subCommentAuthorProfileId = computed(() => {
   return 0
 })
 
+const extraMentionUsers = computed(() => {
+  const list: Array<{ name: string, userID: number }> = []
+  const name = (subComment.author || '').trim()
+  const id = subCommentAuthorProfileId.value
+  if (name && id > 0)
+    list.push({ name, userID: id })
+  return list
+})
+
 const formattedTime = computed(() => {
   return new Date(subComment.commentTime).toLocaleString('zh-CN', {
     month: '2-digit',
@@ -112,6 +121,10 @@ const deleteDebounced = debounceAsync(async () => {
 async function submitComment() {
   if (commentSubmitting.value)
     return
+  if (!commentContent.value.trim()) {
+    showMsg('请输入回复内容')
+    return
+  }
   commentSubmitting.value = true
   try {
     const result = await sendCommentFunc()
@@ -129,31 +142,38 @@ async function submitComment() {
 }
 
 async function like() {
+  const prevLiked = subComment.isLiked
+  const prevNum = subComment.likeNum
+  subComment.isLiked = !subComment.isLiked
+  subComment.likeNum += subComment.isLiked ? 1 : -1
   try {
     const res = await likeCommentComment(
       subComment.ccommentID,
       userInfo.phone,
     )
     if (!res) {
+      subComment.isLiked = prevLiked
+      subComment.likeNum = prevNum
       showMsg('点赞失败')
       return
     }
-    const event = new CustomEvent('comment-handle', {
+    root.value?.dispatchEvent(new CustomEvent('comment-handle', {
       bubbles: true,
-    })
-    root.value?.dispatchEvent(event)
+    }))
   }
   catch (e) {
+    subComment.isLiked = prevLiked
+    subComment.likeNum = prevNum
     console.error(e)
     showMsg('失败了:-(')
-    return false
   }
 }
 
 function toggleReply() {
   const opening = !commentButtonIsShow.value
   commentButtonIsShow.value = opening
-  if (opening && !commentContent.value.trim()) {
+  // 匿名帖作者已被脱敏为「匿名用户」，不预填 @前缀（避免无效提及）
+  if (opening && !commentContent.value.trim() && subComment.author !== '匿名用户') {
     const prefix = buildMentionPrefix(subComment.author)
     if (prefix)
       commentContent.value = prefix
@@ -195,6 +215,7 @@ function toggleReply() {
     <MarkdownContainer
       class="comment-row__body"
       :markdown-content="subComment.content || 'loading'"
+      :extra-mention-users="extraMentionUsers"
     />
     <time class="comment-row__time comment-row__time--mobile" :datetime="String(subComment.commentTime)">{{ formattedTime }}</time>
     <CommentToolbar

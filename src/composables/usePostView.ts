@@ -10,24 +10,30 @@ export function usePostView() {
   const isLoading = ref(false)
 
   async function update() {
+    if (isLoading.value || !hasMore.value)
+      return
     isLoading.value = true
-    const more = await addPost(userInfo.phone)
-    if (!more) {
-      hasMore.value = false
+    try {
+      const more = await addPost(userInfo.phone)
+      if (!more)
+        hasMore.value = false
     }
-    isLoading.value = false
+    finally {
+      isLoading.value = false
+    }
   }
 
   async function initialize(categoryName?: typeof Partitions[number], hooks?: { beforeRefresh?: () => void, afterRefresh?: () => void }) {
-    if (hooks?.beforeRefresh) {
+    if (hooks?.beforeRefresh)
       hooks.beforeRefresh()
-    }
+    hasMore.value = true
     refreshPosts()
-    categoryName && changeTo(categoryName)
-    if (hooks?.afterRefresh) {
+    if (categoryName)
+      changeTo(categoryName)
+    if (hooks?.afterRefresh)
       hooks.afterRefresh()
-    }
     await updateNum(userInfo.phone)
+    await update()
   }
 
   return {

@@ -67,7 +67,6 @@ async function commentHandler() {
   if (!post.value)
     return
   await getCommentList()
-  await loadLottery()
   let len = 0
   for (const comment of comments.value) {
     if (comment.SubComments)
@@ -106,16 +105,19 @@ async function clickHandler(event: MouseEvent) {
   }
 }
 
-function infoChange(type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', isPrivate?: boolean) {
+function infoChange(type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', payload?: boolean) {
   const ID = Number(route.params.id)
-  updatePost(ID, type, isPrivate)
+  if (type === 'save')
+    updatePost(ID, type, undefined, payload)
+  else
+    updatePost(ID, type, type === 'privacy' ? payload : undefined)
   switch (type) {
     case 'like':
       post.value!.IsLiked = !post.value!.IsLiked
       post.value!.Like += post.value!.IsLiked ? 1 : -1
       break
     case 'save':
-      post.value!.IsSaved = !post.value!.IsSaved
+      post.value!.IsSaved = payload ?? !post.value!.IsSaved
       break
     case 'delete':
       router.push('/')
@@ -124,7 +126,7 @@ function infoChange(type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', is
       commentHandler()
       break
     case 'privacy':
-      post.value!.IsPrivate = isPrivate ?? !post.value!.IsPrivate
+      post.value!.IsPrivate = payload ?? !post.value!.IsPrivate
       break
   }
 }
@@ -155,6 +157,7 @@ onMounted(async () => {
       v-if="post"
       :post="post"
       @info-change="infoChange"
+      @watch-change="(w) => { if (post) post.IsWatched = w }"
     />
     <section v-if="post && lottery" class="lottery-detail-wrap">
       <LotteryDetailBox

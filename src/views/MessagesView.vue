@@ -46,22 +46,23 @@ watch(
 <template>
   <div class="msg-hub">
     <header class="msg-hub__head">
-      <div class="msg-hub__title-row">
-        <Icon icon="tabler:messages" class="msg-hub__title-icon" width="24" height="24" aria-hidden="true" />
-        <div class="msg-hub__title-text">
-          <h1 class="msg-hub__title">
-            消息
-          </h1>
-          <p class="msg-hub__subtitle">
-            互动通知与私信
-          </p>
+      <div class="msg-hub__head-row">
+        <div class="msg-hub__title-row">
+          <Icon icon="tabler:messages" class="msg-hub__title-icon" width="24" height="24" aria-hidden="true" />
+          <div class="msg-hub__title-text">
+            <h1 class="msg-hub__title">
+              消息
+            </h1>
+            <p class="msg-hub__subtitle">
+              互动通知与私信
+            </p>
+          </div>
+          <span v-if="totalUnread > 0" class="msg-hub__total-badge">
+            {{ totalUnread > 99 ? '99+' : totalUnread }}
+          </span>
         </div>
-        <span v-if="totalUnread > 0" class="msg-hub__total-badge">
-          {{ totalUnread > 99 ? '99+' : totalUnread }}
-        </span>
-      </div>
 
-      <div class="msg-hub__tabs" role="tablist" aria-label="消息类型">
+        <div class="msg-hub__tabs" role="tablist" aria-label="消息类型">
         <button
           type="button"
           role="tab"
@@ -86,6 +87,7 @@ watch(
           <span>私信</span>
           <span v-if="unreadChat > 0" class="msg-hub__tab-badge">{{ unreadChat > 99 ? '99+' : unreadChat }}</span>
         </button>
+        </div>
       </div>
     </header>
 
@@ -115,21 +117,28 @@ watch(
 
 .msg-hub__head {
   flex-shrink: 0;
-  padding: 8px 12px 0;
+  padding: 8px 12px 10px;
   border-bottom: 1px solid var(--chat-border);
   background: var(--chat-bg-highlight);
 }
 
+.msg-hub__head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .msg-hub__title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  padding: 4px 2px 12px;
+  flex: 1;
+  min-width: 0;
 }
 
 .msg-hub__title-icon {
   flex-shrink: 0;
-  margin-top: 2px;
   color: var(--chat-accent);
 }
 
@@ -167,18 +176,18 @@ watch(
 }
 
 .msg-hub__tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-shrink: 0;
   gap: 6px;
-  padding: 0 2px 10px;
 }
 
 .msg-hub__tab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 5px;
+  padding: 8px 12px;
+  white-space: nowrap;
   border: 1px solid var(--chat-border);
   border-radius: 12px;
   background: var(--chat-bg-main);
@@ -245,7 +254,7 @@ watch(
 
 @media screen and (min-width: 769px) {
   .msg-hub__head {
-    padding: 12px 16px 0;
+    padding: 12px 16px 12px;
     border-radius: 16px 16px 0 0;
     border: 1px solid var(--chat-border);
     border-bottom: none;
@@ -265,7 +274,19 @@ watch(
   }
 
   .msg-hub__head {
-    padding-top: 4px;
+    padding: 6px 10px 8px;
+  }
+
+  .msg-hub__head-row {
+    gap: 8px;
+  }
+
+  .msg-hub__subtitle {
+    display: none;
+  }
+
+  .msg-hub__tab {
+    padding: 7px 10px;
   }
 
   .msg-hub__tab span:not(.msg-hub__tab-badge) {

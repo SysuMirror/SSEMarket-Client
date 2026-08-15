@@ -17,9 +17,8 @@ const isMessages = computed(() =>
   path.value === '/messages' || path.value === '/notice' || path.value === '/chat',
 )
 const totalMessageNum = computed(() => (noticeNum || 0) + (chatNum || 0))
-const isRanking = computed(() => path.value === '/ranking')
-const isSmartXiaoQiu = computed(() => path.value === '/smart-xiaoqiu' || path.value.startsWith('/smart-xiaoqiu/'))
-const isResume = computed(() => path.value === '/resume' || path.value.startsWith('/resume/'))
+const isWorkbench = computed(() => path.value === '/workbench')
+const isPost = computed(() => path.value === '/post')
 const myRoutes = ['/options', '/save', '/history', '/feedback']
 const isMySection = computed(() => myRoutes.some(p => path.value === p || path.value.startsWith(`${p}/`)))
 
@@ -89,33 +88,26 @@ onUnmounted(() => {
       </RouterLink>
 
       <RouterLink
-        class="bottom-nav__item"
-        :class="{ 'bottom-nav__item--active': isRanking }"
-        to="/ranking"
+        class="bottom-nav__item bottom-nav__item--post"
+        :class="{ 'bottom-nav__item--active': isPost }"
+        to="/post"
         @click="closeMyMenu"
+        aria-label="发帖"
       >
-        <Icon icon="tabler:trophy" class="bottom-nav__icon bottom-nav__icon--ranking" width="24" height="24" aria-hidden="true" />
-        <span class="bottom-nav__text">排行榜</span>
+        <span class="bottom-nav__post-btn">
+          <Icon icon="tabler:plus" width="26" height="26" aria-hidden="true" />
+        </span>
+        <span class="bottom-nav__text">发帖</span>
       </RouterLink>
 
       <RouterLink
         class="bottom-nav__item"
-        :class="{ 'bottom-nav__item--active': isSmartXiaoQiu }"
-        to="/smart-xiaoqiu"
+        :class="{ 'bottom-nav__item--active': isWorkbench }"
+        to="/workbench"
         @click="closeMyMenu"
       >
-        <Icon icon="tabler:sparkles" class="bottom-nav__icon bottom-nav__icon--xiaoqiu" width="24" height="24" aria-hidden="true" />
-        <span class="bottom-nav__text">小秋</span>
-      </RouterLink>
-
-      <RouterLink
-        class="bottom-nav__item"
-        :class="{ 'bottom-nav__item--active': isResume }"
-        to="/resume"
-        @click="closeMyMenu"
-      >
-        <Icon icon="tabler:file-cv" class="bottom-nav__icon bottom-nav__icon--resume" width="24" height="24" aria-hidden="true" />
-        <span class="bottom-nav__text">简历</span>
+        <Icon icon="tabler:grid-dots" class="bottom-nav__icon bottom-nav__icon--workbench" width="24" height="24" aria-hidden="true" />
+        <span class="bottom-nav__text">工作台</span>
       </RouterLink>
 
       <div class="bottom-nav__item bottom-nav__item--my" :class="{ 'bottom-nav__item--active': isMySection }">
@@ -230,6 +222,12 @@ onUnmounted(() => {
     position: relative;
   }
 
+  &--post {
+    position: relative;
+    flex: 1;
+    overflow: visible;
+  }
+
   &--my {
     flex: 1;
     padding: 0;
@@ -300,17 +298,53 @@ onUnmounted(() => {
 .bottom-nav__icon--messages {
   color: #2563eb;
 }
-.bottom-nav__icon--ranking {
-  color: #eab308;
-}
-.bottom-nav__icon--xiaoqiu {
-  color: #7c3aed;
-}
-.bottom-nav__icon--resume {
-  color: #0d9488;
+.bottom-nav__icon--workbench {
+  color: #6366f1;
 }
 .bottom-nav__icon--user {
   color: #475569;
+}
+
+/* 中间凸起发帖按钮：藏青底色 + 白色加号，垂直突出于导航条 */
+.bottom-nav__post-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-top: -16px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--chat-accent, #2c3d56);
+  box-shadow:
+    0 4px 12px rgba(44, 61, 86, 0.35),
+    0 0 0 3px var(--chat-bg-highlight, #fff);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.bottom-nav__item--post:hover .bottom-nav__post-btn {
+  transform: translateY(-2px) rotate(90deg);
+  box-shadow:
+    0 6px 16px rgba(44, 61, 86, 0.45),
+    0 0 0 3px var(--chat-bg-highlight, #fff);
+}
+
+.bottom-nav__item--post:active .bottom-nav__post-btn {
+  transform: translateY(0) rotate(0);
+}
+
+.bottom-nav__item--post.bottom-nav__item--active .bottom-nav__post-btn {
+  filter: brightness(1.08);
+}
+
+body.dark-mode .bottom-nav__post-btn {
+  background: var(--chat-accent, #5989b8);
+  color: #fff;
+  box-shadow:
+    0 4px 12px rgba(89, 137, 184, 0.4),
+    0 0 0 3px var(--chat-bg-highlight, #1e293b);
 }
 
 body.dark-mode .bottom-nav__item:not(.bottom-nav__item--my):hover {
@@ -358,14 +392,8 @@ body.dark-mode .bottom-nav__icon--shop {
 body.dark-mode .bottom-nav__icon--messages {
   color: #60a5fa;
 }
-body.dark-mode .bottom-nav__icon--ranking {
-  color: #fbbf24;
-}
-body.dark-mode .bottom-nav__icon--xiaoqiu {
-  color: #c4b5fd;
-}
-body.dark-mode .bottom-nav__icon--resume {
-  color: #2dd4bf;
+body.dark-mode .bottom-nav__icon--workbench {
+  color: #a5b4fc;
 }
 body.dark-mode .bottom-nav__icon--user {
   color: #94a3b8;

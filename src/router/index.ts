@@ -200,6 +200,11 @@ const router = createRouter({
             },
           ],
         },
+        {
+          path: 'workbench',
+          name: 'Workbench',
+          component: () => import('@/views/WorkbenchView.vue'),
+        },
 
       ],
     },

@@ -57,11 +57,15 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
   switch (type) {
     case 'save': {
       try {
-        await savePost(
+        const { ok, msg, isSaved } = await savePost(
           post.PostID,
           userInfo.phone,
         )
-        useCustomEvent('save')
+        if (!ok) {
+          showMsg(msg || '失败了:-(')
+          return
+        }
+        useCustomEvent('save', isSaved ?? !post.IsSaved)
       }
       catch (e) {
         console.error(e)
@@ -95,10 +99,16 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
   }
 }
 
-function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', isPrivate?: boolean) {
-  const synced = updatePost(post.PostID, type, isPrivate)
-  if (!synced && (type === 'like' || type === 'save' || type === 'privacy'))
-    applyPostMutation(post, type, isPrivate)
+function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: boolean) {
+  const synced = type === 'save'
+    ? updatePost(post.PostID, type, undefined, value)
+    : updatePost(post.PostID, type, value)
+  if (!synced && (type === 'like' || type === 'save' || type === 'privacy')) {
+    if (type === 'save' && typeof value === 'boolean')
+      post.IsSaved = value
+    else
+      applyPostMutation(post, type, value)
+  }
 }
 </script>
 

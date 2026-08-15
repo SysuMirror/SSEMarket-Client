@@ -7,7 +7,6 @@ import { deleteShopProduct, markShopProductSold } from '@/api/shop/mutations'
 import { getShopProductDetail } from '@/api/shop'
 import { showImg } from '@/components/ImageShower'
 import { showMsg } from '@/components/MessageBox'
-import { useChat } from '@/composables/useChat'
 import { useUserStore } from '@/store/userStore'
 import { getSellerName } from '@/utils/sellerNameMapper'
 import { strHandler } from '@/utils/strHandler'
@@ -17,7 +16,6 @@ defineOptions({ name: 'ProductView' })
 const route = useRoute()
 const router = useRouter()
 const { userInfo } = useUserStore()
-const { setAnonymousMode } = useChat()
 
 const product = ref<ShopProduct | null>(null)
 const sellerLabel = ref('')
@@ -73,8 +71,14 @@ async function loadDetail() {
 function chatWithSeller(anonymous: boolean) {
   if (!canBuy.value || !product.value?.SellerID)
     return
-  setAnonymousMode(anonymous)
-  router.push({ path: '/messages', query: { tab: 'chat', user: String(product.value.SellerID) } })
+  router.push({
+    path: '/messages',
+    query: {
+      tab: 'chat',
+      user: String(product.value.SellerID),
+      ...(anonymous ? { anonymous: '1' } : {}),
+    },
+  })
 }
 
 async function markSold() {

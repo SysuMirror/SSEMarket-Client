@@ -33,6 +33,7 @@ export function useWebSocket<Received extends Record<string, any>, Sent extends 
 
     let websocketClient: WebSocket | null = null
     let heartbeatInterval: number | null = null
+    let intentionalDisconnect = false
     const connectionInfo = {
       status: WebSocketStatus.Unconnected as typeof WebSocketStatus[keyof typeof WebSocketStatus],
       retryTimes: 0,
@@ -102,13 +103,20 @@ export function useWebSocket<Received extends Record<string, any>, Sent extends 
       if (connectionInfo.status === WebSocketStatus.Connecting) {
         return
       }
+      intentionalDisconnect = false
       connectionInfo.status = WebSocketStatus.Connecting
 
       websocketClient = new WebSocket(url)
       websocketClient.addEventListener('close', (e) => {
+        connectionInfo.status = WebSocketStatus.Unconnected
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval)
+          heartbeatInterval = null
+        }
         emit('Close', e)
-      }, {
-        once: true,
+        if (!intentionalDisconnect) {
+          reconnect()
+        }
       })
       websocketClient.addEventListener('open', (e) => {
         connectionInfo.retryTimes = 0
@@ -117,24 +125,21 @@ export function useWebSocket<Received extends Record<string, any>, Sent extends 
         }
         connectionInfo.status = WebSocketStatus.Connected
         emit('Open', e)
-      }, {
-        once: true,
       })
       websocketClient.addEventListener('error', (e) => {
         connectionInfo.status = WebSocketStatus.Unconnected
         emit('Error', e)
-      }, {
-        once: true,
       })
       websocketClient.addEventListener('message', handleSocketMessage)
     }
 
     const reconnect = () => {
+      if (intentionalDisconnect || connectionInfo.reconnectTimeout)
+        return
+
       cleanupLastConnection()
-      if (connectionInfo.reconnectTimeout) {
-        clearTimeout(connectionInfo.reconnectTimeout)
-      }
       connectionInfo.reconnectTimeout = setTimeout(() => {
+        connectionInfo.reconnectTimeout = null
         if (connectionInfo.retryTimes >= maxRetries) {
           connectionInfo.status = WebSocketStatus.Unconnected
           return
@@ -149,6 +154,7 @@ export function useWebSocket<Received extends Record<string, any>, Sent extends 
     }
 
     const disconnect = () => {
+      intentionalDisconnect = true
       if (connectionInfo.reconnectTimeout) {
         clearTimeout(connectionInfo.reconnectTimeout)
         connectionInfo.reconnectTimeout = null
@@ -170,12 +176,11 @@ export function useWebSocket<Received extends Record<string, any>, Sent extends 
       eventBusCleanup()
     }
 
-    const handleWebSocketError = (event: Event) => {
-      if (event.target instanceof WebSocket) {
+    const handleWebSocketError = () => {
+      if (connectionInfo.status !== WebSocketStatus.Unconnected && !intentionalDisconnect) {
         reconnect()
       }
     }
-    // 避免相互调用, 单独抽出来监听Error了
     on('Error', handleWebSocketError)
 
     return {
