@@ -494,7 +494,8 @@ def fetch_posts(post_ids: list[int]) -> dict[int, dict]:
                   COALESCE(p.heat, 0) AS Heat,
                   DATE_FORMAT(p.post_time, '%%Y-%%m-%%dT%%H:%%i:%%s') AS PostTime,
                   COALESCE(p.photos, '') AS Photos,
-                  COALESCE(p.tag, '') AS Tag
+                  COALESCE(p.tag, '') AS Tag,
+                  COALESCE(p.is_anonymous, 0) AS IsAnonymous
                 FROM posts p
                 LEFT JOIN users u ON u.userID = p.userID
                 WHERE p.postID IN ({placeholders})
@@ -502,6 +503,14 @@ def fetch_posts(post_ids: list[int]) -> dict[int, dict]:
                 post_ids,
             )
             for row in cur.fetchall():
+                # 匿名帖脱敏:清除用户标识字段,避免在搜索结果中泄露匿名作者
+                if int(row.get("IsAnonymous") or 0):
+                    row["UserID"] = 0
+                    row["UserName"] = ""
+                    row["UserScore"] = 0
+                    row["UserTelephone"] = ""
+                    row["UserAvatar"] = ""
+                    row["UserIdentity"] = ""
                 row["IsSaved"] = False
                 row["IsLiked"] = False
                 posts_by_id[int(row["PostID"])] = row
