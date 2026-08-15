@@ -304,7 +304,7 @@ onMounted(() => {
         <button
           v-else
           type="button"
-          class="pat-btn pat-btn--ghost pat-btn--small"
+          class="pat-btn pat-btn--small pat-btn--ghost"
           @click="handleDelete(t)"
         >
           <Icon icon="tabler:trash-x" width="15" height="15" aria-hidden="true" />
@@ -618,8 +618,8 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .pat-panel {
-  background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: 20px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   padding: 18px;
@@ -637,7 +637,7 @@ onMounted(() => {
 }
 
 .pat-panel__title-icon {
-  color: var(--chat-accent);
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -645,13 +645,13 @@ onMounted(() => {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--chat-text);
+  color: var(--color-text);
 }
 
 .pat-panel__subtitle {
   margin: 0.35rem 0 0;
   font-size: 0.825rem;
-  color: var(--chat-text-tips);
+  color: var(--color-text-muted);
   line-height: 1.5;
 }
 
@@ -660,8 +660,8 @@ onMounted(() => {
   flex-direction: column;
   gap: 14px;
   padding: 14px;
-  background: var(--chat-bg-main);
-  border: 1px dashed var(--chat-border);
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
   border-radius: 14px;
   margin-bottom: 16px;
 }
@@ -675,7 +675,7 @@ onMounted(() => {
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--chat-text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .pat-input {
@@ -684,9 +684,9 @@ onMounted(() => {
   padding: 11px 14px;
   font-size: 15px;
   font-family: inherit;
-  color: var(--chat-text);
-  background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
+  color: var(--color-text);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   outline: none;
   transition:
@@ -694,12 +694,12 @@ onMounted(() => {
     box-shadow 0.15s ease;
 
   &::placeholder {
-    color: var(--chat-text-tips);
+    color: var(--color-text-muted);
   }
 
   &:focus {
-    border-color: var(--chat-accent);
-    box-shadow: 0 0 0 3px var(--chat-accent-soft);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 }
 
@@ -715,9 +715,9 @@ onMounted(() => {
   gap: 8px;
   padding: 9px 12px;
   border-radius: 12px;
-  border: 1px solid var(--chat-border);
-  background: var(--chat-bg-highlight);
-  color: var(--chat-text-secondary);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-text-secondary);
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -730,28 +730,28 @@ onMounted(() => {
 
   &__name {
     font-weight: 600;
-    color: var(--chat-text);
+    color: var(--color-text);
     flex-shrink: 0;
   }
 
   &__desc {
-    color: var(--chat-text-tips);
+    color: var(--color-text-muted);
     font-size: 12px;
     line-height: 1.4;
   }
 
   &--on {
-    border-color: var(--chat-accent);
-    background: var(--chat-accent-soft);
-    color: var(--chat-accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
   &--on .pat-scope-chip__name {
-    color: var(--chat-accent);
+    color: var(--accent);
   }
 
   &:hover {
-    border-color: var(--chat-accent);
+    border-color: var(--accent);
   }
 }
 
@@ -775,8 +775,8 @@ onMounted(() => {
   -webkit-tap-highlight-color: transparent;
 
   &--primary {
-    background: var(--chat-accent);
-    border-color: var(--chat-accent);
+    background: var(--accent);
+    border-color: var(--accent);
     color: #fff;
 
     &:hover:not(:disabled) {
@@ -790,18 +790,18 @@ onMounted(() => {
   }
 
   &--secondary {
-    background: var(--chat-bg-main);
-    border-color: var(--chat-border-strong);
-    color: var(--chat-accent);
+    background: var(--color-bg);
+    border-color: var(--color-border-strong);
+    color: var(--accent);
 
     &:hover {
-      background: var(--chat-accent-soft);
-      border-color: var(--chat-accent);
+      background: var(--accent-soft);
+      border-color: var(--accent);
     }
   }
 
   &--danger {
-    background: var(--chat-bg-highlight);
+    background: var(--color-card);
     border-color: rgba(239, 68, 68, 0.35);
     color: #ef4444;
 
@@ -823,20 +823,20 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: var(--chat-text-tips);
+  color: var(--color-text-muted);
 }
 
 .pat-empty-hint {
   margin: 8px 0;
   font-size: 13px;
-  color: var(--chat-text-tips);
+  color: var(--color-text-muted);
 }
 
 .pat-item {
   padding: 14px;
-  border: 1px solid var(--chat-border);
+  border: 1px solid var(--color-border);
   border-radius: 14px;
-  background: var(--chat-bg-main);
+  background: var(--color-bg);
   margin-bottom: 10px;
 
   &--inactive {
@@ -862,7 +862,7 @@ onMounted(() => {
   &__name {
     font-size: 15px;
     font-weight: 600;
-    color: var(--chat-text);
+    color: var(--color-text);
     word-break: break-word;
   }
 
@@ -880,20 +880,20 @@ onMounted(() => {
     }
 
     &--muted {
-      background: var(--chat-bg-highlight);
-      color: var(--chat-text-tips);
-      border: 1px solid var(--chat-border);
+      background: var(--color-card);
+      color: var(--color-text-muted);
+      border: 1px solid var(--color-border);
     }
   }
 
   &__prefix {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
-    color: var(--chat-text-tips);
-    background: var(--chat-bg-highlight);
+    color: var(--color-text-muted);
+    background: var(--color-card);
     padding: 3px 8px;
     border-radius: 8px;
-    border: 1px solid var(--chat-border);
+    border: 1px solid var(--color-border);
   }
 
   &__scopes {
@@ -910,8 +910,8 @@ onMounted(() => {
     border-radius: 999px;
     font-size: 11px;
     font-weight: 500;
-    background: var(--chat-accent-soft);
-    color: var(--chat-accent);
+    background: var(--accent-soft);
+    color: var(--accent);
     border: 1px solid transparent;
   }
 
@@ -920,7 +920,7 @@ onMounted(() => {
     flex-wrap: wrap;
     gap: 6px 14px;
     font-size: 12px;
-    color: var(--chat-text-tips);
+    color: var(--color-text-muted);
     margin-bottom: 10px;
   }
 
@@ -943,7 +943,7 @@ onMounted(() => {
   box-sizing: border-box;
 
   &__box {
-    background: var(--chat-bg-highlight);
+    background: var(--color-card);
     border-radius: 18px;
     box-shadow: 0 10px 40px rgba(15, 23, 42, 0.2);
     max-width: 560px;
@@ -976,20 +976,20 @@ onMounted(() => {
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
-    color: var(--chat-text);
+    color: var(--color-text);
   }
 
   &__close {
     background: transparent;
     border: none;
-    color: var(--chat-text-tips);
+    color: var(--color-text-muted);
     cursor: pointer;
     padding: 4px;
     border-radius: 8px;
 
     &:hover {
-      background: var(--chat-bg-main);
-      color: var(--chat-text);
+      background: var(--color-bg);
+      color: var(--color-text);
     }
   }
 
@@ -1011,12 +1011,12 @@ onMounted(() => {
     flex: 1;
     min-width: 0;
     padding: 12px;
-    background: var(--chat-bg-main);
-    border: 1px solid var(--chat-border);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 13px;
-    color: var(--chat-text);
+    color: var(--color-text);
     word-break: break-all;
     overflow-x: auto;
   }
@@ -1037,7 +1037,7 @@ onMounted(() => {
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: var(--chat-text-tips);
+  color: var(--color-text-muted);
   cursor: pointer;
   transition:
     background 0.15s ease,
@@ -1045,8 +1045,8 @@ onMounted(() => {
   -webkit-tap-highlight-color: transparent;
 
   &:hover {
-    background: var(--chat-accent-soft);
-    color: var(--chat-accent);
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 }
 
@@ -1063,14 +1063,14 @@ onMounted(() => {
     margin: 0 0 8px;
     font-size: 14px;
     font-weight: 600;
-    color: var(--chat-text);
+    color: var(--color-text);
   }
 
   &__p {
     margin: 0;
     font-size: 13px;
     line-height: 1.6;
-    color: var(--chat-text-secondary);
+    color: var(--color-text-secondary);
   }
 
   &__ul {
@@ -1078,7 +1078,7 @@ onMounted(() => {
     padding-left: 18px;
     font-size: 13px;
     line-height: 1.6;
-    color: var(--chat-text-secondary);
+    color: var(--color-text-secondary);
 
     li {
       margin-bottom: 8px;
@@ -1092,35 +1092,35 @@ onMounted(() => {
   &__code {
     display: block;
     padding: 10px 12px;
-    background: var(--chat-bg-main);
-    border: 1px solid var(--chat-border);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
-    color: var(--chat-text);
+    color: var(--color-text);
     word-break: break-all;
   }
 
   &__inline-code {
     padding: 1px 6px;
-    background: var(--chat-bg-main);
-    border: 1px solid var(--chat-border);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
-    color: var(--chat-accent);
+    color: var(--accent);
   }
 
   &__pre {
     margin: 0;
     padding: 12px;
-    background: var(--chat-bg-main);
-    border: 1px solid var(--chat-border);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
     line-height: 1.5;
-    color: var(--chat-text);
+    color: var(--color-text);
     overflow-x: auto;
     white-space: pre;
   }
@@ -1130,7 +1130,7 @@ onMounted(() => {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 13px;
     font-weight: 600;
-    color: var(--chat-accent);
+    color: var(--accent);
   }
 
   &__scope {
@@ -1140,22 +1140,22 @@ onMounted(() => {
     border-radius: 999px;
     font-size: 11px;
     font-weight: 500;
-    background: var(--chat-accent-soft);
-    color: var(--chat-accent);
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
   &__tool-desc {
     margin: 4px 0 0;
     font-size: 12px;
     line-height: 1.5;
-    color: var(--chat-text-tips);
+    color: var(--color-text-muted);
   }
 
   &__tool-block {
     margin-bottom: 14px;
     padding: 12px;
-    background: var(--chat-bg-main);
-    border: 1px solid var(--chat-border);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
 
     &:last-child {
@@ -1180,24 +1180,24 @@ onMounted(() => {
     th,
     td {
       padding: 6px 8px;
-      border: 1px solid var(--chat-border);
+      border: 1px solid var(--color-border);
       text-align: left;
       vertical-align: top;
     }
 
     th {
-      background: var(--chat-bg-highlight);
+      background: var(--color-card);
       font-weight: 600;
-      color: var(--chat-text);
+      color: var(--color-text);
       white-space: nowrap;
     }
 
     td {
-      color: var(--chat-text-secondary);
+      color: var(--color-text-secondary);
 
       &:first-child {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        color: var(--chat-accent);
+        color: var(--accent);
         white-space: nowrap;
       }
 
@@ -1209,7 +1209,7 @@ onMounted(() => {
     }
 
     strong {
-      color: var(--chat-accent);
+      color: var(--accent);
     }
   }
 }
