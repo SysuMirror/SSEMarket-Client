@@ -110,7 +110,9 @@
   background: var(--shop-card);
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .shop-product-card:hover:not(.shop-product-card--sold) {

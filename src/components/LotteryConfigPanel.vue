@@ -243,7 +243,9 @@ function removePrize(index: number) {
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 
   &--active {
     background: var(--chat-bg-highlight);
@@ -264,7 +266,9 @@ function removePrize(index: number) {
   font-size: 0.9375rem;
   font-family: inherit;
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 
   &:focus {
     outline: none;

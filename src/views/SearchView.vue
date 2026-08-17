@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import type { Partitions } from '@/store/postStore'
+import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
+
 import {
   onMounted,
   ref,
   watch,
 } from 'vue'
-
 import { useRoute } from 'vue-router'
+import { searchRagPosts } from '@/api/ragSearch'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
-import { searchRagPosts } from '@/api/ragSearch'
 import { usePostView } from '@/composables/usePostView'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
-import type { Post } from '@/types/post'
 
 const { search, setSearchTimeRange, refreshPosts, conditions, updateNum } = usePostStore()
 const { userInfo } = useUserStore()
@@ -197,11 +197,19 @@ watch(
         class="search-page__active-hint"
       >
         已筛选：
-        <template v-if="conditions.timeFrom">{{ conditions.timeFrom.replace('T', ' ') }}</template>
-        <template v-else>不限</template>
+        <template v-if="conditions.timeFrom">
+          {{ conditions.timeFrom.replace('T', ' ') }}
+        </template>
+        <template v-else>
+          不限
+        </template>
         至
-        <template v-if="conditions.timeTo">{{ conditions.timeTo.replace('T', ' ') }}</template>
-        <template v-else>不限</template>
+        <template v-if="conditions.timeTo">
+          {{ conditions.timeTo.replace('T', ' ') }}
+        </template>
+        <template v-else>
+          不限
+        </template>
       </p>
     </section>
 

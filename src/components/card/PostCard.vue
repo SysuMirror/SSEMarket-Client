@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
-import { computed, defineAsyncComponent } from 'vue'
-import { isPostOwner } from '@/utils/postOwner'
-
+import { computed } from 'vue'
 import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
+
 import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
 import { showMsg } from '@/components/MessageBox'
 import { applyPostMutation, usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
 import { debounceAsync } from '@/utils/debounced'
+import { isPostOwner } from '@/utils/postOwner'
 
 import BasicInfo from '../BasicInfo.vue'
 import UserAvatar from '../UserAvatar.vue'
@@ -24,9 +24,34 @@ const { isDense, post, isNew, noSave = false } = defineProps<{
 }>()
 
 const { updatePost } = usePostStore()
-const OldImages = defineAsyncComponent(() => import('@/components/OldImages.vue'))
 
 const { userInfo } = useUserStore()
+
+/** 提取帖子预览图：优先 Photos（| 分割），不足时从 Content 提取 markdown 图片 */
+const previewImages = computed<string[]>(() => {
+  const imgs: string[] = []
+  if (post.Photos) {
+    imgs.push(...post.Photos.split('|').filter(Boolean))
+  }
+  if (imgs.length < 9 && post.Content) {
+    // 匹配 ![alt](url)，支持跨行 URL
+    const mdImgRe = /!\[[^\]]*?\]\(\s*([^)]+?)\s*\)/gs
+    let m: RegExpExecArray | null
+    while (imgs.length < 9 && (m = mdImgRe.exec(post.Content)) !== null) {
+      const url = m[1].trim().replace(/\s+/g, '')
+      if (url && !imgs.includes(url))
+        imgs.push(url)
+    }
+  }
+  return imgs.slice(0, 9)
+})
+
+/** 摘要文本：去掉 markdown 图片语法，只保留纯文本 */
+const excerptText = computed(() => {
+  const raw = post.Content || ''
+  const cleaned = raw.replace(/!\[[^\]]*?\]\([^)]*?\)/g, '').trim()
+  return cleaned.slice(0, 100) || 'loading'
+})
 
 const isSelf = computed(() => isPostOwner(post, userInfo))
 
@@ -113,7 +138,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
 </script>
 
 <template>
-  <BasicCard class="post-card feed-card" :class="[{ 'post-card--dense': isDense, 'new-post': isNew }]">
+  <BasicCard class="feed-card post-card" :class="[{ 'post-card--dense': isDense, 'new-post': isNew }]">
     <div v-if="isDense && isSelf" class="post-card__dense-toolbar">
       <UserButton
         class="post-card__toolbar"
@@ -153,11 +178,18 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
         </h3>
       </div>
       <p v-show="!isDense" class="post-card__excerpt">
-        {{ post.Content.slice(0, 15) || 'loading' }}
+        {{ excerptText }}
       </p>
-      <template v-if="post.Photos">
-        <OldImages :photos="post.Photos" />
-      </template>
+      <div v-if="!isDense && previewImages.length" class="post-card__image-grid" :class="`post-card__image-grid--${Math.min(previewImages.length, 9)}`">
+        <img
+          v-for="(img, i) in previewImages"
+          :key="i"
+          :src="img"
+          loading="lazy"
+          class="post-card__image-item"
+          alt=""
+        >
+      </div>
     </RouterLink>
     <div class="extension-slot">
       <slot name="center-extension" />
@@ -194,15 +226,22 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
   margin-bottom: 4px;
 
   :deep(.user) {
+    --userImage: 28px;
     flex: 1;
     min-width: 0;
     width: auto;
     height: auto;
-    min-height: var(--userImage, 50px);
+    min-height: var(--userImage);
+    font-size: 0.8125rem;
   }
 
   :deep(.user__cluster) {
     align-items: center;
+    gap: 6px;
+  }
+
+  :deep(.user-name) {
+    font-size: 0.8125rem;
   }
 }
 
@@ -226,57 +265,97 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
   align-items: center;
   margin-bottom: 4px;
   padding: 2px 7px;
-  border-radius: 6px;
-  background: var(--chat-accent-soft);
-  color: var(--chat-accent);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 600;
 }
 
 .post-card__title {
   margin: 0 0 4px;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.35;
-  color: var(--chat-text);
+  color: var(--color-text);
 }
 
 .post-card__excerpt {
   margin: 0 0 6px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--chat-text-secondary);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
-.post-card__excerpt::after {
-  content: '...';
+/* 九宫格图片预览 */
+.post-card__image-grid {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 6px;
+  width: 100%;
+}
+
+/* 1 张：大图 */
+.post-card__image-grid--1 {
+  grid-template-columns: 1fr;
+  max-width: 60%;
+
+  .post-card__image-item {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/* 2-3 张：一行 */
+.post-card__image-grid--2,
+.post-card__image-grid--3 {
+  grid-template-columns: repeat(var(--cols), 1fr);
+}
+
+.post-card__image-grid--2 { --cols: 2; }
+.post-card__image-grid--3 { --cols: 3; }
+
+/* 4 张：2x2 */
+.post-card__image-grid--4 {
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 70%;
+}
+
+/* 5-6 张：3 列 */
+.post-card__image-grid--5,
+.post-card__image-grid--6 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 7-9 张：3x3 九宫格 */
+.post-card__image-grid--7,
+.post-card__image-grid--8,
+.post-card__image-grid--9 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 非 1 张时，正方形 */
+.post-card__image-grid:not(.post-card__image-grid--1) .post-card__image-item {
+  aspect-ratio: 1 / 1;
+}
+
+.post-card__image-item {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-sm, 4px);
+  display: block;
 }
 
 .post-card--dense .post-card__title-wrap {
   margin-top: 0;
 }
 
-/* 新帖子角标 */
-.new-post {
-  position: relative;
-}
-
-.new-post::before {
-  content: 'NEW';
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  left: auto;
-  transform: none;
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  z-index: 10;
-  opacity: 0.95;
-}
-
 .extension-slot {
   position: relative;
 }
-
 </style>

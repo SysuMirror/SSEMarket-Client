@@ -2,21 +2,21 @@
 <script setup lang="ts">
 import type { Tag } from '@/api/info/getTeacher'
 
+import type { LotteryMode, LotteryPrizeInput } from '@/api/lottery/lottery'
 import { Icon } from '@iconify/vue'
 import { onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import type { LotteryMode, LotteryPrizeInput } from '@/api/lottery/lottery'
 
 import { sendPost } from '@/api/editPostAndComment/editPost'
-import { createLotteryPost } from '@/api/lottery/lottery'
-
 import { getTeachers } from '@/api/info/getTeacher'
-import MarkdownEditor from '@/components/MarkdownEditor.vue'
+
+import { createLotteryPost } from '@/api/lottery/lottery'
 import LotteryConfigPanel from '@/components/LotteryConfigPanel.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { showMsg } from '@/components/MessageBox'
 import { useDraft } from '@/composables/useDraft'
-import { POST_PARTITION_OPTIONS } from '@/constants/partitions'
 import { isPostContentTooLong, POST_CONTENT_MAX_RUNES } from '@/constants/contentLimits'
+import { POST_PARTITION_OPTIONS } from '@/constants/partitions'
 import { useUserStore } from '@/store/userStore'
 
 const router = useRouter()
@@ -141,7 +141,7 @@ async function submitPost() {
   submitting.value = true
   try {
     if (postKind.value === 'lottery') {
-      const drawAt = lotteryDrawAt.value.replace('T', ' ') + ':00'
+      const drawAt = `${lotteryDrawAt.value.replace('T', ' ')}:00`
       const { ok, msg, postID } = await createLotteryPost({
         title: postTitle,
         content,
@@ -507,7 +507,9 @@ onUnmounted(() => {
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 
   &:hover:not(:disabled) {
     opacity: 0.92;
@@ -589,7 +591,9 @@ onUnmounted(() => {
   border: 1px solid var(--chat-border);
   border-radius: 10px;
   box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 
   &:focus {
     outline: none;
@@ -915,7 +919,9 @@ onUnmounted(() => {
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 
   &--active {
     background: var(--chat-bg-highlight);

@@ -85,10 +85,16 @@ async function like(e: Event) {
   display: flex;
   align-items: stretch;
   gap: 0;
-  background: var(--hp-card, #fff);
-  border: 1px solid var(--hp-border, #e8eaed);
-  border-radius: 8px;
+  background: var(--color-card, #fff);
+  border: none;
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--color-card-shadow);
   overflow: hidden;
+  transition: box-shadow 0.15s ease;
+
+  &:hover {
+    box-shadow: var(--color-card-hover-shadow);
+  }
 }
 
 .hp-rating-card__main {
@@ -115,9 +121,9 @@ async function like(e: Event) {
   padding: 1px 6px 1px 4px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--chat-accent);
-  background: var(--chat-accent-soft, #fff5eb);
-  border-radius: 4px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm, 4px);
   text-decoration: none;
 
   &:hover {
@@ -130,7 +136,7 @@ async function like(e: Event) {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
-  color: var(--hp-text, #1a1a1a);
+  color: var(--color-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -144,7 +150,7 @@ async function like(e: Event) {
   gap: 2px;
   margin-top: 3px;
   font-size: 11px;
-  color: var(--hp-muted, #8a9199);
+  color: var(--color-text-secondary);
 }
 
 .hp-rating-card__dot {
@@ -159,9 +165,9 @@ async function like(e: Event) {
   min-width: 44px;
   height: 44px;
   padding: 0 6px;
-  border-radius: 6px;
-  background: var(--hp-score-bg);
-  color: var(--hp-score-fg);
+  border-radius: var(--radius-md, 8px);
+  background: var(--accent);
+  color: var(--color-button, #fff);
 }
 
 .hp-rating-card__score-num {
@@ -181,20 +187,14 @@ async function like(e: Event) {
   width: 40px;
   padding: 0 4px;
   border: none;
-  border-left: 1px solid var(--hp-border, #e8eaed);
+  border-left: 1px solid var(--color-border);
   background: transparent;
   font-size: 10px;
-  color: var(--hp-muted, #8a9199);
+  color: var(--color-text-secondary);
   cursor: pointer;
 
   &--on {
-    color: #e53935;
-  }
-}
-
-@media screen and (min-width: 769px) {
-  .hp-rating-card:hover {
-    border-color: var(--chat-accent);
+    color: var(--color-error, #ef4444);
   }
 }
 </style>

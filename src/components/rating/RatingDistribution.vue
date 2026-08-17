@@ -138,7 +138,9 @@ const starRows = computed(() =>
   line-height: 1;
   color: var(--chat-border-strong, #ddd);
   cursor: pointer;
-  transition: transform 0.1s ease, color 0.1s ease;
+  transition:
+    transform 0.1s ease,
+    color 0.1s ease;
 
   &--on {
     color: var(--chat-accent);

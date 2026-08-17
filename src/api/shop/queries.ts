@@ -17,7 +17,7 @@ function normalizeProduct(raw: Record<string, unknown>): ShopProduct {
   }
 }
 
-export type GetShopProductsOptions = {
+export interface GetShopProductsOptions {
   searchsort: ShopBrowseSort
   searchinfo?: string
   limit?: number

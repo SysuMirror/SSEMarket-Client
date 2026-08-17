@@ -238,9 +238,10 @@ async function submitComment() {
 
 <style scoped lang="scss">
 .rating-detail-card {
-  border: 1px solid var(--hp-border, var(--chat-border));
-  border-radius: 10px;
-  background: var(--hp-card, var(--chat-bg-elevated));
+  border: none;
+  border-radius: var(--radius-lg, 8px);
+  background: var(--color-card, #fff);
+  box-shadow: var(--color-card-shadow);
   overflow: hidden;
 }
 
@@ -250,7 +251,7 @@ async function submitComment() {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--hp-border, var(--chat-border));
+  border-bottom: 1px solid var(--color-border);
 }
 
 .rd-card__author {
@@ -271,7 +272,7 @@ async function submitComment() {
 .rd-card__author-name {
   font-size: 13px;
   font-weight: 700;
-  color: var(--hp-text, var(--chat-text));
+  color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -279,7 +280,7 @@ async function submitComment() {
 
 .rd-card__time {
   font-size: 11px;
-  color: var(--hp-muted, var(--chat-text-secondary));
+  color: var(--color-text-secondary);
 }
 
 .rd-card__actions {
@@ -293,22 +294,22 @@ async function submitComment() {
   align-items: center;
   gap: 3px;
   padding: 6px 8px;
-  border: 1px solid var(--hp-border, var(--chat-border));
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
   background: transparent;
   font-size: 12px;
-  color: var(--hp-muted, var(--chat-text-secondary));
+  color: var(--color-text-secondary);
   cursor: pointer;
 
   &--like-on {
-    color: #e53935;
-    border-color: rgba(229, 57, 53, 0.35);
-    background: rgba(229, 57, 53, 0.06);
+    color: var(--color-error, #ef4444);
+    border-color: var(--color-error-soft, rgba(239, 68, 68, 0.2));
+    background: var(--color-error-soft, rgba(239, 68, 68, 0.06));
   }
 
   &--danger {
-    color: #c62828;
-    border-color: rgba(198, 40, 40, 0.25);
+    color: var(--color-error, #ef4444);
+    border-color: var(--color-error-soft, rgba(239, 68, 68, 0.2));
   }
 }
 
@@ -320,9 +321,9 @@ async function submitComment() {
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--chat-accent);
-  background: var(--chat-accent-soft, #fff5eb);
-  border-radius: 6px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm, 4px);
   text-decoration: none;
   width: fit-content;
   max-width: calc(100% - 24px);
@@ -343,7 +344,7 @@ async function submitComment() {
   font-size: 17px;
   font-weight: 800;
   line-height: 1.35;
-  color: var(--hp-text, var(--chat-text));
+  color: var(--color-text);
 }
 
 .rd-card__stats {
@@ -352,7 +353,7 @@ async function submitComment() {
   gap: 10px;
   margin: 0 12px 8px;
   font-size: 11px;
-  color: var(--hp-muted, var(--chat-text-secondary));
+  color: var(--color-text-secondary);
 
   span {
     display: inline-flex;
@@ -373,7 +374,7 @@ async function submitComment() {
 
 .rd-card__foot {
   padding: 8px 12px;
-  border-top: 1px solid var(--hp-border, var(--chat-border));
+  border-top: 1px solid var(--color-border);
 }
 
 .rd-card__compose-toggle {
@@ -382,21 +383,21 @@ async function submitComment() {
   gap: 6px;
   padding: 7px 12px;
   border: none;
-  border-radius: 8px;
-  background: var(--chat-accent-soft, #fff5eb);
-  color: var(--chat-accent);
+  border-radius: var(--radius-md, 8px);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 
   &--open {
-    background: var(--chat-accent);
-    color: var(--chat-unread-text);
+    background: var(--accent);
+    color: var(--color-button, #fff);
   }
 }
 
 .rd-card__compose {
   padding: 0 10px 10px;
-  border-top: 1px dashed var(--hp-border, var(--chat-border));
+  border-top: 1px dashed var(--color-border);
 }
 </style>

@@ -807,12 +807,7 @@ onMounted(() => {
 .ranking-page__podium-skeleton-card {
   height: 120px;
   border-radius: var(--rank-card-radius);
-  background: linear-gradient(
-    90deg,
-    var(--chat-bg-main) 0%,
-    rgba(0, 0, 0, 0.04) 50%,
-    var(--chat-bg-main) 100%
-  );
+  background: linear-gradient(90deg, var(--chat-bg-main) 0%, rgba(0, 0, 0, 0.04) 50%, var(--chat-bg-main) 100%);
   background-size: 200% 100%;
   animation: rank-shimmer 1.2s ease-in-out infinite;
 
@@ -835,12 +830,7 @@ onMounted(() => {
 .ranking-page__row-skeleton {
   height: 64px;
   border-radius: 14px;
-  background: linear-gradient(
-    90deg,
-    var(--chat-bg-main) 0%,
-    rgba(0, 0, 0, 0.04) 50%,
-    var(--chat-bg-main) 100%
-  );
+  background: linear-gradient(90deg, var(--chat-bg-main) 0%, rgba(0, 0, 0, 0.04) 50%, var(--chat-bg-main) 100%);
   background-size: 200% 100%;
   animation: rank-shimmer 1.2s ease-in-out infinite;
 }

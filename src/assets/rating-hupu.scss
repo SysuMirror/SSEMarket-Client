@@ -1,18 +1,18 @@
-/* 打分专区 — 布局变量，颜色跟随站点主色 --chat-accent */
+/* 打分专区 — 布局变量，统一映射到 --color-* 体系 */
 
 .rating-zone,
 .rating-page {
-  --hp-primary: var(--chat-accent);
-  --hp-primary-soft: var(--chat-accent-soft);
-  --hp-bg: var(--chat-bg-main);
-  --hp-card: var(--chat-bg-elevated);
-  --hp-text: var(--chat-text);
-  --hp-muted: var(--chat-text-secondary);
-  --hp-border: var(--chat-border);
-  --hp-bar-bg: var(--chat-bg-main);
-  --hp-score-bg: var(--chat-accent);
-  --hp-score-fg: var(--chat-unread-text);
-  --hp-score-shadow: var(--chat-accent-soft);
+  --hp-primary: var(--accent);
+  --hp-primary-soft: var(--accent-soft);
+  --hp-bg: var(--color-bg);
+  --hp-card: var(--color-card);
+  --hp-text: var(--color-text);
+  --hp-muted: var(--color-text-secondary);
+  --hp-border: var(--color-border);
+  --hp-bar-bg: var(--color-bg);
+  --hp-score-bg: var(--accent);
+  --hp-score-fg: var(--color-button, #fff);
+  --hp-score-shadow: var(--accent-soft);
 }
 
 .rating-page {

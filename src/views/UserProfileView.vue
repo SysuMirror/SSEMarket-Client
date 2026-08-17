@@ -9,7 +9,7 @@ import { getInfoById, normalizeAllInfo } from '@/api/info/getInfo'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { useUserStore } from '@/store/userStore'
-import { levelClassHandler, levelNameHandler } from '@/utils/level'
+import { levelClassHandler, levelExpHandler, levelNameHandler } from '@/utils/level'
 import { setWindowScrollY } from '@/utils/windowScroll'
 
 const PAGE_SIZE = 15
@@ -47,6 +47,19 @@ const levelLabel = computed(() => {
   return levelNameHandler(user.value.score)
 })
 
+const isSelf = computed(() => userInfo.userID === user.value?.userID)
+
+const expTarget = computed(() => {
+  const s = user.value?.score ?? 0
+  const n = Number.parseInt(levelExpHandler(s), 10)
+  return Number.isFinite(n) && n > 0 ? n : 1
+})
+
+const expPercent = computed(() => {
+  const s = user.value?.score ?? 0
+  return Math.min(100, Math.round((s / expTarget.value) * 1000) / 10)
+})
+
 const postsEmpty = computed(() => {
   return (
     showPostHistory.value
@@ -57,7 +70,7 @@ const postsEmpty = computed(() => {
 })
 
 const postsSectionTitle = computed(() => {
-  if (userInfo.userID === user.value?.userID)
+  if (isSelf.value)
     return '我的动态'
   return 'TA 的动态'
 })
@@ -152,67 +165,78 @@ function onAvatarError(e: Event) {
 
 <template>
   <div v-if="user" class="profile-page">
-    <header class="profile-page__head">
-      <div class="profile-page__title-row">
-        <Icon icon="tabler:user-circle" class="profile-page__title-icon" width="22" height="22" aria-hidden="true" />
-        <h1 class="profile-page__title">
-          个人主页
-        </h1>
-      </div>
-      <p class="profile-page__subtitle">
-        资料与互动
-      </p>
-    </header>
+    <!-- 企业微信风格：顶部藏青色色块 -->
+    <div class="profile-banner" />
 
-    <!-- 顶部身份区：大头像 + 排版层次，弱化「盒子套盒子」 -->
-    <section class="profile-sheet profile-sheet--hero" aria-label="用户资料">
-      <div class="profile-identity">
-        <div class="profile-identity__avatar-wrap">
-          <img
-            class="profile-identity__avatar"
-            :src="avatarSrc"
-            :alt="user.name || '头像'"
-            loading="lazy"
-            @error="onAvatarError"
-          >
+    <!-- 头像 + 名称区域：半悬浮在 banner 上 -->
+    <div class="profile-avatar-zone">
+      <img
+        class="profile-avatar-zone__img"
+        :src="avatarSrc"
+        :alt="user.name || '头像'"
+        loading="lazy"
+        @error="onAvatarError"
+      >
+      <h1 class="profile-avatar-zone__name">
+        {{ user.name || '未命名用户' }}
+      </h1>
+      <div class="profile-avatar-zone__badges">
+        <span class="profile-badge" :class="levelClassHandler(user.score)">{{ levelLabel }}</span>
+      </div>
+    </div>
+
+    <!-- 操作栏 -->
+    <div v-if="!isSelf" class="profile-actions">
+      <button type="button" class="profile-actions__btn" @click="navigateChat">
+        <Icon icon="tabler:message-circle" width="20" height="20" aria-hidden="true" />
+        <span>发私信</span>
+      </button>
+    </div>
+
+    <!-- 信息卡片：iOS 设置式分组列表 -->
+    <div class="profile-group">
+      <div v-if="user.intro" class="profile-row">
+        <Icon icon="tabler:quote" class="profile-row__icon" width="20" height="20" aria-hidden="true" />
+        <div class="profile-row__body">
+          <p class="profile-row__label">
+            简介
+          </p>
+          <p class="profile-row__value">
+            {{ user.intro }}
+          </p>
         </div>
-        <div class="profile-identity__main">
-          <h2 class="profile-identity__name">
-            {{ user.name || '未命名用户' }}
-          </h2>
-          <div class="profile-identity__chips">
-            <span
-              class="profile-chip"
-              :class="levelClassHandler(user.score)"
-            >{{ levelLabel }}</span>
-            <span class="profile-chip profile-chip--muted">经验 {{ user.score ?? 0 }}</span>
+      </div>
+
+      <div class="profile-row">
+        <Icon icon="tabler:trophy" class="profile-row__icon" width="20" height="20" aria-hidden="true" />
+        <div class="profile-row__body">
+          <p class="profile-row__label">
+            经验值
+          </p>
+          <div class="profile-row__exp">
+            <span class="profile-row__value">{{ user.score ?? 0 }} / {{ expTarget }}</span>
+            <div class="profile-exp-bar">
+              <div class="profile-exp-bar__fill" :style="{ width: `${expPercent}%` }" />
+            </div>
           </div>
         </div>
       </div>
 
-      <button
-        v-if="userInfo.userID !== user.userID"
-        type="button"
-        class="profile-dm profile-dm--full"
-        @click="navigateChat"
-      >
-        <Icon icon="tabler:message-circle" width="18" height="18" aria-hidden="true" />
-        发私信
-      </button>
-    </section>
+      <div class="profile-row">
+        <Icon icon="tabler:id-badge-2" class="profile-row__icon" width="20" height="20" aria-hidden="true" />
+        <div class="profile-row__body">
+          <p class="profile-row__label">
+            UID
+          </p>
+          <p class="profile-row__value">
+            {{ user.userID }}
+          </p>
+        </div>
+      </div>
+    </div>
 
-    <!-- 简介：分组列表式，无图标标题栏 -->
-    <section class="profile-sheet profile-sheet--intro" aria-label="个人简介">
-      <p class="profile-overline">
-        简介
-      </p>
-      <p class="profile-intro-body">
-        {{ user.intro || '暂无简介' }}
-      </p>
-    </section>
-
-    <!-- 动态：单卡片容器 + 内嵌 feed，避免与帖子卡片「双重边框」 -->
-    <section v-if="showPostHistory" class="profile-posts" aria-label="历史发帖">
+    <!-- 动态列表 -->
+    <div v-if="showPostHistory" class="profile-posts">
       <div class="profile-posts__head">
         <h2 class="profile-posts__title">
           {{ postsSectionTitle }}
@@ -220,42 +244,31 @@ function onAvatarError(e: Event) {
         <span v-if="profileTotal > 0" class="profile-posts__count">{{ profileTotal }} 条</span>
       </div>
 
-      <div class="lite-scrollbar profile-feed-wrap">
-        <div v-if="postsEmpty" class="profile-feed-empty">
-          <Icon icon="tabler:notes-off" class="profile-feed-empty__icon" width="44" height="44" aria-hidden="true" />
-          <p class="profile-feed-empty__title">
-            还没有帖子
-          </p>
-          <p class="profile-feed-empty__hint">
-            发布的内容会出现在这里
-          </p>
-        </div>
-        <div v-else class="profile-feed">
-          <PostList
-            :posts="profilePosts"
-            post-type="post"
-            :is-dense="true"
-            :is-loading="profileLoading"
-            :has-more="profileHasMore"
-            @bottom="loadMoreProfilePosts"
-          />
-        </div>
+      <div v-if="postsEmpty" class="profile-empty">
+        <Icon icon="tabler:notes-off" width="36" height="36" aria-hidden="true" />
+        <p>还没有帖子</p>
       </div>
-    </section>
+      <div v-else class="profile-feed">
+        <PostList
+          :posts="profilePosts"
+          post-type="post"
+          :is-dense="true"
+          :is-loading="profileLoading"
+          :has-more="profileHasMore"
+          @bottom="loadMoreProfilePosts"
+        />
+      </div>
+    </div>
 
-    <section
-      v-else
-      class="profile-private"
-      aria-label="发帖记录已隐藏"
-    >
-      <Icon icon="tabler:eye-off" class="profile-private__icon" width="40" height="40" aria-hidden="true" />
-      <p class="profile-private__title">
+    <div v-else class="profile-hidden">
+      <Icon icon="tabler:eye-off" width="32" height="32" aria-hidden="true" />
+      <p class="profile-hidden__title">
         发帖记录已隐藏
       </p>
-      <p class="profile-private__hint">
-        该用户在设置中关闭了个人主页的动态展示
+      <p class="profile-hidden__hint">
+        该用户关闭了动态展示
       </p>
-    </section>
+    </div>
   </div>
 </template>
 
@@ -264,176 +277,170 @@ function onAvatarError(e: Event) {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 0 14px 2rem;
+  padding: 0 0 2rem;
   box-sizing: border-box;
   min-height: 100%;
-  color: var(--chat-text);
-  background: linear-gradient(180deg, var(--chat-accent-soft) 0%, var(--chat-bg-main) 140px, var(--chat-bg-main) 100%);
+  color: var(--color-text);
+  background: var(--color-bg);
 }
 
-.profile-page__head {
-  margin-bottom: 1rem;
-}
-
-.profile-page__title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.profile-page__title-icon {
-  color: var(--chat-accent);
+/* —— 顶部藏青色 banner —— */
+.profile-banner {
+  width: 100%;
+  height: 120px;
+  background: linear-gradient(135deg, var(--accent) 0%, #1e293b 100%);
   flex-shrink: 0;
 }
 
-.profile-page__title {
-  margin: 0;
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--chat-text);
-}
-
-.profile-page__subtitle {
-  margin: 0.35rem 0 0;
-  font-size: 0.875rem;
-  color: var(--chat-text-secondary);
-}
-
-/* 统一「纸张」卡片：大圆角、轻阴影，接近 iOS / 鸿蒙分组质感 */
-.profile-sheet {
-  background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
-  border-radius: 20px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-  margin-bottom: 12px;
-}
-
-.profile-sheet--hero {
-  padding: 20px 18px 18px;
-}
-
-.profile-sheet--intro {
-  padding: 16px 18px 18px;
-}
-
-.profile-identity {
+/* —— 头像区域 —— */
+.profile-avatar-zone {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  margin-top: -48px;
+  padding: 0 16px;
 }
 
-.profile-identity__avatar-wrap {
-  flex-shrink: 0;
-  padding: 3px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--chat-accent-soft), transparent);
-}
-
-.profile-identity__avatar {
-  display: block;
-  width: 76px;
-  height: 76px;
+.profile-avatar-zone__img {
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   object-fit: cover;
-  background: var(--chat-bg-main);
-  border: 2px solid var(--chat-bg-highlight);
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+  border: 4px solid var(--color-card, #fff);
+  background: var(--color-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.profile-identity__main {
+.profile-avatar-zone__name {
+  margin: 12px 0 6px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: center;
+  word-break: break-word;
+}
+
+.profile-avatar-zone__badges {
+  display: flex;
+  gap: 6px;
+}
+
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full, 999px);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* —— 操作栏 —— */
+.profile-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.profile-actions__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 24px;
+  border-radius: var(--radius-md, 8px);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    background: var(--accent-hover);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+/* —— iOS 设置式分组列表 —— */
+.profile-group {
+  background: var(--color-card, #fff);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--color-card-shadow);
+  margin: 0 12px 12px;
+  overflow: hidden;
+}
+
+.profile-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.profile-row__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.profile-row__body {
   min-width: 0;
   flex: 1;
 }
 
-.profile-identity__name {
-  margin: 0 0 8px;
-  font-size: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-  color: var(--chat-text);
-  word-break: break-word;
-}
-
-.profile-identity__chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.profile-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
+.profile-row__label {
+  margin: 0 0 2px;
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
-  background: var(--chat-bg-main);
-  border: 1px solid var(--chat-border);
-  color: var(--chat-text-secondary);
-
-  &--muted {
-    font-weight: 500;
-    color: var(--chat-text-tips);
-    border-style: dashed;
-  }
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
 
-.profile-dm {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 11px 18px;
-  border-radius: 14px;
-  border: 1px solid var(--chat-border-strong);
-  background: var(--chat-bg-main);
-  color: var(--chat-accent);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-
-  &:hover {
-    background: var(--chat-accent-soft);
-    border-color: var(--chat-accent);
-  }
-
-  &:active {
-    transform: scale(0.99);
-  }
-}
-
-.profile-overline {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--chat-text-tips);
-}
-
-.profile-intro-body {
+.profile-row__value {
   margin: 0;
-  font-size: 15px;
-  line-height: 1.65;
-  color: var(--chat-text-secondary);
+  font-size: 14px;
+  color: var(--color-text);
+  line-height: 1.5;
   word-break: break-word;
   white-space: pre-wrap;
 }
 
-/* 动态区块：标题条 + 内容井 */
+.profile-row__exp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-exp-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.profile-exp-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+/* —— 动态列表 —— */
 .profile-posts {
-  margin-top: 4px;
+  padding: 0 12px;
 }
 
 .profile-posts__head {
@@ -441,64 +448,21 @@ function onAvatarError(e: Event) {
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin: 0 4px 10px;
-  padding: 0 2px;
+  padding: 4px 4px 8px;
 }
 
 .profile-posts__title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--chat-text);
-  letter-spacing: 0.01em;
+  color: var(--color-text);
 }
 
 .profile-posts__count {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--chat-text-tips);
-  white-space: nowrap;
+  color: var(--color-text-muted);
 }
 
-.profile-feed-wrap {
-  background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
-  border-radius: 20px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-  padding: 8px 10px 10px;
-  overflow: hidden;
-}
-
-.profile-feed-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2.5rem 1.25rem;
-  text-align: center;
-}
-
-.profile-feed-empty__icon {
-  color: var(--chat-text-tips);
-  opacity: 0.45;
-  margin-bottom: 10px;
-}
-
-.profile-feed-empty__title {
-  margin: 0 0 6px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--chat-text);
-}
-
-.profile-feed-empty__hint {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--chat-text-secondary);
-}
-
-/* 收紧 PostList 外边距，使列表像小红书信息流 */
 .profile-feed {
   :deep(.mx-a) {
     margin-left: 0 !important;
@@ -513,62 +477,69 @@ function onAvatarError(e: Event) {
   }
 
   :deep(.my-2:first-child) {
-    margin-top: 2px !important;
+    margin-top: 0 !important;
   }
 
   :deep(.bottomDiv) {
-    padding: 14px 0 6px;
+    padding: 12px 0 6px;
     font-size: 13px;
-    font-weight: 500;
-    color: var(--chat-text-tips);
+    color: var(--color-text-muted);
   }
 }
 
-.profile-private {
+.profile-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 2.5rem 1rem;
+  color: var(--color-text-muted);
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+/* —— 隐藏动态 —— */
+.profile-hidden {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   padding: 2.5rem 1.5rem;
-  background: var(--chat-bg-highlight);
-  border: 1px dashed var(--chat-border);
-  border-radius: 20px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
+  margin: 0 12px;
+  background: var(--color-card, #fff);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--color-card-shadow);
+  color: var(--color-text-muted);
 
-.profile-private__icon {
-  color: var(--chat-text-tips);
-  opacity: 0.5;
-  margin-bottom: 12px;
-}
+  .profile-hidden__title {
+    margin: 8px 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
 
-.profile-private__title {
-  margin: 0 0 6px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--chat-text);
-}
-
-.profile-private__hint {
-  margin: 0;
-  max-width: 280px;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--chat-text-secondary);
-}
-
-.lite-scrollbar {
-  overflow: visible;
+  .profile-hidden__hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
 }
 
 @media screen and (max-width: 480px) {
-  .profile-identity__name {
-    font-size: 1.25rem;
+  .profile-banner {
+    height: 100px;
   }
 
-  .profile-identity__avatar {
-    width: 68px;
-    height: 68px;
+  .profile-avatar-zone__img {
+    width: 80px;
+    height: 80px;
+  }
+
+  .profile-avatar-zone__name {
+    font-size: 1.125rem;
   }
 }
 </style>

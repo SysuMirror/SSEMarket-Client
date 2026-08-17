@@ -6,11 +6,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { deleteResume } from '@/api/resume/deleteResume'
 import { downloadResume } from '@/api/resume/downloadResume'
 import { getResumeDetail } from '@/api/resume/getResumeDetail'
-import { updateResume } from '@/api/resume/updateResume'
 import { isResumeImageExt, isWeChatBrowser } from '@/api/resume/previewResume'
+import { updateResume } from '@/api/resume/updateResume'
+import { showMsg } from '@/components/MessageBox'
 import ResumeImagePreview from '@/components/ResumeImagePreview.vue'
 import ResumePdfPreview from '@/components/ResumePdfPreview.vue'
-import { showMsg } from '@/components/MessageBox'
 
 defineOptions({ name: 'ResumeDetailView' })
 
@@ -376,8 +376,8 @@ watch(() => route.params.id, () => {
             <p>{{ previewIdleHint }}</p>
             <span v-if="inWeChat">页内展示，不会自动下载</span>
           </div>
-          <ResumePdfPreview v-else-if="isPdf" :resumeID="resume.resumeID" />
-          <ResumeImagePreview v-else-if="isImage" :resumeID="resume.resumeID" />
+          <ResumePdfPreview v-else-if="isPdf" :resume-i-d="resume.resumeID" />
+          <ResumeImagePreview v-else-if="isImage" :resume-i-d="resume.resumeID" />
         </div>
         <div v-else class="fr__preview-empty fr__preview-empty--doc">
           <Icon icon="tabler:file-type-doc" width="32" height="32" />
@@ -665,7 +665,9 @@ watch(() => route.params.id, () => {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
 
   &--primary {
     flex: 1;

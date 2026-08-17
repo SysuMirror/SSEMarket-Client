@@ -1,18 +1,18 @@
 <script setup lang="ts">
+import type { LotteryDetail } from '@/api/lottery/lottery'
 import type { Comment } from '@/types/comment'
-import type { Post } from '@/types/post'
 
+import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { LotteryDetail } from '@/api/lottery/lottery'
 
 import { getCommentsByPostID } from '@/api/browse/getComment'
 import { getPostByID } from '@/api/browse/getPost'
 import { getLotteryDetail } from '@/api/lottery/lottery'
-import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
-import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import DetailCard from '@/components/card/DetailCard.vue'
+import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import { showImg } from '@/components/ImageShower'
+import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
 import { showMsg } from '@/components/MessageBox'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { usePostStore } from '@/store/postStore'
@@ -217,5 +217,4 @@ onMounted(async () => {
   color: var(--hp-muted, #8a9199);
   font-weight: 500;
 }
-
 </style>

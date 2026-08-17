@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getResumes } from '@/api/resume/getResumes'
 import ResumeCard from '@/components/card/ResumeCard.vue'
+
 defineOptions({ name: 'ResumeView' })
 
 const router = useRouter()
@@ -118,7 +119,6 @@ watch(() => route.path, (path) => {
         @view-detail="goDetail"
       />
     </div>
-
   </div>
 </template>
 

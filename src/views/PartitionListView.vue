@@ -127,43 +127,63 @@ function sendPartition(p: string) {
 
 .picker-card__media--study {
   background: rgba(13, 148, 136, 0.1);
-  .picker-card__icon { color: #0d9488; }
+  .picker-card__icon {
+    color: #0d9488;
+  }
 }
 .picker-card__media--daily-life {
   background: rgba(219, 39, 119, 0.1);
-  .picker-card__icon { color: #db2777; }
+  .picker-card__icon {
+    color: #db2777;
+  }
 }
 .picker-card__media--club {
   background: rgba(139, 92, 246, 0.1);
-  .picker-card__icon { color: #8b5cf6; }
+  .picker-card__icon {
+    color: #8b5cf6;
+  }
 }
 .picker-card__media--internship {
   background: rgba(29, 78, 216, 0.1);
-  .picker-card__icon { color: #1d4ed8; }
+  .picker-card__icon {
+    color: #1d4ed8;
+  }
 }
 .picker-card__media--materials {
   background: rgba(202, 138, 4, 0.1);
-  .picker-card__icon { color: #ca8a04; }
+  .picker-card__icon {
+    color: #ca8a04;
+  }
 }
 .picker-card__media--dormitory {
   background: rgba(5, 150, 105, 0.1);
-  .picker-card__icon { color: #059669; }
+  .picker-card__icon {
+    color: #059669;
+  }
 }
 .picker-card__media--tech {
   background: rgba(37, 99, 235, 0.1);
-  .picker-card__icon { color: #2563eb; }
+  .picker-card__icon {
+    color: #2563eb;
+  }
 }
 .picker-card__media--course {
   background: rgba(234, 88, 12, 0.1);
-  .picker-card__icon { color: #ea580c; }
+  .picker-card__icon {
+    color: #ea580c;
+  }
 }
 .picker-card__media--team-up {
   background: rgba(249, 115, 22, 0.1);
-  .picker-card__icon { color: #f97316; }
+  .picker-card__icon {
+    color: #f97316;
+  }
 }
 .picker-card__media--misc {
   background: rgba(120, 113, 108, 0.1);
-  .picker-card__icon { color: #78716c; }
+  .picker-card__icon {
+    color: #78716c;
+  }
 }
 
 .picker-card__body {
@@ -229,14 +249,34 @@ body.dark-mode .picker-card__desc {
   color: var(--chat-text-secondary, #94a3b8);
 }
 
-body.dark-mode .picker-card__media--study .picker-card__icon { color: #5eead4; }
-body.dark-mode .picker-card__media--daily-life .picker-card__icon { color: #f9a8d4; }
-body.dark-mode .picker-card__media--club .picker-card__icon { color: #c4b5fd; }
-body.dark-mode .picker-card__media--internship .picker-card__icon { color: #93c5fd; }
-body.dark-mode .picker-card__media--materials .picker-card__icon { color: #fcd34d; }
-body.dark-mode .picker-card__media--dormitory .picker-card__icon { color: #34d399; }
-body.dark-mode .picker-card__media--tech .picker-card__icon { color: #93c5fd; }
-body.dark-mode .picker-card__media--course .picker-card__icon { color: #fdba74; }
-body.dark-mode .picker-card__media--team-up .picker-card__icon { color: #fdba74; }
-body.dark-mode .picker-card__media--misc .picker-card__icon { color: #a8a29e; }
+body.dark-mode .picker-card__media--study .picker-card__icon {
+  color: #5eead4;
+}
+body.dark-mode .picker-card__media--daily-life .picker-card__icon {
+  color: #f9a8d4;
+}
+body.dark-mode .picker-card__media--club .picker-card__icon {
+  color: #c4b5fd;
+}
+body.dark-mode .picker-card__media--internship .picker-card__icon {
+  color: #93c5fd;
+}
+body.dark-mode .picker-card__media--materials .picker-card__icon {
+  color: #fcd34d;
+}
+body.dark-mode .picker-card__media--dormitory .picker-card__icon {
+  color: #34d399;
+}
+body.dark-mode .picker-card__media--tech .picker-card__icon {
+  color: #93c5fd;
+}
+body.dark-mode .picker-card__media--course .picker-card__icon {
+  color: #fdba74;
+}
+body.dark-mode .picker-card__media--team-up .picker-card__icon {
+  color: #fdba74;
+}
+body.dark-mode .picker-card__media--misc .picker-card__icon {
+  color: #a8a29e;
+}
 </style>

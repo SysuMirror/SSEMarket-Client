@@ -3,7 +3,7 @@ import type { RatingCategory, RatingPostItem } from '@/api/rating/types'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getRatingCategories, getRatingPostCount, getRatingPosts } from '@/api/rating'
+import { getRatingCategories, getRatingPosts } from '@/api/rating'
 import RatingCard from '@/components/rating/RatingCard.vue'
 import { ratingZonePath } from '@/utils/ratingRoute'
 
@@ -109,7 +109,7 @@ watch(() => route.query.category, async () => {
 </script>
 
 <template>
-  <div class="rating-page rating-zone">
+  <div class="rating-zone rating-page">
     <header class="rating-page__top">
       <div class="rating-page__brand">
         <Icon icon="tabler:flame" width="20" height="20" aria-hidden="true" />

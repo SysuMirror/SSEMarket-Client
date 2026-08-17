@@ -132,12 +132,7 @@ watch(() => route.query.refresh, async (newRefresh) => {
 <template>
   <div class="home-page">
     <header class="home-page__toolbar" aria-label="主页与排序">
-      <div class="home-page__title-row">
-        <Icon icon="tabler:home" class="home-page__title-icon" width="20" height="20" aria-hidden="true" />
-        <h1 class="home-page__title">
-          主页
-        </h1>
-      </div>
+      <h1 class="home-page__title">主页</h1>
       <div class="home-page__sort" role="group" aria-label="帖子排序">
         <button
           v-for="opt in sortOptions"
@@ -147,7 +142,6 @@ watch(() => route.query.refresh, async (newRefresh) => {
           :class="{ 'home-page__sort-btn--active': sortField === opt.field }"
           @click="applySort(opt.field)"
         >
-          <Icon :icon="opt.icon" width="14" height="14" aria-hidden="true" />
           <span>{{ opt.label }}</span>
           <Icon
             v-if="sortField === opt.field"
@@ -176,13 +170,9 @@ watch(() => route.query.refresh, async (newRefresh) => {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px 12px 1rem;
+  padding: 0;
   box-sizing: border-box;
-  color: var(--chat-text);
-  background: var(--chat-bg-elevated);
-  border: 1px solid var(--chat-border);
-  border-radius: 18px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  color: var(--color-text);
 }
 
 .home-page__toolbar {
@@ -190,68 +180,49 @@ watch(() => route.query.refresh, async (newRefresh) => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
-  padding: 0 2px;
-}
-
-.home-page__title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-shrink: 0;
-  min-height: 28px;
-}
-
-.home-page__title-icon {
-  color: var(--chat-accent);
-  flex-shrink: 0;
+  padding: 8px 14px;
+  background: transparent;
 }
 
 .home-page__title {
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--chat-text);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+  flex-shrink: 0;
 }
 
 .home-page__sort {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 2px 8px;
-  flex: 1 1 auto;
-  min-width: 0;
+  gap: 12px;
 }
 
 .home-page__sort-btn {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
+  gap: 2px;
+  padding: 2px 0;
+  font-size: 13px;
+  font-weight: 400;
   font-family: inherit;
-  color: var(--chat-text-secondary);
+  color: var(--color-text-secondary);
   background: transparent;
   border: none;
-  border-radius: 0;
   cursor: pointer;
   transition: color 0.15s ease;
 
   &:hover {
-    color: var(--chat-text);
+    color: var(--color-text);
   }
 
   &--active {
-    color: var(--chat-accent);
+    color: var(--color-text);
     font-weight: 600;
   }
 }
 
 .home-page__sort-dir {
-  opacity: 0.85;
+  opacity: 0.7;
 }
 </style>

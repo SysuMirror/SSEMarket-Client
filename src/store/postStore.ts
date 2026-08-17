@@ -8,13 +8,13 @@ import { CONTENT_PARTITIONS } from '@/constants/partitions'
 export const Partitions = ['主页', '收藏', '历史', ...CONTENT_PARTITIONS.map(p => p.name)] as const
 export const SearchSort = ['home', 'save', 'history'] as const
 
-export type HomeOrderBy =
-  | 'time_desc'
-  | 'time_asc'
-  | 'like_desc'
-  | 'like_asc'
-  | 'comment_desc'
-  | 'comment_asc'
+export type HomeOrderBy
+  = | 'time_desc'
+    | 'time_asc'
+    | 'like_desc'
+    | 'like_asc'
+    | 'comment_desc'
+    | 'comment_asc'
 
 export interface Condition {
   limit: number

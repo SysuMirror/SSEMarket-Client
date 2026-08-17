@@ -7,19 +7,23 @@
 ## 1. 背景与目标
 
 ### 1.1 当前状况
+
 移动端底部导航为 6 项：主页 / 消息 / 排行榜 / 小秋 / 简历 / 我的(下拉)。在窄屏（如 iPhone SE）上图标拥挤、文字截断，与企业微信风格差距明显。
 
 ### 1.2 目标
+
 参考企业微信，将底部导航压缩为 5 项，中间放凸起的"+ 发帖"按钮；将排行榜、小秋、简历、商城、所有专区以及 iWiki 统一收纳到新建的"工作台"页面。
 
 ## 2. 范围与非目标
 
 ### 2.1 范围
+
 - 新建工作台视图 `src/views/WorkbenchView.vue` 与路由 `/workbench`
 - 改造 `src/components/BottomNavbar.vue`（仅移动端布局，PC 端分支不动）
 - 移除底部导航的"排行榜/小秋/简历"三项
 
 ### 2.2 非目标（明确不动）
+
 - PC 端顶部 `PcHeader.vue` / `PwaPcHeader.vue` 不动
 - 移动端 `MobileHeader.vue` 的搜索框与右侧发帖按钮不动；仅替换左侧入口图标（详见 3.5）
 - 主页顶部分区横条 `src/components/PartitionList.vue` 保留不动
@@ -31,18 +35,20 @@
 
 ### 3.1 底部导航新结构（移动端 ≤768px）
 
-| 位置 | 1 | 2 | 3(中间) | 4 | 5 |
-|---|---|---|---|---|---|
-| 入口 | 主页 | 消息 | **+ 发帖** | 工作台 | 我的(下拉) |
-| 路由 | `/` | `/messages` | `/post` | `/workbench` ⭐新 | (下拉不变) |
+| 位置 | 1    | 2           | 3(中间)    | 4                 | 5          |
+| ---- | ---- | ----------- | ---------- | ----------------- | ---------- |
+| 入口 | 主页 | 消息        | **+ 发帖** | 工作台            | 我的(下拉) |
+| 路由 | `/`  | `/messages` | `/post`    | `/workbench` ⭐新 | (下拉不变) |
 
 #### 3.1.1 中间"+ 发帖"按钮样式
+
 - 圆形凸起按钮，垂直突出于底部导航条上方约 6-8px
 - 复用现有图片资源 `https://ssemarket.cn/new/webp/sendPostButton.webp` 作为按钮视觉内容
 - 直径约 44px，背景使用 `--chat-accent` 或品牌色，确保深色模式下可见
 - 不引入新依赖、不新增图片资源
 
 #### 3.1.2 移除项去向
+
 - 排行榜 → 工作台常用组第 1 格
 - 小秋 → 工作台常用组第 2 格
 - 简历 → 工作台常用组第 3 格
@@ -51,6 +57,7 @@
 ### 3.2 工作台页面 `WorkbenchView.vue`
 
 #### 3.2.1 路由
+
 ```ts
 // src/router/index.ts，DefaultLayout children 内新增
 {
@@ -95,18 +102,19 @@
 
 **常用组**（硬编码 6 项）：
 
-| 入口 | 跳转 | 图标 |
-|---|---|---|
-| 排行榜 | `/ranking` | `tabler:trophy` |
-| 小秋 | `/smart-xiaoqiu` | `tabler:sparkles` |
-| 简历 | `/resume` | `tabler:file-cv` |
-| 商城 | `/shop` | `tabler:shopping-bag` |
-| iWiki | 外链 `https://ssemarket.cn/iwiki/`（新窗口打开） | `tabler:book-2` |
-| 课程专区 | `/course` | `tabler:book` |
+| 入口     | 跳转                                             | 图标                  |
+| -------- | ------------------------------------------------ | --------------------- |
+| 排行榜   | `/ranking`                                       | `tabler:trophy`       |
+| 小秋     | `/smart-xiaoqiu`                                 | `tabler:sparkles`     |
+| 简历     | `/resume`                                        | `tabler:file-cv`      |
+| 商城     | `/shop`                                          | `tabler:shopping-bag` |
+| iWiki    | 外链 `https://ssemarket.cn/iwiki/`（新窗口打开） | `tabler:book-2`       |
+| 课程专区 | `/course`                                        | `tabler:book`         |
 
 **全部分区组**：直接复用 `CONTENT_PARTITIONS` 数组渲染，每格点击跳转 `/partition/{encodeURIComponent(name)}`。
 
 #### 3.2.4 视觉规范
+
 - 卡片样式与 `PartitionListView.vue` 保持一致（圆角 12px、边框、悬停效果）
 - 图标语义色复用现有 token：排行榜 `#eab308`、小秋 `#7c3aed`、简历 `#0d9488`、商城 `#059669`、iWiki 使用 `#6366f1`（与分区条"全部"入口同色）
 - 深色模式色值复用 `body.dark-mode` 现有覆写规则
@@ -116,12 +124,15 @@
 ### 3.3 BottomNavbar 改动详情
 
 #### 3.3.1 script 部分
+
 - 移除 `isRanking`、`isSmartXiaoQiu`、`isResume` 三个 computed
 - 新增 `isWorkbench` computed：`path.value === '/workbench'`
 - `isMySection` 数组保持不变
 
 #### 3.3.2 template 部分
+
 新模板顺序（移除 3 个 RouterLink，新增 2 个）：
+
 1. 主页（不变）
 2. 消息（不变）
 3. **新增**：发帖 RouterLink，`to="/post"`，class 含 `bottom-nav__item--post`，内部为凸起圆形按钮
@@ -129,12 +140,14 @@
 5. 我的（不变）
 
 #### 3.3.3 style 部分
+
 - 新增 `.bottom-nav__item--post` 样式：圆形凸起按钮，margin-top 负值使其突出
 - 移除 `.bottom-nav__icon--ranking/--xiaoqiu/--resume` 三组色值（不再被引用）
 - 新增 `.bottom-nav__icon--workbench` 色值 `#6366f1`（亮色）/ `#a5b4fc`（深色）
 - 中间按钮的图片背景复用 `sendPostButton.webp`
 
 ### 3.4 主布局 `DefaultLayout.vue` 影响
+
 - 无需改动：BottomNavbar 仍是异步组件，主区域 padding-bottom 仍按 `--layout-bottom-nav-h` 计算
 - 工作台路由属于 DefaultLayout children，自动继承顶栏+底部导航
 
@@ -149,15 +162,18 @@
 - 课程专区入口迁移到工作台常用组（跳转 `/course`，行为与原 MobileHeader 一致）
 
 ## 4. 数据流与状态
+
 - 工作台页面是纯静态入口页，无自身状态
 - 不影响 `useChat`、`useNoticeStore`、`useNewPostsStore` 等现有 store
 - 路由跳转使用标准 `RouterLink`，无需新增 composable
 
 ## 5. 错误处理
+
 - 工作台路由无需鉴权（沿用 DefaultLayout 的全局 beforeEach）
 - iWiki 外链使用 `<a target="_blank" rel="noopener noreferrer">`，避免 tabnabbing
 
 ## 6. 测试策略
+
 1. **手动验证**（Vite dev server，浏览器响应式模式）
    - iPhone SE (375px)：底部 5 项不挤、"+"按钮凸起、文字不截断
    - iPad (768px)：切换到 PC 布局，确认 PC 端 PcHeader 不受影响
@@ -173,17 +189,17 @@
 
 ## 7. 影响文件清单
 
-| 文件 | 改动类型 | 说明 |
-|---|---|---|
-| `src/views/WorkbenchView.vue` | 新建 | 工作台页面 |
-| `src/router/index.ts` | 修改 | 加 1 条 `/workbench` 路由 |
-| `src/components/BottomNavbar.vue` | 修改 | 替换 3 项为"+发帖/工作台" |
-| `src/components/MobileHeader.vue` | 修改 | 左侧课程图标替换为小秋入口（搜索框/发帖按钮不动） |
-| `src/assets/main.css` | 可能修改 | 如需补充底部"+"凸起按钮全局样式 |
-| `src/components/PcHeader.vue` | 不动 | — |
-| `src/components/PwaPcHeader.vue` | 不动 | — |
-| `src/components/PartitionList.vue` | 不动 | — |
-| `src/layouts/DefaultLayout.vue` | 不动 | — |
+| 文件                               | 改动类型 | 说明                                              |
+| ---------------------------------- | -------- | ------------------------------------------------- |
+| `src/views/WorkbenchView.vue`      | 新建     | 工作台页面                                        |
+| `src/router/index.ts`              | 修改     | 加 1 条 `/workbench` 路由                         |
+| `src/components/BottomNavbar.vue`  | 修改     | 替换 3 项为"+发帖/工作台"                         |
+| `src/components/MobileHeader.vue`  | 修改     | 左侧课程图标替换为小秋入口（搜索框/发帖按钮不动） |
+| `src/assets/main.css`              | 可能修改 | 如需补充底部"+"凸起按钮全局样式                   |
+| `src/components/PcHeader.vue`      | 不动     | —                                                 |
+| `src/components/PwaPcHeader.vue`   | 不动     | —                                                 |
+| `src/components/PartitionList.vue` | 不动     | —                                                 |
+| `src/layouts/DefaultLayout.vue`    | 不动     | —                                                 |
 
 ## 8. 验收标准
 
@@ -200,5 +216,6 @@
 - [ ] `pnpm dev` 无报错，`pnpm type-check` 无新增类型错误
 
 ## 9. 风险与回滚
+
 - **风险低**：仅移动端布局调整，PC 端无影响
 - **回滚**：删除 `WorkbenchView.vue`、还原 `BottomNavbar.vue`、`MobileHeader.vue` 与 `router/index.ts` 即可

@@ -68,7 +68,9 @@ function handleStarClick(value: number) {
   line-height: 1;
   color: #d1d5db;
   cursor: default;
-  transition: color 0.12s ease, transform 0.12s ease;
+  transition:
+    color 0.12s ease,
+    transform 0.12s ease;
 
   &--on {
     color: var(--chat-accent);

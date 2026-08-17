@@ -1,16 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="默认头像">
   <defs>
-    <linearGradient id="da-bg" x1="12%" y1="8%" x2="92%" y2="96%">
-      <stop stop-color="#f8fafc"/>
-      <stop offset="0.5" stop-color="#f1f5f9"/>
-      <stop offset="1" stop-color="#ecfdf5"/>
-    </linearGradient>
-    <linearGradient id="da-sil" x1="50%" y1="0%" x2="50%" y2="100%">
-      <stop stop-color="#94a3b8" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="#64748b" stop-opacity="0.22"/>
+    <linearGradient id="da-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop stop-color="#3d5170"/>
+      <stop offset="1" stop-color="#2c3d56"/>
     </linearGradient>
   </defs>
-  <circle cx="64" cy="64" r="64" fill="url(#da-bg)"/>
-  <circle cx="64" cy="54" r="28" fill="url(#da-sil)"/>
-  <path fill="url(#da-sil)" d="M22 120c8-32 26-48 42-48s34 16 42 48H22z" opacity="0.88"/>
+  <rect width="128" height="128" rx="28" fill="url(#da-bg)"/>
+  <circle cx="64" cy="50" r="22" fill="#ffffff" opacity="0.92"/>
+  <path fill="#ffffff" fill-opacity="0.92" d="M30 112c0-20 15-34 34-34s34 14 34 34v2H30v-2z"/>
 </svg>

@@ -103,7 +103,7 @@ function shopProductPath(id: number) {
 </script>
 
 <template>
-  <div class="shop-sale shop-zone">
+  <div class="shop-zone shop-sale">
     <header class="shop-sale__head">
       <button type="button" class="shop-sale__back" aria-label="返回" @click="router.back()">
         <Icon icon="tabler:arrow-left" width="18" height="18" />

@@ -29,7 +29,6 @@
 ```python
 from scripts.rag_hot_query_clusters import decide_merge
 
-
 def test_auto_merges_equivalent_queries():
     decision = decide_merge(
         query="保研怎么准备",
@@ -42,7 +41,6 @@ def test_auto_merges_equivalent_queries():
     )
     assert decision.kind == "merged"
 
-
 def test_candidate_when_similarity_high_but_results_weak():
     decision = decide_merge(
         query="保研怎么准备",
@@ -54,7 +52,6 @@ def test_candidate_when_similarity_high_but_results_weak():
         candidate_post_ids=[9, 8, 7, 6, 5],
     )
     assert decision.kind == "candidate"
-
 
 def test_rejects_different_primary_subjects():
     decision = decide_merge(
@@ -96,7 +93,6 @@ MIN_AUTO_OVERLAP = 2
 PRIMARY_SUBJECTS = ("保研", "考研", "转专业", "辅修")
 HARD_QUALIFIERS = ("不要", "失败", "避坑", "不能", "能不能", "大一", "大三", "新生", "毕业")
 
-
 @dataclass(frozen=True)
 class MergeDecision:
     kind: str
@@ -105,27 +101,22 @@ class MergeDecision:
     result_overlap: int
     reason: str
 
-
 def primary_subject(text: str) -> str:
     for subject in PRIMARY_SUBJECTS:
         if subject in text:
             return subject
     return ""
 
-
 def has_conflicting_subject(query: str, candidate_query: str) -> bool:
     left = primary_subject(query)
     right = primary_subject(candidate_query)
     return bool(left and right and left != right)
 
-
 def has_conflicting_qualifier(query: str, candidate_query: str) -> bool:
     return any((word in query) != (word in candidate_query) for word in HARD_QUALIFIERS)
 
-
 def overlap_count(left_ids: list[int], right_ids: list[int], limit: int = 5) -> int:
     return len(set(left_ids[:limit]) & set(right_ids[:limit]))
-
 
 def decide_merge(
     *,
@@ -182,7 +173,6 @@ Append tests:
 ```python
 from scripts.rag_hot_query_clusters import HotQueryClusterStore
 
-
 def test_store_creates_and_ranks_clusters(tmp_path):
     store = HotQueryClusterStore(tmp_path / "hot_queries.sqlite3")
     store.record_new_cluster(
@@ -218,7 +208,6 @@ import json
 import sqlite3
 import time
 from pathlib import Path
-
 
 class HotQueryClusterStore:
     def __init__(self, db_path: str | Path):
@@ -346,7 +335,6 @@ Add tests for extracting cluster metadata from a RAG payload:
 ```python
 from scripts.rag_hot_query_clusters import metadata_from_rag_payload
 
-
 def test_metadata_from_rag_payload_extracts_terms_and_posts():
     payload = {
         "data": {
@@ -373,7 +361,6 @@ class QueryMetadata:
     terms: set[str]
     top_post_ids: list[int]
     rewritten_query: str
-
 
 def metadata_from_rag_payload(payload: dict) -> QueryMetadata:
     data = payload.get("data") or {}

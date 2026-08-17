@@ -3,8 +3,8 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api'
 import { Icon } from '@iconify/vue'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { usePreviewPanGesture } from '@/composables/usePreviewPanGesture'
 import { fetchResumePreviewArrayBuffer, isWeChatBrowser } from '@/api/resume/previewResume'
+import { usePreviewPanGesture } from '@/composables/usePreviewPanGesture'
 
 const props = defineProps<{
   resumeID: number
@@ -583,7 +583,9 @@ defineExpose({ retry: loadPdf })
   flex-shrink: 0;
   max-width: none;
   pointer-events: none;
-  box-shadow: 0 1.6px 3.6px rgba(0, 0, 0, 0.13), 0 0.3px 0.9px rgba(0, 0, 0, 0.11);
+  box-shadow:
+    0 1.6px 3.6px rgba(0, 0, 0, 0.13),
+    0 0.3px 0.9px rgba(0, 0, 0, 0.11);
   border-radius: 2px;
   background: #fff;
 }

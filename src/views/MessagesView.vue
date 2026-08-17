@@ -3,9 +3,9 @@ import { Icon } from '@iconify/vue'
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NoticePanel from '@/components/messages/NoticePanel.vue'
-import ChatView from '@/views/ChatView.vue'
 import { useChat } from '@/composables/useChat'
 import { useNoticeStore } from '@/store/noticeStore'
+import ChatView from '@/views/ChatView.vue'
 
 defineOptions({ name: 'MessagesView' })
 
@@ -63,30 +63,30 @@ watch(
         </div>
 
         <div class="msg-hub__tabs" role="tablist" aria-label="消息类型">
-        <button
-          type="button"
-          role="tab"
-          class="msg-hub__tab"
-          :class="{ 'msg-hub__tab--active': activeTab === 'notice' }"
-          :aria-selected="activeTab === 'notice'"
-          @click="switchTab('notice')"
-        >
-          <Icon icon="tabler:bell" width="18" height="18" aria-hidden="true" />
-          <span>互动通知</span>
-          <span v-if="unreadNotice > 0" class="msg-hub__tab-badge">{{ unreadNotice > 99 ? '99+' : unreadNotice }}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          class="msg-hub__tab"
-          :class="{ 'msg-hub__tab--active': activeTab === 'chat' }"
-          :aria-selected="activeTab === 'chat'"
-          @click="switchTab('chat')"
-        >
-          <Icon icon="tabler:message-circle" width="18" height="18" aria-hidden="true" />
-          <span>私信</span>
-          <span v-if="unreadChat > 0" class="msg-hub__tab-badge">{{ unreadChat > 99 ? '99+' : unreadChat }}</span>
-        </button>
+          <button
+            type="button"
+            role="tab"
+            class="msg-hub__tab"
+            :class="{ 'msg-hub__tab--active': activeTab === 'notice' }"
+            :aria-selected="activeTab === 'notice'"
+            @click="switchTab('notice')"
+          >
+            <Icon icon="tabler:bell" width="18" height="18" aria-hidden="true" />
+            <span>互动通知</span>
+            <span v-if="unreadNotice > 0" class="msg-hub__tab-badge">{{ unreadNotice > 99 ? '99+' : unreadNotice }}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="msg-hub__tab"
+            :class="{ 'msg-hub__tab--active': activeTab === 'chat' }"
+            :aria-selected="activeTab === 'chat'"
+            @click="switchTab('chat')"
+          >
+            <Icon icon="tabler:message-circle" width="18" height="18" aria-hidden="true" />
+            <span>私信</span>
+            <span v-if="unreadChat > 0" class="msg-hub__tab-badge">{{ unreadChat > 99 ? '99+' : unreadChat }}</span>
+          </button>
         </div>
       </div>
     </header>

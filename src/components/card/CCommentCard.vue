@@ -13,11 +13,11 @@ import { useUserStore } from '@/store/userStore'
 import { debounceAsync } from '@/utils/debounced'
 import { buildMentionPrefix } from '@/utils/mention'
 import BasicInfo from '../BasicInfo.vue'
-import MarkdownContainer from '../MarkdownContainer.vue'
+import CommentToolbar from '../comment/CommentToolbar.vue'
 
+import MarkdownContainer from '../MarkdownContainer.vue'
 import { showMsg } from '../MessageBox'
 import UserAvatar from '../UserAvatar.vue'
-import CommentToolbar from '../comment/CommentToolbar.vue'
 
 const { subComment, pCommentId, postId } = defineProps<{
   subComment: SubComment
@@ -219,20 +219,20 @@ function toggleReply() {
     />
     <time class="comment-row__time comment-row__time--mobile" :datetime="String(subComment.commentTime)">{{ formattedTime }}</time>
     <CommentToolbar
-      inline
-      reply-align-end
+
+      reply-align-end inline
       :reply-open="commentButtonIsShow"
       :show-sub-toggle="false"
       @toggle-reply="toggleReply"
     >
       <template #leading>
         <BasicInfo
-          hide-time
+
           layout="inline"
           :time="subComment.commentTime"
           :is-like="subComment.isLiked"
           :like="subComment.likeNum"
-          nocomment
+          nocomment hide-time
           @like-change="like"
         />
       </template>

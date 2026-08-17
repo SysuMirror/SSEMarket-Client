@@ -237,18 +237,19 @@ onMounted(() => {
 <style scoped>
 /* 商品卡片样式 */
 .product-card {
-  background: var(--shop-card-bg);
-  border-radius: 12px;
+  background: var(--color-card, #fff);
+  border-radius: var(--radius-lg, 8px);
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
+  box-shadow: var(--color-card-shadow);
   position: relative;
 }
 
 .product-card:hover {
   transform: translateY(-2px);
+  box-shadow: var(--color-card-hover-shadow);
 }
 
 .product-image {
@@ -257,7 +258,7 @@ onMounted(() => {
   position: relative;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  border-radius: 12px 12px 0 0;
+  border-radius: var(--radius-lg, 8px) var(--radius-lg, 8px) 0 0;
   background: var(--shop-skeleton-bg);
 }
 
@@ -410,23 +411,22 @@ onMounted(() => {
 }
 
 .add-to-cart {
-  padding: 14px 20px;
-  background: #2d5016;
-  color: white;
+  padding: 12px 20px;
+  background: var(--accent, #2c3d56);
+  color: var(--color-button, #fff);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md, 8px);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   margin-top: auto;
   font-weight: 600;
-  font-size: 15px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 14px;
+  letter-spacing: 0;
   position: relative;
 }
 
 .add-to-cart:hover {
-  background: #3a6b1a;
+  background: var(--accent-hover, #3d5170);
   transform: translateY(-1px);
 }
 
@@ -465,21 +465,22 @@ onMounted(() => {
   transform: rotate(-35deg);
   transform-origin: center;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  background: linear-gradient(45deg, #e74c3c, #c0392b);
+  background: var(--color-error, #ef4444);
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-md, 8px);
   border: 2px solid white;
 }
 
 /* 已售出商品的按钮样式 */
 .sold-out-btn {
-  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%) !important;
+  background: var(--color-button-bg-secondary, #f1f5f9) !important;
+  color: var(--color-text-muted, #94a3b8) !important;
   cursor: not-allowed !important;
   opacity: 0.7;
 }
 
 .sold-out-btn:hover {
-  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%) !important;
+  background: var(--color-button-bg-secondary, #f1f5f9) !important;
   transform: none !important;
 }
 
@@ -503,7 +504,7 @@ onMounted(() => {
   width: 120px;
   height: 120px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md, 8px);
   overflow: hidden;
   position: relative;
   cursor: pointer;
@@ -596,22 +597,21 @@ onMounted(() => {
 
 .list-action-container .add-to-cart {
   padding: 10px 20px;
-  background: #2d5016;
-  color: white;
+  background: var(--accent, #2c3d56);
+  color: var(--color-button, #fff);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md, 8px);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   font-weight: 600;
   font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0;
   position: relative;
   min-width: 100px;
 }
 
 .list-action-container .add-to-cart:hover {
-  background: #3a6b1a;
+  background: var(--accent-hover, #3d5170);
   transform: translateY(-1px);
 }
 
@@ -636,21 +636,22 @@ onMounted(() => {
   transform: rotate(-35deg);
   transform-origin: center;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  background: linear-gradient(45deg, #e74c3c, #c0392b);
+  background: var(--color-error, #ef4444);
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 4px);
   border: 2px solid white;
 }
 
 /* 列表模式下的已售出按钮 */
 .list-mode .sold-out-btn {
-  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%) !important;
+  background: var(--color-button-bg-secondary, #f1f5f9) !important;
+  color: var(--color-text-muted, #94a3b8) !important;
   cursor: not-allowed !important;
   opacity: 0.7;
 }
 
 .list-mode .sold-out-btn:hover {
-  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%) !important;
+  background: var(--color-button-bg-secondary, #f1f5f9) !important;
   transform: none !important;
 }
 </style>

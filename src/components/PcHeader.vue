@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useTemplateRef } from 'vue'
-import { useUserStore } from '@/store/userStore'
 import { useHeaderSearch } from '@/composables/useHeaderSearch'
+import { useUserStore } from '@/store/userStore'
 
 defineProps<{
   unreadNoticeNum: number
@@ -18,7 +18,6 @@ const {
   showRollingPlaceholder,
   toggleSearchMode,
 } = useHeaderSearch(sinfo)
-
 </script>
 
 <template>
@@ -324,13 +323,14 @@ const {
     .search-mode-toggle--in-field:hover {
       background: #ebebeb;
     }
-
   }
 }
 
 .hot-query-roll-enter-active,
 .hot-query-roll-leave-active {
-  transition: opacity 0.24s ease, transform 0.24s ease;
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
 .hot-query-roll-enter-from {
@@ -388,7 +388,6 @@ const {
       border-left-color: #666;
       color: #ddd;
     }
-
   }
 }
 

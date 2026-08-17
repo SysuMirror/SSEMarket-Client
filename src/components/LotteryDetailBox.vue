@@ -81,7 +81,9 @@ watch(
 <template>
   <section v-if="lottery" class="lottery-panel">
     <header class="lottery-panel__head">
-      <h2 class="lottery-panel__title">抽奖</h2>
+      <h2 class="lottery-panel__title">
+        抽奖
+      </h2>
       <span class="lottery-panel__meta">
         {{ isWish ? '许愿抽奖' : '随机抽奖' }}
         ·
@@ -101,7 +103,9 @@ watch(
 
     <p class="lottery-panel__stat">
       {{ totalParticipants }} 人次参与
-      <template v-if="isWish && lottery.participated"> · 你已参与</template>
+      <template v-if="isWish && lottery.participated">
+        · 你已参与
+      </template>
     </p>
 
     <p v-if="isWish && isActive" class="lottery-panel__hint">
@@ -194,7 +198,9 @@ watch(
 }
 
 @keyframes lottery-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .lottery-panel__stat {

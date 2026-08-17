@@ -14,6 +14,7 @@ interface CommonEntry {
 const commonEntries: CommonEntry[] = [
   { key: 'ranking', label: '排行榜', icon: 'tabler:trophy', to: '/ranking' },
   { key: 'xiaoqiu', label: '小秋', icon: 'tabler:sparkles', to: '/smart-xiaoqiu' },
+  { key: 'rating', label: '打分', icon: 'tabler:star', to: '/rating' },
   { key: 'resume', label: '简历', icon: 'tabler:file-cv', to: '/resume' },
   { key: 'shop', label: '商城', icon: 'tabler:shopping-bag', to: '/shop' },
   { key: 'iwiki', label: 'iWiki', icon: 'tabler:book-2', href: 'https://ssemarket.cn/iwiki/' },
@@ -219,23 +220,72 @@ const partitions = CONTENT_PARTITIONS
 }
 
 /* 常用入口配色（Tailwind 100 底 / 700 图标） */
-.wb-cell--ranking   { --cell-bg: #fef3c7; --cell-fg: #b45309; }
-.wb-cell--xiaoqiu   { --cell-bg: #e0f2fe; --cell-fg: #0369a1; }
-.wb-cell--resume    { --cell-bg: #ccfbf1; --cell-fg: #0f766e; }
-.wb-cell--shop      { --cell-bg: #d1fae5; --cell-fg: #047857; }
-.wb-cell--iwiki     { --cell-bg: #e0e7ff; --cell-fg: #4338ca; }
-.wb-cell--course    { --cell-bg: #ffedd5; --cell-fg: #c2410c; }
+.wb-cell--ranking {
+  --cell-bg: #fef3c7;
+  --cell-fg: #b45309;
+}
+.wb-cell--xiaoqiu {
+  --cell-bg: #e0f2fe;
+  --cell-fg: #0369a1;
+}
+.wb-cell--rating {
+  --cell-bg: #fef9c3;
+  --cell-fg: #a16207;
+}
+.wb-cell--resume {
+  --cell-bg: #ccfbf1;
+  --cell-fg: #0f766e;
+}
+.wb-cell--shop {
+  --cell-bg: #d1fae5;
+  --cell-fg: #047857;
+}
+.wb-cell--iwiki {
+  --cell-bg: #e0e7ff;
+  --cell-fg: #4338ca;
+}
+.wb-cell--course {
+  --cell-bg: #ffedd5;
+  --cell-fg: #c2410c;
+}
 
 /* 全部分区配色 */
-.wb-cell--study        { --cell-bg: #cffafe; --cell-fg: #0e7490; }
-.wb-cell--daily-life   { --cell-bg: #fce7f3; --cell-fg: #be185d; }
-.wb-cell--club         { --cell-bg: #ede9fe; --cell-fg: #6d28d9; }
-.wb-cell--internship   { --cell-bg: #dbeafe; --cell-fg: #1d4ed8; }
-.wb-cell--materials    { --cell-bg: #fef9c3; --cell-fg: #a16207; }
-.wb-cell--dormitory    { --cell-bg: #fef3c7; --cell-fg: #b45309; }
-.wb-cell--tech         { --cell-bg: #e0e7ff; --cell-fg: #4338ca; }
-.wb-cell--team-up      { --cell-bg: #ffe4e6; --cell-fg: #be123c; }
-.wb-cell--misc         { --cell-bg: #f1f5f9; --cell-fg: #475569; }
+.wb-cell--study {
+  --cell-bg: #cffafe;
+  --cell-fg: #0e7490;
+}
+.wb-cell--daily-life {
+  --cell-bg: #fce7f3;
+  --cell-fg: #be185d;
+}
+.wb-cell--club {
+  --cell-bg: #ede9fe;
+  --cell-fg: #6d28d9;
+}
+.wb-cell--internship {
+  --cell-bg: #dbeafe;
+  --cell-fg: #1d4ed8;
+}
+.wb-cell--materials {
+  --cell-bg: #fef9c3;
+  --cell-fg: #a16207;
+}
+.wb-cell--dormitory {
+  --cell-bg: #fef3c7;
+  --cell-fg: #b45309;
+}
+.wb-cell--tech {
+  --cell-bg: #e0e7ff;
+  --cell-fg: #4338ca;
+}
+.wb-cell--team-up {
+  --cell-bg: #ffe4e6;
+  --cell-fg: #be123c;
+}
+.wb-cell--misc {
+  --cell-bg: #f1f5f9;
+  --cell-fg: #475569;
+}
 
 /* 深色模式：提高饱和度保持视觉权重（Apple HIG 原则），800 底 / 200 图标 */
 body.dark-mode .workbench {
@@ -261,19 +311,68 @@ body.dark-mode .wb-cell__label {
   color: #e2e8f0;
 }
 
-body.dark-mode .wb-cell--ranking   { --cell-bg: #78350f; --cell-fg: #fde68a; }
-body.dark-mode .wb-cell--xiaoqiu   { --cell-bg: #075985; --cell-fg: #bae6fd; }
-body.dark-mode .wb-cell--resume    { --cell-bg: #115e59; --cell-fg: #99f6e4; }
-body.dark-mode .wb-cell--shop      { --cell-bg: #065f46; --cell-fg: #a7f3d0; }
-body.dark-mode .wb-cell--iwiki     { --cell-bg: #3730a3; --cell-fg: #c7d2fe; }
-body.dark-mode .wb-cell--course    { --cell-bg: #9a3412; --cell-fg: #fed7aa; }
-body.dark-mode .wb-cell--study     { --cell-bg: #155e75; --cell-fg: #a5f3fc; }
-body.dark-mode .wb-cell--daily-life{ --cell-bg: #9d174d; --cell-fg: #fbcfe8; }
-body.dark-mode .wb-cell--club      { --cell-bg: #5b21b6; --cell-fg: #ddd6fe; }
-body.dark-mode .wb-cell--internship{ --cell-bg: #1e40af; --cell-fg: #bfdbfe; }
-body.dark-mode .wb-cell--materials { --cell-bg: #713f12; --cell-fg: #fef08a; }
-body.dark-mode .wb-cell--dormitory { --cell-bg: #78350f; --cell-fg: #fde68a; }
-body.dark-mode .wb-cell--tech      { --cell-bg: #3730a3; --cell-fg: #c7d2fe; }
-body.dark-mode .wb-cell--team-up   { --cell-bg: #9f1239; --cell-fg: #fecdd3; }
-body.dark-mode .wb-cell--misc      { --cell-bg: #334155; --cell-fg: #cbd5e1; }
+body.dark-mode .wb-cell--ranking {
+  --cell-bg: #78350f;
+  --cell-fg: #fde68a;
+}
+body.dark-mode .wb-cell--xiaoqiu {
+  --cell-bg: #075985;
+  --cell-fg: #bae6fd;
+}
+body.dark-mode .wb-cell--rating {
+  --cell-bg: #713f12;
+  --cell-fg: #fef08a;
+}
+body.dark-mode .wb-cell--resume {
+  --cell-bg: #115e59;
+  --cell-fg: #99f6e4;
+}
+body.dark-mode .wb-cell--shop {
+  --cell-bg: #065f46;
+  --cell-fg: #a7f3d0;
+}
+body.dark-mode .wb-cell--iwiki {
+  --cell-bg: #3730a3;
+  --cell-fg: #c7d2fe;
+}
+body.dark-mode .wb-cell--course {
+  --cell-bg: #9a3412;
+  --cell-fg: #fed7aa;
+}
+body.dark-mode .wb-cell--study {
+  --cell-bg: #155e75;
+  --cell-fg: #a5f3fc;
+}
+body.dark-mode .wb-cell--daily-life {
+  --cell-bg: #9d174d;
+  --cell-fg: #fbcfe8;
+}
+body.dark-mode .wb-cell--club {
+  --cell-bg: #5b21b6;
+  --cell-fg: #ddd6fe;
+}
+body.dark-mode .wb-cell--internship {
+  --cell-bg: #1e40af;
+  --cell-fg: #bfdbfe;
+}
+body.dark-mode .wb-cell--materials {
+  --cell-bg: #713f12;
+  --cell-fg: #fef08a;
+}
+body.dark-mode .wb-cell--dormitory {
+  --cell-bg: #78350f;
+  --cell-fg: #fde68a;
+}
+body.dark-mode .wb-cell--tech {
+  --cell-bg: #3730a3;
+  --cell-fg: #c7d2fe;
+}
+body.dark-mode .wb-cell--team-up {
+  --cell-bg: #9f1239;
+  --cell-fg: #fecdd3;
+}
+body.dark-mode .wb-cell--misc {
+  --cell-bg: #334155;
+  --cell-fg: #cbd5e1;
+}
 </style>

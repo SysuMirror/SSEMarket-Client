@@ -2,8 +2,8 @@
 import { Icon } from '@iconify/vue'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/store/userStore'
 import { useHeaderSearch } from '@/composables/useHeaderSearch'
+import { useUserStore } from '@/store/userStore'
 
 const props = defineProps<{
   unreadNoticeNum: number
@@ -68,7 +68,6 @@ function goBack() {
     router.back()
   }
 }
-
 </script>
 
 <template>
@@ -371,7 +370,9 @@ function goBack() {
 
 .hot-query-roll-enter-active,
 .hot-query-roll-leave-active {
-  transition: opacity 0.24s ease, transform 0.24s ease;
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
 .hot-query-roll-enter-from {

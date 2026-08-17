@@ -6,7 +6,7 @@ import Prism from 'prismjs'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showMsg } from '@/components/MessageBox'
-import { useMentionResolve, primeMentionCache } from '@/composables/useMentionResolve'
+import { primeMentionCache, useMentionResolve } from '@/composables/useMentionResolve'
 import { injectMentionsInRenderedHTML } from '@/utils/mention'
 import 'prismjs/plugins/autoloader/prism-autoloader'
 import 'github-markdown-css'
@@ -257,8 +257,8 @@ async function handleMarkdownClick(event: MouseEvent) {
     class="markdown-body w-full"
     :class="{ 'markdown-body--chat': variant === 'chat' }"
     data-theme="light"
-    v-html="safeHTML"
     @click="handleMarkdownClick"
+    v-html="safeHTML"
   />
 </template>
 

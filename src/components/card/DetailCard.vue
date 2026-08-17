@@ -8,17 +8,17 @@ import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
 import { showMsg } from '@/components/MessageBox'
 
 import { useUserStore } from '@/store/userStore'
-import { isPostOwner } from '@/utils/postOwner'
-
 import { debounceAsync } from '@/utils/debounced'
 
+import { isPostOwner } from '@/utils/postOwner'
+
 import BasicInfo from '../BasicInfo.vue'
+import CommentToolbar from '../comment/CommentToolbar.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
+import PostWatchButton from '../PostWatchButton.vue'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
-import CommentToolbar from '../comment/CommentToolbar.vue'
 import VoteLink from '../VoteLink.vue'
-import PostWatchButton from '../PostWatchButton.vue'
 import BasicCard from './BasicCard.vue'
 
 const { post } = defineProps<{
@@ -219,9 +219,8 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: 
     <BasicInfo :time="post.PostTime" :browse="post.Browse" :comment="post.Comment" :is-like="post.IsLiked" :like="post.Like" @like-change="like" />
     <CommentToolbar
       reply-label="写评论"
-      reply-prominent
-      reply-align-end
-      no-top-border
+
+      reply-align-end reply-prominent no-top-border
       :reply-open="commentButtonIsShow"
       :show-sub-toggle="false"
       @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
@@ -300,9 +299,9 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: 
   align-items: center;
   margin-bottom: 6px;
   padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--chat-accent-soft);
-  color: var(--chat-accent);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 600;
 }

@@ -16,8 +16,8 @@ import { useChat } from '@/composables/useChat'
 import { usePWA } from '@/composables/usePWA'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { useNoticeStore } from '@/store/noticeStore'
-import { showSnackbar } from '@/utils/snackbar'
 import { handleHomeNavClick } from '@/utils/scrollHome'
+import { showSnackbar } from '@/utils/snackbar'
 
 const BottomNavbar = defineAsyncComponent(
   () => import('@/components/BottomNavbar.vue'),
@@ -195,7 +195,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 /* 顶栏高度变量：全端固定导航，主内容用 padding-top 避让 */
 .site-header-stack {
   --layout-site-top-h: 1.875rem;
-  --layout-nav-h: 2.125rem;
+  --layout-nav-h: 2.75rem;
   --layout-header-h: calc(var(--layout-site-top-h) + var(--layout-nav-h));
   /* 兼容 PWA 侧栏组件内联样式 */
   --pc-site-top-h: var(--layout-site-top-h);
@@ -209,7 +209,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   z-index: 2100;
   width: 100%;
   background: #0f172a;
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 /* 二级导航（搜索/链接条）统一高度，避免主内容遮挡计算不准 */
@@ -332,7 +332,16 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   }
 
   .content {
+    padding-top: 0;
     padding-bottom: 16px;
+  }
+
+  /* 移动端首页分区条 sticky */
+  .content > .partition-strip-wrap,
+  .content > * > .partition-strip-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 5;
   }
 
   .root.root--layout-fill .content.content--layout-fill {

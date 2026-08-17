@@ -1,4 +1,3 @@
-export type { Product, ProductDetail, ShopProduct } from './types'
 export {
   getProductByID,
   getProducts,
@@ -7,3 +6,4 @@ export {
   getShopProductDetail,
   getShopProducts,
 } from './queries'
+export type { Product, ProductDetail, ShopProduct } from './types'

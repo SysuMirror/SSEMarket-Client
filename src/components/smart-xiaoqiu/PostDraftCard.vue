@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PostDraftPayload, TimelinePostDraft } from '@/composables/useOpsAgentStream'
 import { computed, ref } from 'vue'
-import { uploadDraftImage, submitDraft } from '@/api/post/draft'
+import { submitDraft, uploadDraftImage } from '@/api/post/draft'
 import { showMsg } from '@/components/MessageBox'
 import { POST_PARTITION_OPTIONS } from '@/constants/partitions'
 
@@ -149,8 +149,12 @@ function handleCancel() {
       <div class="draft-field">
         <label class="draft-field__label">类型</label>
         <select v-model="type" class="draft-field__input" :disabled="submitting">
-          <option value="post">普通帖子</option>
-          <option value="product">商城商品</option>
+          <option value="post">
+            普通帖子
+          </option>
+          <option value="product">
+            商城商品
+          </option>
         </select>
       </div>
 

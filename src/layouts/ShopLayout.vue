@@ -68,11 +68,23 @@ const showMobileNav = computed(() => !isPC.value && showShopChrome.value)
 .shop-layout__tabs {
   flex-shrink: 0;
   position: sticky;
-  top: 0;
+  top: -10px;
   z-index: 3;
-  margin: 0 -8px 6px;
+  margin: -10px -8px 6px;
   padding: 0 8px;
   background: var(--shop-bg, var(--chat-bg-main, #f4f5f7));
+}
+
+@media screen and (max-width: 768px) {
+  .shop-layout {
+    padding: 0 0 8px;
+  }
+
+  .shop-layout__tabs {
+    top: 0;
+    margin: 0 0 6px;
+    padding: 0 12px;
+  }
 }
 
 .shop-layout__scroll {

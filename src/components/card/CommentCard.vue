@@ -1,23 +1,23 @@
 <script setup lang="ts">
 import type { Comment } from '@/types/comment'
 import { computed, defineAsyncComponent, nextTick, ref, useTemplateRef, watch } from 'vue'
-import { scrollElementBelowHeader } from '@/utils/scrollBelowHeader'
-import { buildMentionPrefix } from '@/utils/mention'
 import { delComment, sendPComment } from '@/api/editPostAndComment/editComment'
-
 import { likeRatingComment } from '@/api/rating'
 import {
   likePostComment,
 } from '@/api/SaveAndLike/SaveAndLike'
+
 import { useUserStore } from '@/store/userStore'
 import { debounceAsync } from '@/utils/debounced'
+import { buildMentionPrefix } from '@/utils/mention'
+import { scrollElementBelowHeader } from '@/utils/scrollBelowHeader'
 import BasicInfo from '../BasicInfo.vue'
 
+import CommentToolbar from '../comment/CommentToolbar.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
 import { showMsg } from '../MessageBox'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
-import CommentToolbar from '../comment/CommentToolbar.vue'
 
 const { comment, postId, commentable = true, isDense = false, likeMode = 'post' } = defineProps<{
   comment: Comment
@@ -236,8 +236,8 @@ async function like() {
     <time class="comment-row__time comment-row__time--mobile" :datetime="String(comment.CommentTime)">{{ formattedTime }}</time>
     <CommentToolbar
       v-if="commentable"
-      inline
-      reply-align-end
+
+      reply-align-end inline
       :reply-open="commentButtonIsShow"
       :sub-count="comment.SubComments.length"
       :sub-open="showSubComment"

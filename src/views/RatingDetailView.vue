@@ -5,9 +5,9 @@ import { Icon } from '@iconify/vue'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getRatingComments, getRatingPostDetail } from '@/api/rating'
+import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import { showImg } from '@/components/ImageShower'
 import { showMsg } from '@/components/MessageBox'
-import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import RatingDetailCard from '@/components/rating/RatingDetailCard.vue'
 import { useUserStore } from '@/store/userStore'
 import { strHandler } from '@/utils/strHandler'
@@ -131,7 +131,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="rating-detail-page rating-zone" @click="onImageClick">
+  <div class="rating-zone rating-detail-page" @click="onImageClick">
     <header class="rating-detail-page__nav">
       <button type="button" class="rating-detail-page__back" aria-label="返回" @click="router.back()">
         <Icon icon="tabler:arrow-left" width="18" height="18" />

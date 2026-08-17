@@ -3,8 +3,8 @@ import type { ShopProduct } from '@/api/shop/types'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { deleteShopProduct, markShopProductSold } from '@/api/shop/mutations'
 import { getShopProductDetail } from '@/api/shop'
+import { deleteShopProduct, markShopProductSold } from '@/api/shop/mutations'
 import { showImg } from '@/components/ImageShower'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
@@ -120,7 +120,7 @@ watch(() => route.params.ProductID, loadDetail)
 
 <template>
   <div
-    class="shop-detail shop-zone"
+    class="shop-zone shop-detail"
     :class="{ 'shop-detail--sold': product?.ISSold }"
     @click="onImageClick"
   >

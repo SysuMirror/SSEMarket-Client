@@ -182,5 +182,4 @@ const subLabel = computed(() => {
 .comment-toolbar--inline:not(.comment-toolbar--split) .comment-toolbar__actions {
   width: 100%;
 }
-
 </style>

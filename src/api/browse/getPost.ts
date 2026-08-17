@@ -2,13 +2,13 @@ import type { Post } from '@/types/post'
 import { normalizePost, normalizePosts } from '@/utils/postOwner'
 import { requestFunc } from '../req'
 
-export type HomeOrderBy =
-  | 'time_desc'
-  | 'time_asc'
-  | 'like_desc'
-  | 'like_asc'
-  | 'comment_desc'
-  | 'comment_asc'
+export type HomeOrderBy
+  = | 'time_desc'
+    | 'time_asc'
+    | 'like_desc'
+    | 'like_asc'
+    | 'comment_desc'
+    | 'comment_asc'
 
 export interface getPostsObject {
   limit: number

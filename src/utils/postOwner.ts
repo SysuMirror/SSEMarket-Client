@@ -1,5 +1,5 @@
-import type { Post } from '@/types/post'
 import type { UserInfo } from '@/store/userStore'
+import type { Post } from '@/types/post'
 
 type PostWithOwnerKeys = Post & { userID?: number, user_id?: number, IsOwner?: boolean, isOwner?: boolean }
 

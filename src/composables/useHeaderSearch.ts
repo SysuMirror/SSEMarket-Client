@@ -1,4 +1,5 @@
-import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
+import type { Ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchHotQueries } from '@/api/ragSearch'
 

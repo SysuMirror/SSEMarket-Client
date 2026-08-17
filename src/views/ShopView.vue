@@ -88,7 +88,7 @@ watch(() => route.path, () => {
 </script>
 
 <template>
-  <div class="shop-page shop-zone">
+  <div class="shop-zone shop-page">
     <header class="shop-page__head">
       <div class="shop-page__head-text">
         <h1 class="shop-page__title">

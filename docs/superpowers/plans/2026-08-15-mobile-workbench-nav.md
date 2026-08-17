@@ -14,12 +14,12 @@
 
 ## File Structure
 
-| 文件 | 改动类型 | 责任 |
-|---|---|---|
-| `src/views/WorkbenchView.vue` | 新建 | 工作台页面：4 列宫格，常用组 6 项 + 全部分区组 10 项 |
-| `src/router/index.ts` | 修改 | 在 DefaultLayout children 中新增 `/workbench` 路由 |
-| `src/components/BottomNavbar.vue` | 修改 | 移除排行榜/小秋/简历 3 项，新增中间凸起"+发帖"按钮与工作台入口 |
-| `src/components/MobileHeader.vue` | 修改 | 左侧课程图标 → 小秋图标（搜索框/发帖按钮不动） |
+| 文件                              | 改动类型 | 责任                                                           |
+| --------------------------------- | -------- | -------------------------------------------------------------- |
+| `src/views/WorkbenchView.vue`     | 新建     | 工作台页面：4 列宫格，常用组 6 项 + 全部分区组 10 项           |
+| `src/router/index.ts`             | 修改     | 在 DefaultLayout children 中新增 `/workbench` 路由             |
+| `src/components/BottomNavbar.vue` | 修改     | 移除排行榜/小秋/简历 3 项，新增中间凸起"+发帖"按钮与工作台入口 |
+| `src/components/MobileHeader.vue` | 修改     | 左侧课程图标 → 小秋图标（搜索框/发帖按钮不动）                 |
 
 不改动：`PcHeader.vue`、`PwaPcHeader.vue`、`PartitionList.vue`、`DefaultLayout.vue`、`main.css`。
 
@@ -28,6 +28,7 @@
 ### Task 1: 新增 `/workbench` 路由
 
 **Files:**
+
 - Modify: `src/router/index.ts:175-202`（DefaultLayout children 末尾，shop 路由块之后）
 
 - [ ] **Step 1: 在 DefaultLayout children 末尾追加 workbench 路由**
@@ -35,6 +36,7 @@
 打开 `src/router/index.ts`，定位到第 201 行（shop 路由块结束的 `},` 之后、第 202 行 `],` 之前），插入新路由。
 
 将：
+
 ```ts
         {
           path: 'shop',
@@ -69,6 +71,7 @@
 ```
 
 改为：
+
 ```ts
         {
           path: 'shop',
@@ -124,6 +127,7 @@ git commit -m "feat(router): add /workbench route"
 ### Task 2: 创建工作台视图 `WorkbenchView.vue`
 
 **Files:**
+
 - Create: `src/views/WorkbenchView.vue`
 
 - [ ] **Step 1: 创建 WorkbenchView.vue 文件，写入完整内容**
@@ -321,23 +325,53 @@ const partitions = CONTENT_PARTITIONS
 }
 
 /* 常用组图标语义色 */
-.wb-cell--ranking .wb-cell__icon { color: #eab308; }
-.wb-cell--xiaoqiu .wb-cell__icon { color: #7c3aed; }
-.wb-cell--resume .wb-cell__icon { color: #0d9488; }
-.wb-cell--shop .wb-cell__icon { color: #059669; }
-.wb-cell--iwiki .wb-cell__icon { color: #6366f1; }
-.wb-cell--course .wb-cell__icon { color: #ea580c; }
+.wb-cell--ranking .wb-cell__icon {
+  color: #eab308;
+}
+.wb-cell--xiaoqiu .wb-cell__icon {
+  color: #7c3aed;
+}
+.wb-cell--resume .wb-cell__icon {
+  color: #0d9488;
+}
+.wb-cell--shop .wb-cell__icon {
+  color: #059669;
+}
+.wb-cell--iwiki .wb-cell__icon {
+  color: #6366f1;
+}
+.wb-cell--course .wb-cell__icon {
+  color: #ea580c;
+}
 
 /* 全部分区组图标语义色（与 PartitionList 保持一致） */
-.wb-cell--study .wb-cell__icon { color: #0d9488; }
-.wb-cell--daily-life .wb-cell__icon { color: #db2777; }
-.wb-cell--club .wb-cell__icon { color: #8b5cf6; }
-.wb-cell--internship .wb-cell__icon { color: #1d4ed8; }
-.wb-cell--materials .wb-cell__icon { color: #ca8a04; }
-.wb-cell--dormitory .wb-cell__icon { color: #059669; }
-.wb-cell--tech .wb-cell__icon { color: #2563eb; }
-.wb-cell--team-up .wb-cell__icon { color: #f97316; }
-.wb-cell--misc .wb-cell__icon { color: #78716c; }
+.wb-cell--study .wb-cell__icon {
+  color: #0d9488;
+}
+.wb-cell--daily-life .wb-cell__icon {
+  color: #db2777;
+}
+.wb-cell--club .wb-cell__icon {
+  color: #8b5cf6;
+}
+.wb-cell--internship .wb-cell__icon {
+  color: #1d4ed8;
+}
+.wb-cell--materials .wb-cell__icon {
+  color: #ca8a04;
+}
+.wb-cell--dormitory .wb-cell__icon {
+  color: #059669;
+}
+.wb-cell--tech .wb-cell__icon {
+  color: #2563eb;
+}
+.wb-cell--team-up .wb-cell__icon {
+  color: #f97316;
+}
+.wb-cell--misc .wb-cell__icon {
+  color: #78716c;
+}
 
 /* 深色模式 */
 body.dark-mode .wb-cell {
@@ -349,22 +383,52 @@ body.dark-mode .wb-cell__icon-wrap {
   background: var(--chat-bg-main, #0f172a);
 }
 
-body.dark-mode .wb-cell--ranking .wb-cell__icon { color: #fbbf24; }
-body.dark-mode .wb-cell--xiaoqiu .wb-cell__icon { color: #c4b5fd; }
-body.dark-mode .wb-cell--resume .wb-cell__icon { color: #2dd4bf; }
-body.dark-mode .wb-cell--shop .wb-cell__icon { color: #34d399; }
-body.dark-mode .wb-cell--iwiki .wb-cell__icon { color: #a5b4fc; }
-body.dark-mode .wb-cell--course .wb-cell__icon { color: #fdba74; }
+body.dark-mode .wb-cell--ranking .wb-cell__icon {
+  color: #fbbf24;
+}
+body.dark-mode .wb-cell--xiaoqiu .wb-cell__icon {
+  color: #c4b5fd;
+}
+body.dark-mode .wb-cell--resume .wb-cell__icon {
+  color: #2dd4bf;
+}
+body.dark-mode .wb-cell--shop .wb-cell__icon {
+  color: #34d399;
+}
+body.dark-mode .wb-cell--iwiki .wb-cell__icon {
+  color: #a5b4fc;
+}
+body.dark-mode .wb-cell--course .wb-cell__icon {
+  color: #fdba74;
+}
 
-body.dark-mode .wb-cell--study .wb-cell__icon { color: #5eead4; }
-body.dark-mode .wb-cell--daily-life .wb-cell__icon { color: #f9a8d4; }
-body.dark-mode .wb-cell--club .wb-cell__icon { color: #c4b5fd; }
-body.dark-mode .wb-cell--internship .wb-cell__icon { color: #93c5fd; }
-body.dark-mode .wb-cell--materials .wb-cell__icon { color: #fcd34d; }
-body.dark-mode .wb-cell--dormitory .wb-cell__icon { color: #34d399; }
-body.dark-mode .wb-cell--tech .wb-cell__icon { color: #93c5fd; }
-body.dark-mode .wb-cell--team-up .wb-cell__icon { color: #fdba74; }
-body.dark-mode .wb-cell--misc .wb-cell__icon { color: #a8a29e; }
+body.dark-mode .wb-cell--study .wb-cell__icon {
+  color: #5eead4;
+}
+body.dark-mode .wb-cell--daily-life .wb-cell__icon {
+  color: #f9a8d4;
+}
+body.dark-mode .wb-cell--club .wb-cell__icon {
+  color: #c4b5fd;
+}
+body.dark-mode .wb-cell--internship .wb-cell__icon {
+  color: #93c5fd;
+}
+body.dark-mode .wb-cell--materials .wb-cell__icon {
+  color: #fcd34d;
+}
+body.dark-mode .wb-cell--dormitory .wb-cell__icon {
+  color: #34d399;
+}
+body.dark-mode .wb-cell--tech .wb-cell__icon {
+  color: #93c5fd;
+}
+body.dark-mode .wb-cell--team-up .wb-cell__icon {
+  color: #fdba74;
+}
+body.dark-mode .wb-cell--misc .wb-cell__icon {
+  color: #a8a29e;
+}
 </style>
 ```
 
@@ -373,6 +437,7 @@ body.dark-mode .wb-cell--misc .wb-cell__icon { color: #a8a29e; }
 Run: `pnpm dev`（如已运行可跳过，浏览器直接访问）
 
 浏览器访问 `http://localhost:5173/new/workbench`，预期：
+
 - 顶部显示"工作台"标题
 - "常用"段显示 6 个格子（4+2 换行）：排行榜、小秋、简历、商城、iWiki、课程专区
 - "全部分区"段显示 10 个格子（4+4+2 换行）
@@ -398,6 +463,7 @@ git commit -m "feat(workbench): add WorkbenchView with 4-col grid (6 common + 10
 ### Task 3: 改造 `BottomNavbar.vue` - script 部分
 
 **Files:**
+
 - Modify: `src/components/BottomNavbar.vue:1-46`
 
 - [ ] **Step 1: 替换 script 块，移除排行榜/小秋/简历 computed，新增 workbench computed**
@@ -471,6 +537,7 @@ onUnmounted(() => {
 ### Task 4: 改造 `BottomNavbar.vue` - template 部分
 
 **Files:**
+
 - Modify: `src/components/BottomNavbar.vue:48-120`
 
 - [ ] **Step 1: 替换 template 中的导航项**
@@ -478,6 +545,7 @@ onUnmounted(() => {
 将 `src/components/BottomNavbar.vue` 的 `<template>` 块内、`<div class="bottom-nav__inner">` 下的所有 RouterLink 替换。
 
 将：
+
 ```vue
     <div class="bottom-nav__inner">
       <RouterLink
@@ -537,6 +605,7 @@ onUnmounted(() => {
 ```
 
 改为：
+
 ```vue
     <div class="bottom-nav__inner">
       <RouterLink
@@ -593,11 +662,13 @@ onUnmounted(() => {
 ### Task 5: 改造 `BottomNavbar.vue` - style 部分
 
 **Files:**
+
 - Modify: `src/components/BottomNavbar.vue:200-470`（样式块）
 
 - [ ] **Step 1: 在 `.bottom-nav__icon--messages` 色值后追加 post 与 workbench 相关样式**
 
 定位到 `src/components/BottomNavbar.vue` 中的：
+
 ```scss
 .bottom-nav__icon--messages {
   color: #2563eb;
@@ -617,6 +688,7 @@ onUnmounted(() => {
 ```
 
 替换为：
+
 ```scss
 .bottom-nav__icon--messages {
   color: #2563eb;
@@ -632,6 +704,7 @@ onUnmounted(() => {
 - [ ] **Step 2: 在 `.bottom-nav__item--badge-wrap` 规则后追加 `--post` 凸起按钮样式**
 
 定位到：
+
 ```scss
   &--badge-wrap {
     position: relative;
@@ -645,6 +718,7 @@ onUnmounted(() => {
 ```
 
 替换为：
+
 ```scss
   &--badge-wrap {
     position: relative;
@@ -705,6 +779,7 @@ body.dark-mode .bottom-nav__post-btn {
 - [ ] **Step 4: 在深色模式色值块中追加 workbench 深色色值，移除 ranking/xiaoqiu/resume 深色色值**
 
 定位到：
+
 ```scss
 body.dark-mode .bottom-nav__icon--home {
   color: #fb923c;
@@ -730,6 +805,7 @@ body.dark-mode .bottom-nav__icon--user {
 ```
 
 替换为：
+
 ```scss
 body.dark-mode .bottom-nav__icon--home {
   color: #fb923c;
@@ -748,6 +824,7 @@ body.dark-mode .bottom-nav__icon--user {
 - [ ] **Step 5: 浏览器验证底部导航**
 
 切换到移动端响应式（Chrome DevTools → iPhone SE 375px），预期：
+
 - 底部显示 5 项：主页 / 消息 / 圆形凸起"+"发帖按钮 / 工作台 / 我的
 - 中间"+"按钮为圆形，垂直凸起于导航条上方，使用 `sendPostButton.webp` 作为内容
 - 点击主页 → 跳 `/`
@@ -774,6 +851,7 @@ git commit -m "feat(nav): restructure mobile bottom nav to 5 items with centered
 ### Task 6: 替换 `MobileHeader.vue` 左侧入口为小秋
 
 **Files:**
+
 - Modify: `src/components/MobileHeader.vue:1-25`
 
 - [ ] **Step 1: 修改 script 部分，引入 Icon 组件**
@@ -781,6 +859,7 @@ git commit -m "feat(nav): restructure mobile bottom nav to 5 items with centered
 将 `src/components/MobileHeader.vue` 顶部 `<script lang="ts" setup>` 块替换。
 
 将：
+
 ```ts
 <script lang="ts" setup>
 import { useTemplateRef } from 'vue'
@@ -799,6 +878,7 @@ const {
 ```
 
 改为：
+
 ```ts
 <script lang="ts" setup>
 import { Icon } from '@iconify/vue'
@@ -820,6 +900,7 @@ const {
 - [ ] **Step 2: 替换 template 中的课程图标 RouterLink**
 
 定位到 `src/components/MobileHeader.vue` 中的：
+
 ```vue
     <RouterLink
       to="/course"
@@ -831,6 +912,7 @@ const {
 ```
 
 替换为：
+
 ```vue
     <RouterLink
       to="/smart-xiaoqiu"
@@ -844,6 +926,7 @@ const {
 - [ ] **Step 3: 调整 `.lesson` CSS 以兼容图标（保留尺寸，移除背景图依赖）**
 
 定位到 `src/components/MobileHeader.vue` 中的：
+
 ```scss
 /* 课程专区（暂时） */
 .lesson {
@@ -863,6 +946,7 @@ body.dark-mode .lesson {
 ```
 
 替换为：
+
 ```scss
 /* 移动端顶栏左侧入口（小秋） */
 .lesson {
@@ -891,6 +975,7 @@ body.dark-mode .lesson--xiaoqiu {
 - [ ] **Step 4: 浏览器验证 MobileHeader**
 
 切换移动端响应式（iPhone SE 375px），预期：
+
 - 顶栏左侧图标变为"小秋"sparkles 图标，紫色
 - 点击跳转 `/smart-xiaoqiu`
 - 搜索框正常输入与搜索
@@ -914,11 +999,13 @@ git commit -m "feat(header): replace mobile header course icon with xiaoqiu entr
 ### Task 7: 端到端验证
 
 **Files:**
+
 - 无文件改动，仅验证
 
 - [ ] **Step 1: 移动端全链路验证（iPhone SE 375px）**
 
 逐项验证：
+
 1. 底部导航 5 项显示正确，中间"+"圆形凸起
 2. 主页 → 顶部分区横条仍正常显示
 3. 主页 → 点击分区横条"全部"跳 `/partitions` 正常
@@ -933,6 +1020,7 @@ git commit -m "feat(header): replace mobile header course icon with xiaoqiu entr
 - [ ] **Step 2: PC 端回归验证（>768px）**
 
 浏览器拉宽到 ≥769px，预期：
+
 - 顶部 PcHeader 一行图标链接布局完全不变
 - 底部导航不显示（PC 端原本就不显示 BottomNavbar）
 - 各 PC 端入口（发帖/分区/课程专区/反馈/商城/打分/智能小秋/收藏/历史/消息/用户名）均可正常点击
@@ -940,6 +1028,7 @@ git commit -m "feat(header): replace mobile header course icon with xiaoqiu entr
 - [ ] **Step 3: 深色模式验证**
 
 切换深色模式，预期：
+
 - 底部导航"+"按钮背景色与边框圈颜色正确
 - 工作台所有 16 个格子图标颜色正确
 - MobileHeader 小秋图标颜色变浅紫色
@@ -956,6 +1045,7 @@ Expected: 构建成功，无报错
 - [ ] **Step 5: 总结 Commit（可选，如有零散改动）**
 
 如前面任务都已 commit，此步可跳过。否则：
+
 ```bash
 git add -A
 git commit -m "test: e2e verification for mobile workbench nav"
@@ -966,6 +1056,7 @@ git commit -m "test: e2e verification for mobile workbench nav"
 ## Self-Review
 
 ### 1. Spec coverage
+
 - ✅ 底部导航 5 项（主页/消息/+发帖/工作台/我的）→ Task 3-5
 - ✅ 中间凸起"+发帖"按钮 → Task 5 Step 3
 - ✅ 工作台 4 列宫格，常用组 6 项（4+2 换行）→ Task 2
@@ -978,11 +1069,13 @@ git commit -m "test: e2e verification for mobile workbench nav"
 - ✅ PC 端不动 → 计划未触碰 `PcHeader.vue`/`PwaPcHeader.vue`
 
 ### 2. Placeholder scan
+
 - 无 TBD/TODO
 - 所有代码块均为完整可执行内容
 - 所有命令均带 expected 输出
 
 ### 3. Type consistency
+
 - `CommonEntry` 接口在 Task 2 定义，`commonEntries` 使用一致
 - `isWorkbench`/`isPost` 在 Task 3 定义，Task 4 template 引用名称一致
 - `bottom-nav__item--post`/`bottom-nav__post-btn`/`bottom-nav__icon--workbench` 类名在 Task 4-5 间一致

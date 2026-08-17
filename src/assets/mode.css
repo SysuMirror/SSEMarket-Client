@@ -7,7 +7,7 @@
 
 body {
   /* ===== 基础中性色 ===== */
-  --color-bg: #f6f7f9;
+  --color-bg: #f5f6f7;
   background-color: var(--color-bg);
 
   --color-scroll: rgba(71, 85, 105, 0.12);
@@ -27,10 +27,10 @@ body {
   --accent-soft: rgba(44, 61, 86, 0.08);
   --accent-hover: #3d5170;
 
-  /* ===== 卡片 / 阴影 ===== */
+  /* ===== 卡片 / 阴影（企业微信风：极淡） ===== */
   --color-card: #ffffff;
-  --color-card-shadow: 0 1px 2px rgba(71, 85, 105, 0.04), 0 2px 8px rgba(71, 85, 105, 0.04);
-  --color-card-hover-shadow: 0 2px 8px rgba(71, 85, 105, 0.08), 0 4px 16px rgba(71, 85, 105, 0.06);
+  --color-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --color-card-hover-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 
   /* ===== 按钮 ===== */
   --color-button-bg: var(--accent);
@@ -131,11 +131,11 @@ body {
   --shop-tag-bg: var(--accent-soft);
   --shop-tag-text: var(--accent);
 
-  /* ===== 统一圆角 / 间距 Token ===== */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  /* ===== 统一圆角 / 间距 Token（企业微信风：8px 基准） ===== */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
   --radius-full: 9999px;
 }
 

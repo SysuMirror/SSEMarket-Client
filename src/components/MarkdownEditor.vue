@@ -442,7 +442,9 @@ watch(isPreview, (preview) => {
     line-height: 1.5;
     resize: none;
     box-sizing: border-box;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
 
     &::placeholder {
       color: var(--chat-text-tips);

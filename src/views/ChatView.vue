@@ -11,10 +11,10 @@ import { useUserStore } from '@/store/userStore'
 import {
   ANONYMOUS_DISPLAY_NAME,
   bubbleSenderLabel,
+  canRecallMessage,
   contactDisplayAvatar,
   contactDisplayName,
   contactProfileBlocked,
-  canRecallMessage,
   recalledBubbleText,
 } from '@/utils/chatAnonymous'
 
@@ -732,7 +732,6 @@ watch([isMobile, mobilePane], () => {
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
-
 
 @media screen and (min-width: 769px) {
   .chat-thread {

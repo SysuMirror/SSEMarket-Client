@@ -100,5 +100,4 @@ onUnmounted(() => {
 .list-leave-to {
   opacity: 0;
 }
-
 </style>
