@@ -7,7 +7,6 @@ import { getInfo } from '@/api/info/getInfo'
 import { userLogin } from '@/api/LoginAndRegister/login'
 import FormContainer from '@/components/FormContainer.vue'
 import { showMsg } from '@/components/MessageBox'
-import { useFormExam } from '@/composables/FormExam'
 
 import { useUserStore } from '@/store/userStore'
 
@@ -30,12 +29,15 @@ const form = ref<CustomFormData[]>([
   },
 ])
 
-const { correct } = useFormExam(form)
 const rememberMe = ref(true)
 
 async function loginHandler() {
   const email = form.value[0].value
   const password = form.value[1].value
+  if (!email.trim() || !password.trim()) {
+    showMsg('请填写完整信息')
+    return
+  }
   try {
     if (email && password) {
       const result = await userLogin(email, password)
@@ -68,7 +70,6 @@ async function loginHandler() {
     subtitle="使用邮箱登录你的账号"
     form-name="登录"
     :form-data="form"
-    :disabled="!correct"
     @submit-form="loginHandler"
   >
     <label class="auth-row auth-check">
