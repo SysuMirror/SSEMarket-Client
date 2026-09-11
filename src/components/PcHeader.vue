@@ -78,6 +78,15 @@ const {
         />
         商城
       </router-link>
+      <router-link to="/music">
+        <div
+          class="icon" style="
+              background-image: url(https://img.icons8.com/ios-filled/100/music.png);
+              background-position: 0px 3px;
+            "
+        />
+        音乐
+      </router-link>
       <router-link to="/rating">
         <div
           class="icon" style="
@@ -95,7 +104,7 @@ const {
               background-size: 90% 90%;
             "
         />
-        智能小秋
+        小秋
       </router-link>
     </div>
     <form class="search" @submit.prevent="search">

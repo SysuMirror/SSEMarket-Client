@@ -15,6 +15,7 @@ import ModeButton from '@/components/ModeButton.vue'
 import { useChat } from '@/composables/useChat'
 import { usePWA } from '@/composables/usePWA'
 import { useNewPostsStore } from '@/store/newPostsStore'
+import { useMusicStore } from '@/store/musicStore'
 import { useNoticeStore } from '@/store/noticeStore'
 import { handleHomeNavClick } from '@/utils/scrollHome'
 import { showSnackbar } from '@/utils/snackbar'
@@ -35,6 +36,8 @@ const route = useRoute()
 const router = useRouter()
 
 const { noticeNum, refreshNoticeNum } = useNoticeStore()
+// 全局播放器出现时收紧主内容高度，避免底栏盖住内容
+const { current: currentMusic } = useMusicStore()
 const { startPolling, stopPolling, newPostsNotification, hideNotification } = useNewPostsStore()
 
 const { connect, disconnect, chatNum } = useChat()
@@ -74,7 +77,7 @@ const isHomePage = computed(() => {
   return seg === '' || seg === 'partition' || seg === 'rating'
 })
 
-/** 子页占满顶栏与主区域之间剩余高度，禁止整页滚动（如智能小秋） */
+/** 子页占满顶栏与主区域之间剩余高度，禁止整页滚动（如小秋） */
 const layoutFill = computed(() => Boolean(route.meta.layoutFill))
 
 function onTitleHomeClick(e: MouseEvent) {
@@ -139,6 +142,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
       'pwa-mode': isDesktopExperience,
       'root--layout-fill': layoutFill,
       'root--input-focused': isAnyInputFocused && !isPC,
+      'root--has-player': !!currentMusic,
     }"
   >
     <header class="site-header-stack">
@@ -378,7 +382,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   }
 }
 
-/* 发帖 / 智能小秋：主区域不滚动，子页面内部滚动 */
+/* 发帖 / 小秋：主区域不滚动，子页面内部滚动 */
 .root.root--layout-fill > .app-main.app-main--layout-fill {
   flex: 1 1 0;
   min-height: 0;
@@ -413,4 +417,24 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
     min-width: 0;
   }
 }
+
+/* ---------- 全局音乐播放器底栏出现时的避让 ---------- */
+@media screen and (min-width: 769px) {
+  .root--has-player .app-main:not(.app-main--layout-fill) {
+    height: calc(100dvh - var(--layout-header-h) - 64px);
+    max-height: calc(100dvh - var(--layout-header-h) - 64px);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .root--has-player .app-main:not(.app-main--layout-fill) {
+    height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h) - 64px);
+    max-height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h) - 64px);
+  }
+
+  .root--has-player .content:not(.content--layout-fill) {
+    padding-bottom: 24px;
+  }
+}
+
 </style>

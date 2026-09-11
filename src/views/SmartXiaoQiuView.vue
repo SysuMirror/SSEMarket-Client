@@ -166,7 +166,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
       <div class="brand">
         <img class="brand-avatar" :src="xiaoQiuAvatarUrl" alt="" width="40" height="40">
         <div class="brand-copy">
-          <h1>智能小秋</h1>
+          <h1>小秋</h1>
           <p v-if="isStreaming" class="status live">
             正在思考与整理回复…
           </p>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AssistPostData } from '@/api/assist'
 import { Icon } from '@iconify/vue'
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { fetchAssistFollowup } from '@/api/assist'
 import MarkdownContainer from '@/components/MarkdownContainer.vue'
 
@@ -36,6 +36,9 @@ const followUps = ref<Array<{ question: string, answer: string }>>([])
 const followUpError = ref('')
 
 // ---- 反馈:点赞/点踩已移除,如需恢复参考 git 历史 ----
+
+// ---- 去重:LLM 回答已自带"相关帖子"清单时不重复渲染引用列表 ----
+const answerHasRefList = computed(() => /相关帖子/.test(props.data.answer))
 
 // ---- 来源标签 ----
 const sourceLabel: Record<string, { icon: string, text: string }> = {
@@ -93,7 +96,7 @@ async function handleFollowUp() {
     </div>
 
     <!-- 展开态:引用来源 -->
-    <ul v-if="expanded && data.references.length > 0" class="ai-card__refs">
+    <ul v-if="expanded && data.references.length > 0 && !answerHasRefList" class="ai-card__refs">
       <li v-for="(ref, i) in data.references" :key="ref.postID" class="ai-card__ref">
         <a
           :href="ref.url"

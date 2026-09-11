@@ -26,6 +26,14 @@ export function normalizePost(raw: Record<string, unknown>): Post {
     IsWatched: Boolean(raw.IsWatched ?? raw.isWatched ?? p.IsWatched),
     IsSaved: Boolean(raw.IsSaved ?? raw.isSaved ?? p.IsSaved),
     IsLiked: Boolean(raw.IsLiked ?? raw.isLiked ?? p.IsLiked),
+    IsAnonymous: Boolean(raw.IsAnonymous ?? raw.isAnonymous ?? p.IsAnonymous),
+    IsOwner: Boolean(raw.IsOwner ?? raw.isOwner ?? p.IsOwner),
+    // 后端 JSON tag 用小驼峰(isPinned),前端类型用大驼峰(IsPinned),需要显式映射
+    IsPinned: Boolean(raw.IsPinned ?? raw.isPinned ?? p.IsPinned),
+    PinnedAt: (raw.PinnedAt ?? raw.pinnedAt ?? p.PinnedAt) as Post['PinnedAt'],
+    PinnedExpiresAt: (raw.PinnedExpiresAt ?? raw.pinnedExpiresAt ?? p.PinnedExpiresAt) as Post['PinnedExpiresAt'],
+    // 后端 hotComment 字段为对象或 undefined,直接透传
+    HotComment: (raw.HotComment ?? raw.hotComment ?? p.HotComment) as Post['HotComment'],
   }
 }
 

@@ -8,6 +8,10 @@ import { getInfo } from './api/info/getInfo'
 import { userLogin } from './api/LoginAndRegister/login'
 import { useUserStore } from './store/userStore'
 
+import NowPlayingOverlay from '@/components/music/NowPlayingOverlay.vue'
+import PlayerBar from '@/components/music/PlayerBar.vue'
+import PlaylistDrawer from '@/components/music/PlaylistDrawer.vue'
+
 const { setUserInfo, token, refreshToken, setToken, setRefreshToken } = useUserStore()
 
 const isUserReady = ref(false)
@@ -78,4 +82,8 @@ onUnmounted(() => {
 
 <template>
   <router-view v-if="isUserReady" />
+  <!-- 全局音乐播放器：跨路由续播，挂在 router-view 之外 -->
+  <PlayerBar />
+  <NowPlayingOverlay />
+  <PlaylistDrawer />
 </template>

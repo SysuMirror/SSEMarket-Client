@@ -102,10 +102,21 @@ export function normalizeAllInfo(raw: Partial<AllInfo> | Record<string, unknown>
 }
 
 /**
- * @description 返回更详细的信息，个人信息页面使用
- * @param {string} userTelephone
+ * @description 获取当前登录用户的详细信息（个人设置页等）
+ */
+async function getSelfAllInfo(userID: number): Promise<AllInfo> {
+  if (userID <= 0)
+    return normalizeAllInfo({})
+  return getInfoById(userID)
+}
+
+/**
+ * @deprecated 请使用 getSelfAllInfo(userID)。phone 字段已废弃，仅保留兼容旧调用。
  */
 async function getAllInfo(userTelephone: string): Promise<AllInfo> {
+  console.warn('[getAllInfo] phone 参数已废弃，请改用 getSelfAllInfo(userID)')
+  if (!userTelephone?.trim())
+    return normalizeAllInfo({})
   try {
     const res = await requestFunc(
       `/auth/getInfo`,
@@ -150,4 +161,4 @@ async function getInfoById(userID: number): Promise<AllInfo> {
   }
 }
 
-export { getAllInfo, getInfo, getInfoById }
+export { getAllInfo, getInfo, getInfoById, getSelfAllInfo }

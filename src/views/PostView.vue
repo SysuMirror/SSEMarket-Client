@@ -4,9 +4,10 @@ import type { Tag } from '@/api/info/getTeacher'
 
 import type { LotteryMode, LotteryPrizeInput } from '@/api/lottery/lottery'
 import { Icon } from '@iconify/vue'
-import { onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { fetchAssistMatch } from '@/api/assist'
 import { sendPost } from '@/api/editPostAndComment/editPost'
 import { getTeachers } from '@/api/info/getTeacher'
 
@@ -14,6 +15,7 @@ import { createLotteryPost } from '@/api/lottery/lottery'
 import LotteryConfigPanel from '@/components/LotteryConfigPanel.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { showMsg } from '@/components/MessageBox'
+import MusicPickerDialog from '@/components/music/MusicPickerDialog.vue'
 import { useDraft } from '@/composables/useDraft'
 import { isPostContentTooLong, POST_CONTENT_MAX_RUNES } from '@/constants/contentLimits'
 import { POST_PARTITION_OPTIONS } from '@/constants/partitions'
@@ -24,16 +26,29 @@ const { userInfo } = useUserStore()
 const { current, drafts, addDraft, selectDraft, deleteDraft, updateDraft, syncDrafts } = useDraft()
 const partitions = ref([...POST_PARTITION_OPTIONS])
 const postContent = ref('')
-const title = useTemplateRef('title')
+// 标题改为受控 v-model（驱动文档式标题行的字数提示）
+const postTitle = ref('')
 const partition = ref('主页')
 
 const teachers = ref<Tag[]>([])
 const teacher = ref('')
 
 const draftsOpen = ref(false)
+const musicPickerVisible = ref(false)
+const editorRef = useTemplateRef<InstanceType<typeof MarkdownEditor>>('editorRef')
+
+function onInsertMusic(musicID: number) {
+  editorRef.value?.insertAtCursor(`
+
+::music ${musicID}::
+
+`)
+}
 const submitting = ref(false)
 const postPrivate = ref(false)
 const postAnonymous = ref(false)
+// 同时置顶 1 小时(仅有置顶权限的用户生效,后端校验)
+const postPinned = ref(false)
 
 type PostKind = 'normal' | 'lottery'
 const postKind = ref<PostKind>('normal')
@@ -43,6 +58,8 @@ const lotteryDrawAt = ref('')
 const lotteryPrizes = ref<LotteryPrizeInput[]>([
   { name: '', quantity: 1, wishKeyword: '' },
 ])
+
+const titleCount = computed(() => postTitle.value.length)
 
 let autoSaveTimer: number | null = null
 
@@ -65,8 +82,7 @@ function validateLotteryConfig(): string | null {
 
 async function loadDraft(id: number) {
   selectDraft(id)
-  if (title.value)
-    title.value.value = current.title
+  postTitle.value = current.title
   postContent.value = current.content
 }
 
@@ -78,7 +94,7 @@ async function removeDraft(id: number) {
 }
 
 async function saveDraft() {
-  const draftTitle = title.value?.value || ''
+  const draftTitle = postTitle.value
   const draftContent = postContent.value
 
   if (!draftTitle && !draftContent) {
@@ -94,7 +110,7 @@ async function saveDraft() {
 function autoSaveDraft() {
   if (!current.id)
     return Promise.resolve(false)
-  const draftTitle = title.value?.value || ''
+  const draftTitle = postTitle.value
   const draftContent = postContent.value
 
   if (draftTitle || draftContent) {
@@ -108,21 +124,18 @@ function discardDraft() {
   current.content = ''
   current.title = ''
   current.id = 0
-  if (title.value)
-    title.value.value = ''
+  postTitle.value = ''
   postContent.value = ''
 }
 
 async function submitPost() {
-  if (!title.value || submitting.value)
+  if (submitting.value)
     return
-  let postTitle = title.value.value
+  const title = postTitle.value.replace(/(^\s*)|(\s*$)/g, '')
   const content = postContent.value
   const postPartition = partition.value
 
-  postTitle = postTitle.replace(/(^\s*)|(\s*$)/g, '')
-
-  if (!postTitle || !content) {
+  if (!title || !content) {
     showMsg('请填写完整信息')
     return
   }
@@ -143,7 +156,7 @@ async function submitPost() {
     if (postKind.value === 'lottery') {
       const drawAt = `${lotteryDrawAt.value.replace('T', ' ')}:00`
       const { ok, msg, postID } = await createLotteryPost({
-        title: postTitle,
+        title,
         content,
         partition: postPartition,
         userTelephone: userInfo.phone,
@@ -171,14 +184,23 @@ async function submitPost() {
       postPartition,
       '',
       teacher.value,
-      postTitle,
+      title,
       userInfo.phone,
       postPrivate.value,
       postAnonymous.value,
+      postPinned.value,
     )
     if (!res || typeof res.msg !== 'string') {
       showMsg('发帖失败，请检查网络后重试')
       return
+    }
+    // 发帖自动生成 AI 解读:静默预生成落库,不阻塞跳转(2026-09-08)
+    const newPostID = Number((res.data as { postID?: number } | null)?.postID ?? 0)
+    if (newPostID > 0) {
+      fetchAssistMatch(
+        { partition: postPartition, title, content, postID: newPostID },
+        AbortSignal.timeout(45_000),
+      ).catch(() => {})
     }
     showMsg(res.msg)
     router.push('/')
@@ -189,9 +211,6 @@ async function submitPost() {
 }
 
 onMounted(async () => {
-  if (window.innerWidth >= 769)
-    draftsOpen.value = true
-
   const data = await getTeachers()
   teachers.value = data
 
@@ -201,8 +220,7 @@ onMounted(async () => {
     const latestDraft = drafts[drafts.length - 1]
     if (latestDraft.id !== undefined) {
       selectDraft(latestDraft.id)
-      if (title.value)
-        title.value.value = latestDraft.title
+      postTitle.value = latestDraft.title
       postContent.value = latestDraft.content
     }
   }
@@ -223,205 +241,214 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <!-- 布局参照 Discourse 2026 composer 重设计：元数据一行、标题文档化、编辑器占满剩余高度；
+       抽奖配置限高内滚，杜绝桌面端内容被裁却无滚动条的问题 -->
   <div class="post-page">
-    <div class="post-page__layout">
-      <!-- 主编辑区 -->
-      <article class="post-page__card" aria-label="发帖内容">
-        <header class="post-page__header">
-          <div class="post-page__header-text">
-            <h1 class="post-page__heading">
-              发帖
-            </h1>
-            <p class="post-page__desc">
-              支持 Markdown · 图片可粘贴或从工具栏插入
-            </p>
-          </div>
-          <button
-            type="button"
-            class="post-page__submit"
-            :class="{ 'post-page__submit--busy': submitting }"
-            :disabled="submitting"
-            @click="submitPost"
-          >
-            {{ submitting ? '发送中…' : '发送' }}
-          </button>
-        </header>
+    <article class="post-page__card" aria-label="发帖内容">
+      <!-- 顶部操作条：标题 / 草稿下拉 / 帖子类型 / 发送 -->
+      <header class="post-page__topbar">
+        <h1 class="post-page__heading">
+          发帖
+        </h1>
 
-        <div class="post-page__form">
-          <label class="post-page__field post-page__field--title">
-            <span class="post-page__field-label">标题</span>
-            <input
-              ref="title"
-              type="text"
-              class="post-page__control"
-              placeholder="写一个吸引人的标题（最多 30 字）"
-              maxlength="30"
-            >
-          </label>
-
-          <div class="post-page__field-row">
-            <label class="post-page__field">
-              <span class="post-page__field-label">分区</span>
-              <select v-model="partition" class="post-page__control">
-                <option
-                  v-for="(p, index) in partitions"
-                  :key="index"
-                  :value="p"
-                >
-                  {{ p }}
-                </option>
-              </select>
-            </label>
-            <label
-              v-if="partition === '课程专区'"
-              class="post-page__field"
-            >
-              <span class="post-page__field-label">课程标签</span>
-              <select v-model="teacher" class="post-page__control">
-                <option
-                  v-for="t in teachers"
-                  :key="t.TagID"
-                  :value="t.Name"
-                >
-                  {{ t.Name }}
-                </option>
-              </select>
-            </label>
-          </div>
-
-          <label class="post-page__privacy">
-            <input v-model="postPrivate" type="checkbox" class="post-page__privacy-input">
-            <span class="post-page__privacy-text">仅自己可见（发帖后也可在帖子卡片上修改）</span>
-          </label>
-
-          <label class="post-page__privacy">
-            <input v-model="postAnonymous" type="checkbox" class="post-page__privacy-input">
-            <span class="post-page__privacy-text">匿名发帖（隐藏我的昵称、头像与等级）</span>
-          </label>
-
-          <div class="post-page__kind">
-            <span class="post-page__field-label">帖子类型</span>
-            <div class="post-page__kind-tabs" role="tablist">
-              <button
-                type="button"
-                class="post-page__kind-tab"
-                :class="{ 'post-page__kind-tab--active': postKind === 'normal' }"
-                role="tab"
-                :aria-selected="postKind === 'normal'"
-                @click="postKind = 'normal'"
-              >
-                普通帖
-              </button>
-              <button
-                type="button"
-                class="post-page__kind-tab"
-                :class="{ 'post-page__kind-tab--active': postKind === 'lottery' }"
-                role="tab"
-                :aria-selected="postKind === 'lottery'"
-                @click="postKind = 'lottery'"
-              >
-                抽奖帖
-              </button>
-            </div>
-          </div>
-
-          <LotteryConfigPanel
-            v-if="postKind === 'lottery'"
-            v-model:mode="lotteryMode"
-            v-model:draw-at="lotteryDrawAt"
-            v-model:prizes="lotteryPrizes"
-            v-model:open="lotteryOpen"
-          />
-        </div>
-
-        <div class="post-page__editor">
-          <MarkdownEditor
-            v-model="postContent"
-            fill
-            placeholder="在这里写下正文…"
-            :submit-busy="submitting"
-            @send="submitPost"
-          />
-        </div>
-      </article>
-
-      <!-- 草稿箱 -->
-      <aside class="post-page__drafts" aria-label="草稿箱">
-        <div
-          class="post-page__drafts-card"
-          :class="{ 'post-page__drafts-card--open': draftsOpen }"
+        <button
+          type="button"
+          class="post-page__drafts-trigger"
+          :class="{ 'post-page__drafts-trigger--active': draftsOpen }"
+          :aria-expanded="draftsOpen"
+          aria-haspopup="true"
+          @click="draftsOpen = !draftsOpen"
         >
+          <Icon icon="tabler:file-text" width="16" height="16" aria-hidden="true" />
+          草稿
+          <span class="post-page__drafts-badge">{{ drafts.length }}</span>
+          <Icon icon="tabler:chevron-down" width="14" height="14" aria-hidden="true" class="post-page__drafts-caret" />
+        </button>
+
+        <div class="post-page__topbar-spacer" />
+
+        <div class="post-page__kind" role="tablist" aria-label="帖子类型">
           <button
             type="button"
-            class="post-page__drafts-toggle"
-            :aria-expanded="draftsOpen"
-            aria-controls="post-drafts-body"
-            @click="draftsOpen = !draftsOpen"
+            class="post-page__kind-btn"
+            :class="{ 'post-page__kind-btn--active': postKind === 'normal' }"
+            role="tab"
+            :aria-selected="postKind === 'normal'"
+            @click="postKind = 'normal'"
           >
-            <span class="post-page__drafts-toggle-label">
-              <Icon icon="tabler:file-text" width="18" height="18" aria-hidden="true" />
-              草稿箱
-            </span>
-            <span class="post-page__drafts-badge">{{ drafts.length }}</span>
-            <Icon
-              icon="tabler:chevron-down"
-              class="post-page__drafts-chevron"
-              width="18"
-              height="18"
-              aria-hidden="true"
-            />
+            普通帖
           </button>
+          <button
+            type="button"
+            class="post-page__kind-btn"
+            :class="{ 'post-page__kind-btn--active': postKind === 'lottery' }"
+            role="tab"
+            :aria-selected="postKind === 'lottery'"
+            @click="postKind = 'lottery'"
+          >
+            抽奖帖
+          </button>
+        </div>
 
-          <div id="post-drafts-body" class="post-page__drafts-body">
-            <p class="post-page__drafts-hint">
-              手动保存后，每 20 秒自动保存
-            </p>
-            <div class="post-page__drafts-actions">
-              <button type="button" class="post-page__draft-btn" @click="discardDraft">
-                清空
+        <button
+          type="button"
+          class="post-page__ghost"
+          title="保存草稿（此后每 20 秒自动保存）"
+          @click="saveDraft"
+        >
+          存草稿
+        </button>
+
+        <button
+          type="button"
+          class="post-page__submit"
+          :class="{ 'post-page__submit--busy': submitting }"
+          :disabled="submitting"
+          @click="submitPost"
+        >
+          {{ submitting ? '发送中…' : '发送' }}
+        </button>
+      </header>
+
+      <!-- 草稿下拉面板 -->
+      <Transition name="draftdrop" :duration="200">
+        <div v-if="draftsOpen" class="post-page__draftdrop-mask" @click="draftsOpen = false">
+          <div class="post-page__draftdrop" role="menu" aria-label="草稿箱" @click.stop>
+            <div class="post-page__draftdrop-head">
+              <span>草稿箱 · 手动保存后每 20 秒自动保存</span>
+              <button type="button" class="post-page__draftdrop-act" @click="discardDraft">
+                清空当前
               </button>
-              <button type="button" class="post-page__draft-btn" @click="autoSaveDraft">
-                更新
-              </button>
-              <button type="button" class="post-page__draft-btn post-page__draft-btn--primary" @click="saveDraft">
+              <button type="button" class="post-page__draftdrop-act post-page__draftdrop-act--primary" @click="saveDraft">
                 保存
               </button>
             </div>
-
-            <div v-if="drafts.length === 0" class="post-page__drafts-empty">
+            <div v-if="drafts.length === 0" class="post-page__draftdrop-empty">
               暂无草稿
             </div>
-            <ul v-else class="post-page__draft-list">
+            <ul v-else class="post-page__draftdrop-list">
               <li
                 v-for="draft in drafts"
                 :key="draft.id"
-                class="post-page__draft-item"
-                :class="{ 'post-page__draft-item--active': draft.id === current.id }"
+                class="post-page__draftdrop-item"
+                :class="{ 'post-page__draftdrop-item--active': draft.id === current.id }"
               >
                 <button
                   type="button"
-                  class="post-page__draft-load"
-                  @click="loadDraft(draft.id!)"
+                  class="post-page__draftdrop-load"
+                  @click="loadDraft(draft.id!); draftsOpen = false"
                 >
-                  <span class="post-page__draft-name">{{ draft.title || '无标题' }}</span>
-                  <span class="post-page__draft-snippet">
+                  <span class="post-page__draftdrop-name">{{ draft.title || '无标题' }}</span>
+                  <span class="post-page__draftdrop-snippet">
                     {{ draft.content.slice(0, 48) }}{{ draft.content.length > 48 ? '…' : '' }}
                   </span>
                 </button>
                 <button
                   type="button"
-                  class="post-page__draft-remove"
+                  class="post-page__draftdrop-remove"
                   aria-label="删除草稿"
                   @click.stop="removeDraft(draft.id!)"
                 >
-                  <Icon icon="tabler:trash" width="16" height="16" aria-hidden="true" />
+                  <Icon icon="tabler:trash" width="15" height="15" aria-hidden="true" />
                 </button>
               </li>
             </ul>
           </div>
         </div>
-      </aside>
-    </div>
+      </Transition>
+
+      <!-- 元数据一行：分区 / 课程标签 / 选项 chips -->
+      <div class="post-page__meta">
+        <select v-model="partition" class="post-page__select" aria-label="分区">
+          <option v-for="(p, index) in partitions" :key="index" :value="p">
+            {{ p }}
+          </option>
+        </select>
+
+        <select v-if="partition === '课程专区'" v-model="teacher" class="post-page__select" aria-label="课程标签">
+          <option v-for="t in teachers" :key="t.TagID" :value="t.Name">
+            {{ t.Name }}
+          </option>
+        </select>
+
+        <button
+          type="button"
+          class="post-page__chip"
+          :class="{ 'post-page__chip--on': postPrivate }"
+          :aria-pressed="postPrivate"
+          title="发帖后也可在帖子卡片上修改"
+          @click="postPrivate = !postPrivate"
+        >
+          <Icon icon="tabler:lock" width="14" height="14" aria-hidden="true" />
+          仅自己可见
+        </button>
+
+        <button
+          type="button"
+          class="post-page__chip"
+          :class="{ 'post-page__chip--on': postAnonymous }"
+          :aria-pressed="postAnonymous"
+          title="隐藏我的昵称、头像与等级"
+          @click="postAnonymous = !postAnonymous"
+        >
+          <Icon icon="tabler:user-secret" width="14" height="14" aria-hidden="true" />
+          匿名
+        </button>
+
+        <button
+          v-if="partition === '主页'"
+          type="button"
+          class="post-page__chip"
+          :class="{ 'post-page__chip--on': postPinned }"
+          :aria-pressed="postPinned"
+          title="同时置顶 1 小时（每人仅 1 个置顶帖，全站共 5 个名额）"
+          @click="postPinned = !postPinned"
+        >
+          <Icon icon="tabler:pinned" width="14" height="14" aria-hidden="true" />
+          置顶 1 小时
+        </button>
+      </div>
+
+      <!-- 抽奖配置（限高内滚，不再挤压编辑器） -->
+      <div v-if="postKind === 'lottery'" class="post-page__lottery">
+        <LotteryConfigPanel
+          v-model:mode="lotteryMode"
+          v-model:draw-at="lotteryDrawAt"
+          v-model:prizes="lotteryPrizes"
+          v-model:open="lotteryOpen"
+        />
+      </div>
+
+      <!-- 文档式标题 -->
+      <div class="post-page__title" aria-label="标题">
+        <input
+          v-model="postTitle"
+          type="text"
+          class="post-page__title-input"
+          placeholder="写一个吸引人的标题…"
+          maxlength="30"
+        >
+        <span class="post-page__title-count" :class="{ 'post-page__title-count--max': titleCount >= 30 }">
+          {{ titleCount }}/30
+        </span>
+      </div>
+
+      <!-- 正文编辑器：占满剩余全部高度 -->
+      <div class="post-page__editor">
+        <MarkdownEditor
+          ref="editorRef"
+          v-model="postContent"
+          fill
+          music-enabled
+          placeholder="在这里写下正文…支持 Markdown，图片可粘贴或从工具栏插入"
+          :submit-busy="submitting"
+          @send="submitPost"
+          @insert-music="musicPickerVisible = true"
+        />
+      </div>
+    </article>
+
+    <MusicPickerDialog v-model="musicPickerVisible" @insert="onInsertMusic" />
   </div>
 </template>
 
@@ -431,7 +458,7 @@ onUnmounted(() => {
   --post-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 
   width: 100%;
-  max-width: 1080px;
+  max-width: 920px;
   height: 100%;
   min-height: 0;
   flex: 1 1 auto;
@@ -441,24 +468,18 @@ onUnmounted(() => {
   color: var(--chat-text);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* 兜底：极端高度下（抽奖配置拉满奖品）页面本身可滚，绝不裁切内容 */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-.post-page__layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 288px;
-  gap: 16px;
-  flex: 1 1 auto;
-  min-height: 0;
-  align-items: stretch;
-}
-
-/* 主卡片 */
 .post-page__card {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  flex: 1 1 auto;
   background: var(--chat-bg-highlight);
   border: 1px solid var(--chat-border);
   border-radius: var(--post-radius);
@@ -466,46 +487,140 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.post-page__header {
+/* —— 顶部操作条 —— */
+.post-page__topbar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px 12px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--chat-border);
   flex-shrink: 0;
 }
 
-.post-page__header-text {
-  min-width: 0;
-}
-
 .post-page__heading {
   margin: 0;
-  font-size: 1.375rem;
+  font-size: 1.0625rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
-.post-page__desc {
-  margin: 4px 0 0;
+.post-page__topbar-spacer {
+  flex: 1 1 auto;
+}
+
+.post-page__drafts-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
   font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
   color: var(--chat-text-secondary);
+  background: var(--chat-bg-main);
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--chat-text);
+    border-color: var(--chat-accent);
+  }
+
+  &--active {
+    color: var(--chat-accent);
+    border-color: var(--chat-accent);
+    background: var(--chat-accent-soft, transparent);
+  }
+}
+
+.post-page__drafts-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 16px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--chat-text-tips);
+}
+
+.post-page__drafts-trigger--active .post-page__drafts-badge {
+  background: var(--chat-accent);
+}
+
+.post-page__drafts-caret {
+  transition: transform 0.18s ease;
+}
+
+.post-page__drafts-trigger--active .post-page__drafts-caret {
+  transform: rotate(180deg);
+}
+
+.post-page__kind {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  background: var(--chat-bg-main);
+  flex-shrink: 0;
+}
+
+.post-page__kind-btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--chat-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+
+  &--active {
+    background: var(--chat-bg-highlight);
+    color: var(--chat-text);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.post-page__ghost {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--chat-text-secondary);
+  background: transparent;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--chat-text);
+    border-color: var(--chat-accent);
+  }
 }
 
 .post-page__submit {
   flex-shrink: 0;
-  min-height: 42px;
-  padding: 0 24px;
-  font-size: 0.9375rem;
+  min-height: 32px;
+  padding: 0 18px;
+  font-size: 0.875rem;
   font-weight: 600;
   font-family: inherit;
   line-height: 1;
   color: #fff;
   background: var(--chat-accent);
   border: none;
-  border-radius: 999px;
+  border-radius: 8px;
   cursor: pointer;
   transition:
     opacity 0.15s ease,
@@ -526,220 +641,90 @@ onUnmounted(() => {
   }
 }
 
-.post-page__form {
-  padding: 14px 18px 0;
-  flex-shrink: 0;
+/* —— 草稿下拉 —— */
+.post-page__draftdrop-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
 }
 
-.post-page__field {
+.post-page__draftdrop {
+  position: absolute;
+  top: 50px;
+  left: 14px;
+  width: min(360px, calc(100% - 28px));
+  max-height: min(56vh, 460px);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-
-  &--title {
-    margin-bottom: 12px;
-  }
+  background: var(--chat-bg-highlight);
+  border: 1px solid var(--chat-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(2, 6, 23, 0.16);
+  overflow: hidden;
 }
 
-.post-page__field-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 4px;
-}
-
-.post-page__privacy {
+.post-page__draftdrop-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  margin-top: 12px;
   padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--chat-border);
-  background: var(--chat-bg-highlight);
-  cursor: pointer;
-}
-
-.post-page__privacy-input {
-  margin-top: 2px;
-  flex-shrink: 0;
-  accent-color: var(--chat-accent);
-}
-
-.post-page__privacy-text {
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--chat-text-secondary);
-}
-
-.post-page__field-label {
   font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--chat-text-tips);
-  letter-spacing: 0.04em;
-}
+  color: var(--chat-text-secondary);
+  border-bottom: 1px solid var(--chat-border);
+  flex-shrink: 0;
 
-.post-page__control {
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 14px;
-  font-size: 0.9375rem;
-  font-family: inherit;
-  color: var(--chat-text);
-  background: var(--chat-bg-main);
-  border: 1px solid var(--chat-border);
-  border-radius: 10px;
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-
-  &:focus {
-    outline: none;
-    border-color: var(--chat-accent);
-    box-shadow: 0 0 0 2px var(--chat-accent-soft);
+  > span:first-child {
+    flex: 1;
+    min-width: 0;
   }
 }
 
-.post-page__editor {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 12px 14px 14px;
-}
-
-/* 草稿箱 */
-.post-page__drafts {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.post-page__drafts-card {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex: 1 1 auto;
-  background: var(--chat-bg-highlight);
-  border: 1px solid var(--chat-border);
-  border-radius: var(--post-radius);
-  box-shadow: var(--post-shadow);
-  overflow: hidden;
-}
-
-.post-page__drafts-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 14px 16px;
-  font-family: inherit;
-  color: var(--chat-text);
-  background: var(--chat-bg-highlight);
-  border: none;
-  border-bottom: 1px solid transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.post-page__drafts-toggle-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  text-align: left;
-}
-
-.post-page__drafts-badge {
+.post-page__draftdrop-act {
+  padding: 4px 10px;
   font-size: 0.75rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  padding: 2px 8px;
-  color: var(--chat-text-secondary);
-  background: var(--chat-bg-main);
-  border-radius: 999px;
-}
-
-.post-page__drafts-chevron {
-  flex-shrink: 0;
-  color: var(--chat-text-tips);
-  transition: transform 0.22s ease;
-}
-
-.post-page__drafts-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 0 14px 14px;
-  overflow: hidden;
-}
-
-.post-page__drafts-hint {
-  margin: 0 0 10px;
-  padding-top: 12px;
-  font-size: 0.75rem;
-  line-height: 1.45;
-  color: var(--chat-text-secondary);
-}
-
-.post-page__drafts-actions {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-  flex-shrink: 0;
-}
-
-.post-page__draft-btn {
-  flex: 1;
-  min-height: 36px;
-  padding: 0 8px;
-  font-size: 0.8125rem;
-  font-weight: 500;
   font-family: inherit;
   color: var(--chat-text-secondary);
   background: var(--chat-bg-main);
   border: 1px solid var(--chat-border);
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
+
+  &:hover {
+    color: var(--chat-text);
+  }
 
   &--primary {
-    color: #fff;
-    background: var(--chat-accent);
+    color: var(--chat-accent);
     border-color: var(--chat-accent);
-    font-weight: 600;
+
+    &:hover {
+      color: var(--chat-accent);
+      opacity: 0.85;
+    }
   }
 }
 
-.post-page__drafts-empty {
-  padding: 24px 0;
+.post-page__draftdrop-empty {
+  padding: 28px 0;
   text-align: center;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--chat-text-tips);
 }
 
-.post-page__draft-list {
+.post-page__draftdrop-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 8px;
   overflow-y: auto;
-  flex: 1 1 auto;
-  min-height: 0;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
 }
 
-.post-page__draft-item {
+.post-page__draftdrop-item {
   display: flex;
   align-items: stretch;
   gap: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   border: 1px solid var(--chat-border);
   border-radius: 10px;
   overflow: hidden;
@@ -755,10 +740,10 @@ onUnmounted(() => {
   }
 }
 
-.post-page__draft-load {
+.post-page__draftdrop-load {
   flex: 1;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 9px 11px;
   text-align: left;
   background: none;
   border: none;
@@ -766,9 +751,9 @@ onUnmounted(() => {
   font-family: inherit;
 }
 
-.post-page__draft-name {
+.post-page__draftdrop-name {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--chat-text);
   overflow: hidden;
@@ -776,9 +761,9 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.post-page__draft-snippet {
+.post-page__draftdrop-snippet {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   font-size: 0.75rem;
   line-height: 1.35;
   color: var(--chat-text-secondary);
@@ -787,12 +772,12 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.post-page__draft-remove {
+.post-page__draftdrop-remove {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: 36px;
   color: #dc2626;
   background: none;
   border: none;
@@ -800,134 +785,200 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-/* —— 桌面端 —— */
-@media screen and (min-width: 769px) {
-  .post-page__drafts-toggle {
-    cursor: default;
-    pointer-events: none;
+/* —— 元数据一行 —— */
+.post-page__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--chat-border);
+  flex-shrink: 0;
+}
+
+.post-page__select {
+  min-height: 32px;
+  max-width: 180px;
+  padding: 4px 26px 4px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--chat-text);
+  background: var(--chat-bg-main);
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+
+  &:focus {
+    outline: none;
+    border-color: var(--chat-accent);
+    box-shadow: 0 0 0 2px var(--chat-accent-soft);
+  }
+}
+
+.post-page__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 11px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--chat-text-secondary);
+  background: var(--chat-bg-main);
+  border: 1px solid var(--chat-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+
+  &:hover {
+    color: var(--chat-text);
   }
 
-  .post-page__drafts-chevron {
-    display: none;
+  &--on {
+    color: var(--chat-accent);
+    border-color: var(--chat-accent);
+    background: var(--chat-accent-soft, transparent);
+    font-weight: 600;
+  }
+}
+
+/* —— 抽奖配置：限高内滚 —— */
+.post-page__lottery {
+  flex-shrink: 0;
+  max-height: min(42vh, 400px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
+  border-bottom: 1px solid var(--chat-border);
+}
+
+/* —— 文档式标题 —— */
+.post-page__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--chat-border);
+  flex-shrink: 0;
+}
+
+.post-page__title-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+  font-size: 1.1875rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-family: inherit;
+  color: var(--chat-text);
+  background: transparent;
+  border: none;
+
+  &::placeholder {
+    color: var(--chat-text-tips);
+    font-weight: 500;
   }
 
-  .post-page__drafts-card--open .post-page__drafts-toggle,
-  .post-page__drafts-toggle {
-    border-bottom-color: var(--chat-border);
+  &:focus {
+    outline: none;
   }
+}
 
-  .post-page__field-row:has(.post-page__field:only-child) {
-    grid-template-columns: 1fr;
+.post-page__title-count {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--chat-text-tips);
+
+  &--max {
+    color: #dc2626;
+    font-weight: 600;
+  }
+}
+
+/* —— 编辑器占满剩余 —— */
+.post-page__editor {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px 12px 12px;
+}
+
+/* —— 过渡 —— */
+.draftdrop-enter-active,
+.draftdrop-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.draftdrop-enter-active .post-page__draftdrop,
+.draftdrop-leave-active .post-page__draftdrop {
+  transition: transform 0.18s ease;
+}
+
+.draftdrop-enter-from,
+.draftdrop-leave-to {
+  opacity: 0;
+
+  .post-page__draftdrop {
+    transform: translateY(-6px);
   }
 }
 
 /* —— 移动端 —— */
 @media screen and (max-width: 768px) {
   .post-page {
-    padding: 10px 12px calc(8px + env(safe-area-inset-bottom, 0px));
-    overflow-y: auto;
+    padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
   }
 
-  .post-page__layout {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-height: min-content;
-  }
-
-  .post-page__card {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-
-  .post-page__header {
-    padding: 14px 14px 10px;
+  .post-page__topbar {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px;
   }
 
   .post-page__heading {
-    font-size: 1.2rem;
+    font-size: 1rem;
   }
 
-  .post-page__form {
-    padding: 12px 14px 0;
+  .post-page__kind-btn {
+    padding: 5px 10px;
   }
 
-  .post-page__field-row {
-    grid-template-columns: 1fr;
+  .post-page__meta {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .post-page__select {
+    max-width: 150px;
+  }
+
+  .post-page__draftdrop {
+    top: 46px;
+    left: 10px;
+    width: calc(100% - 20px);
+  }
+
+  .post-page__title {
+    padding: 10px 12px 8px;
+  }
+
+  .post-page__title-input {
+    font-size: 1.0625rem;
   }
 
   .post-page__editor {
-    min-height: clamp(240px, 42dvh, 520px);
-    padding: 10px 12px 12px;
-  }
-
-  .post-page__submit {
-    min-height: 38px;
-    padding: 0 18px;
-    font-size: 0.875rem;
-  }
-
-  .post-page__drafts {
-    flex-shrink: 0;
-  }
-
-  .post-page__drafts-card:not(.post-page__drafts-card--open) .post-page__drafts-body {
-    display: none;
-  }
-
-  .post-page__drafts-card:not(.post-page__drafts-card--open) .post-page__drafts-toggle {
-    border-bottom: none;
-  }
-
-  .post-page__drafts-card--open .post-page__drafts-chevron {
-    transform: rotate(180deg);
-  }
-
-  .post-page__drafts-card--open .post-page__drafts-body {
-    max-height: min(36dvh, 300px);
-  }
-
-  .post-page__draft-list {
-    max-height: min(28dvh, 220px);
-  }
-}
-
-.post-page__kind {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 12px;
-}
-
-.post-page__kind-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 2px;
-  border-radius: 8px;
-  background: var(--chat-bg-main);
-  border: 1px solid var(--chat-border);
-}
-
-.post-page__kind-tab {
-  padding: 8px 10px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--chat-text-secondary);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-
-  &--active {
-    background: var(--chat-bg-highlight);
-    color: var(--chat-text);
-    font-weight: 600;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    min-height: clamp(240px, 46dvh, 560px);
+    padding: 8px 8px 10px;
   }
 }
 </style>

@@ -50,9 +50,6 @@ const commentAuthorProfileId = computed(() => {
   const n = Number(c.AuthorID ?? c.authorID ?? c.author_id)
   if (Number.isFinite(n) && n > 0)
     return n
-  const phone = (c.AuthorTelephone || '').trim()
-  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
-    return userInfo.userID
   return 0
 })
 

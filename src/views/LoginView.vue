@@ -5,6 +5,7 @@ import { ref } from 'vue'
 
 import { getInfo } from '@/api/info/getInfo'
 import { userLogin } from '@/api/LoginAndRegister/login'
+import { ssoLoginURL } from '@/api/sso/sso'
 import FormContainer from '@/components/FormContainer.vue'
 import { showMsg } from '@/components/MessageBox'
 
@@ -62,6 +63,10 @@ async function loginHandler() {
     showMsg('登录失败')
   }
 }
+
+function gotoSSOLogin() {
+  window.location.href = ssoLoginURL()
+}
 </script>
 
 <template>
@@ -84,6 +89,11 @@ async function loginHandler() {
       <router-link class="auth-link" to="/auth/reset">
         忘记密码
       </router-link>
+    </div>
+    <div class="auth-sso">
+      <button type="button" class="auth-sso__btn" @click="gotoSSOLogin">
+        使用 UniSSO 登录
+      </button>
     </div>
   </FormContainer>
 </template>
@@ -140,5 +150,28 @@ async function loginHandler() {
   color: var(--chat-text);
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+
+.auth-sso {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.auth-sso__btn {
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--chat-text);
+  background: transparent;
+  border: 1px solid var(--chat-border-strong);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.auth-sso__btn:hover {
+  border-color: var(--chat-accent);
+  color: var(--chat-accent);
 }
 </style>

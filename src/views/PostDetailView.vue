@@ -3,6 +3,9 @@ import type { LotteryDetail } from '@/api/lottery/lottery'
 import type { Comment } from '@/types/comment'
 
 import type { Post } from '@/types/post'
+import type { AssistPostData } from '@/api/assist'
+import type { AssistMatchData } from '@/api/assist'
+import { fetchAssistMatch, fetchAssistPost } from '@/api/assist'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -24,6 +27,7 @@ const { updatePost } = usePostStore()
 const { removeNewPostId } = useNewPostsStore()
 
 const CommentCard = defineAsyncComponent(() => import('@/components/card/CommentCard.vue'))
+const AiPostDetailCard = defineAsyncComponent(() => import('@/components/ai-post-assist/AiPostDetailCard.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +36,59 @@ const { userInfo } = useUserStore()
 const post = ref<Post>()
 const comments = ref<Comment[]>([])
 const lottery = ref<LotteryDetail | null>(null)
+const aiAssistData = ref<AssistPostData | null>(null)
+const aiAssistLoading = ref(false)
+
+// 同一帖子的并发按需生成只跑一次（多标签页/多端同时点开时避免重复调用 LLM）
+const assistResolvers = new Map<number, Promise<AssistPostData | null>>()
+
+function toAssistPostData(data: AssistMatchData): AssistPostData {
+  return {
+    answer: data.answer,
+    references: data.references,
+    sources_type: data.meta.sources_type ?? 'local',
+    web_search_query: null,
+    feedback_upvotes: 0,
+    feedback_downvotes: 0,
+    created_at: null,
+  }
+}
+
+/**
+ * 详情页 AI 回答：自动展示。优先读库内留底；无留底时自动触发生成并落库
+ * （同一帖子并发按需生成只跑一次；后端 assist 按 postID 回查帖子分区）。
+ * 失败静默，不影响详情页。
+ */
+async function resolveAssistForPost(p: Post): Promise<void> {
+  try {
+    const saved = await fetchAssistPost(p.PostID)
+    if (saved) {
+      aiAssistData.value = saved
+      return
+    }
+  }
+  catch {
+    return
+  }
+  aiAssistLoading.value = true
+  try {
+    let task = assistResolvers.get(p.PostID)
+    if (!task) {
+      task = fetchAssistMatch(
+        { partition: '主页', title: p.Title, content: p.Content, postID: p.PostID },
+        AbortSignal.timeout(45_000),
+      )
+        .then(toAssistPostData)
+        .catch(() => null)
+      assistResolvers.set(p.PostID, task)
+      task.finally(() => assistResolvers.delete(p.PostID))
+    }
+    aiAssistData.value = await task
+  }
+  finally {
+    aiAssistLoading.value = false
+  }
+}
 
 type CommentTimeOrder = 'desc' | 'asc'
 
@@ -137,6 +194,8 @@ onMounted(async () => {
     const curPost = await getPostByID(ID, userInfo.phone)
     post.value = curPost as Post
     setTitle(post.value.Title)
+    // 加载 AI 回答（无留底时按需生成；与评论/抽奖并行加载，静默失败）
+    void resolveAssistForPost(post.value)
     await getCommentList()
     await loadLottery()
     removeNewPostId(ID)
@@ -165,6 +224,17 @@ onMounted(async () => {
         :lottery="lottery"
         @refresh="loadLottery"
       />
+    </section>
+    <AiPostDetailCard
+      v-if="post && aiAssistData"
+      :data="aiAssistData"
+      :post-id="post.PostID"
+    />
+    <section
+      v-if="post && aiAssistLoading && !aiAssistData"
+      class="ai-detail-loading"
+    >
+      AI 正在汇总站内相关讨论…
     </section>
     <section v-if="post" class="comment-panel mx-a w-15/16">
       <header class="comment-panel__header">
@@ -202,6 +272,22 @@ onMounted(async () => {
   margin: 16px 0 12px;
   flex-wrap: nowrap;
 }
+
+.ai-detail-loading {
+  padding: 14px;
+  margin: 12px 0 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+  background: var(--color-card);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md, 10px);
+}
+
+
+
+
+
 
 .comment-panel__title {
   margin: 0;

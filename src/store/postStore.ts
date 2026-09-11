@@ -10,11 +10,11 @@ export const SearchSort = ['home', 'save', 'history'] as const
 
 export type HomeOrderBy
   = | 'time_desc'
-    | 'time_asc'
-    | 'like_desc'
-    | 'like_asc'
-    | 'comment_desc'
-    | 'comment_asc'
+  | 'time_asc'
+  | 'like_desc'
+  | 'like_asc'
+  | 'comment_desc'
+  | 'comment_asc'
 
 export interface Condition {
   limit: number
@@ -35,6 +35,10 @@ const totalNum = ref(0)
 
 const posts = reactive<Post[]>([])
 
+// 置顶帖数组:仅主页列表时由后端填充。其他场景为空。
+// 渲染时由调用方拼接 [...pinnedPosts, ...posts]。
+const pinnedPosts = reactive<Post[]>([])
+
 const conditions = reactive<Condition>({
   limit: FEED_PAGE_SIZE,
   offset: 0,
@@ -48,27 +52,74 @@ const conditions = reactive<Condition>({
 })
 
 /**
+ * 加载下一页帖子(append 到 posts)。
+ * 主页场景下后端会同时返回 pinned,但已加载过的不重复填充,
+ * 仅在 offset=0(首页)时填充 pinnedPosts。
  *
  * @param userTelephone 用户手机号
- * @returns 是否还有帖子可以获取
+ * @returns 是否还有更多帖子
  */
 async function addPost(userTelephone: string): Promise<boolean> {
   const data = await getPosts({
     ...conditions,
     userTelephone,
   })
-  if (!data || data.length === 0)
+  if (!data || data.posts.length === 0)
     return false
-  posts.push(...data)
-  conditions.offset += data.length
-  return data.length >= conditions.limit
+  // 仅首页加载时填充置顶帖。后续翻页后端也会返回同样的 pinned,
+  // 但前端只展示一次,避免重复。
+  if (conditions.offset === 0 && data.pinned.length > 0) {
+    pinnedPosts.splice(0, pinnedPosts.length, ...data.pinned)
+  }
+  posts.push(...data.posts)
+  conditions.offset += data.posts.length
+  return data.posts.length >= conditions.limit
 }
 
-async function restorePosts(userTelephone: string, cachePosts: Post[], cacheTotalNum: number, cacheConditions: typeof conditions) {
+/**
+ * 单独刷新主页置顶帖列表。
+ * 用于"取消置顶"操作后局部刷新,避免整页重新加载。
+ *
+ * 只在主页场景下生效;其他场景直接清空 pinnedPosts。
+ */
+async function refreshPinned(userTelephone: string) {
+  // 非主页场景没有置顶概念。
+  if (conditions.searchsort !== 'home') {
+    pinnedPosts.splice(0, pinnedPosts.length)
+    return
+  }
+  // 借首页查询(offset=0,limit=1)仅取 pinned 部分。
+  const oldLimit = conditions.limit
+  const oldOffset = conditions.offset
+  conditions.limit = 1
+  conditions.offset = 0
+  try {
+    const data = await getPosts({ ...conditions, userTelephone })
+    if (data && data.pinned.length > 0) {
+      pinnedPosts.splice(0, pinnedPosts.length, ...data.pinned)
+    }
+    else {
+      pinnedPosts.splice(0, pinnedPosts.length)
+    }
+  }
+  finally {
+    conditions.limit = oldLimit
+    conditions.offset = oldOffset
+  }
+}
+
+async function restorePosts(userTelephone: string, cachePosts: Post[], cacheTotalNum: number, cacheConditions: typeof conditions, cachePinnedPosts?: Post[]) {
   cachePosts = unref(cachePosts)
   cacheTotalNum = unref(cacheTotalNum)
   cacheConditions = { ...unref(cacheConditions) }
   posts.splice(0, posts.length, ...cachePosts)
+  // 置顶帖列表也参与缓存恢复,若有传入则使用,否则清空。
+  if (cachePinnedPosts && cachePinnedPosts.length > 0) {
+    pinnedPosts.splice(0, pinnedPosts.length, ...unref(cachePinnedPosts))
+  }
+  else {
+    pinnedPosts.splice(0, pinnedPosts.length)
+  }
   totalNum.value = cacheTotalNum
   conditions.limit = cacheConditions.limit
   conditions.offset = cacheConditions.offset
@@ -86,7 +137,8 @@ function storePosts() {
   const cachePosts = unref(posts)
   const cacheTotalNum = unref(totalNum)
   const cacheConditions = { ...unref(conditions) }
-  return { cachePosts, cacheTotalNum, cacheConditions }
+  const cachePinnedPosts = unref(pinnedPosts)
+  return { cachePosts, cacheTotalNum, cacheConditions, cachePinnedPosts }
 }
 
 /** 在列表外（如个人主页）持有的帖子对象上同步点赞/收藏状态 */
@@ -109,25 +161,32 @@ export function applyPostMutation(
   }
 }
 
-function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', isPrivate?: boolean, isSaved?: boolean): boolean {
-  // 二分查找
+// 查找帖子在数组中的下标(posts 或 pinnedPosts 都查)。
+// posts 数组按 PostID 倒序,使用二分查找;pinnedPosts 一般 ≤5 个,线性扫描。
+function findPostIndex(id: number): { arr: Post[], index: number } {
+  // pinnedPosts 线性扫描(数量少,且按 pinned_at 排序,PostID 无序)
+  for (let i = 0; i < pinnedPosts.length; i++) {
+    if (pinnedPosts[i].PostID === id)
+      return { arr: pinnedPosts, index: i }
+  }
+  // posts 二分查找(按 PostID 倒序)
   let left = 0
   let right = posts.length - 1
-  let target = -1
   while (left <= right) {
     const mid = Math.floor((left + right) / 2)
-    if (posts[mid].PostID === id) {
-      target = mid
-      break
-    }
-    else if (posts[mid].PostID < id) {
+    if (posts[mid].PostID === id)
+      return { arr: posts, index: mid }
+    else if (posts[mid].PostID < id)
       right = mid - 1
-    }
-    else {
+    else
       left = mid + 1
-    }
   }
-  const post = posts[target]
+  return { arr: posts, index: -1 }
+}
+
+function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', isPrivate?: boolean, isSaved?: boolean): boolean {
+  const { arr, index } = findPostIndex(id)
+  const post = arr[index]
   if (!post)
     return false
   switch (type) {
@@ -140,9 +199,15 @@ function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment' | '
       else
         applyPostMutation(post, 'save')
       if (conditions.searchsort === 'save' && !post.IsSaved) {
-        posts.splice(target, 1)
-        conditions.offset = Math.max(0, conditions.offset - 1)
-        totalNum.value = Math.max(0, totalNum.value - 1)
+        // 删除时若在 pinnedPosts 中(置顶帖不会出现在收藏列表,但保险起见两处都检查)
+        if (arr === pinnedPosts) {
+          pinnedPosts.splice(index, 1)
+        }
+        else {
+          posts.splice(index, 1)
+          conditions.offset = Math.max(0, conditions.offset - 1)
+          totalNum.value = Math.max(0, totalNum.value - 1)
+        }
       }
       break
     }
@@ -150,12 +215,14 @@ function updatePost(id: number, type: 'like' | 'save' | 'delete' | 'comment' | '
       applyPostMutation(post, 'privacy', isPrivate)
       break
     case 'delete':
-      posts.splice(target, 1)
-      // 最稳妥的办法是重新获取一次信息, 但是offset是难以确认的
-      // 低并发的情况下基本可以与服务端同步, 只要用户不长时间不刷新, 未来并发量高了再改吧
-      // 如果后端是根据id来获取帖子列表就好了
-      conditions.offset--
-      totalNum.value--
+      if (arr === pinnedPosts) {
+        pinnedPosts.splice(index, 1)
+      }
+      else {
+        posts.splice(index, 1)
+        conditions.offset--
+        totalNum.value--
+      }
       break
   }
   return true
@@ -174,10 +241,10 @@ async function getNewPosts(userTelephone: string) {
   const oldLimit = conditions.limit
   conditions.offset = 0
   conditions.limit = num - totalNum.value
-  getPosts({ ...conditions, userTelephone }).then((newPosts) => {
-    if (!newPosts || newPosts.length === 0)
+  getPosts({ ...conditions, userTelephone }).then((res) => {
+    if (!res || res.posts.length === 0)
       return
-    posts.unshift(...newPosts)
+    posts.unshift(...res.posts)
   })
   conditions.offset = oldOffset + (num - totalNum.value)
   conditions.limit = oldLimit
@@ -186,6 +253,7 @@ async function getNewPosts(userTelephone: string) {
 
 function refreshPosts() {
   posts.splice(0, posts.length)
+  pinnedPosts.splice(0, pinnedPosts.length)
   totalNum.value = 0
   conditions.offset = 0
   conditions.partition = '主页'
@@ -200,6 +268,7 @@ function setHomeOrder(orderBy: HomeOrderBy) {
     return false
   conditions.orderBy = orderBy
   posts.splice(0, posts.length)
+  pinnedPosts.splice(0, pinnedPosts.length)
   conditions.offset = 0
   totalNum.value = 0
   return true
@@ -218,12 +287,16 @@ function changeTo(p: typeof Partitions[number], tag: string = '') {
       conditions.searchinfo = ''
       conditions.searchsort = 'save'
       conditions.tag = tag
+      // 收藏列表不展示置顶帖,清空
+      pinnedPosts.splice(0, pinnedPosts.length)
       break
     case '历史':
       conditions.partition = '历史'
       conditions.searchinfo = ''
       conditions.searchsort = 'history'
       conditions.tag = tag
+      // 历史列表不展示置顶帖,清空
+      pinnedPosts.splice(0, pinnedPosts.length)
       break
     default:
       conditions.partition = p
@@ -252,10 +325,12 @@ export function usePostStore() {
   return {
     updateNum,
     posts,
+    pinnedPosts,
     restorePosts,
     storePosts,
     addPost,
     updatePost,
+    refreshPinned,
     changeTo,
     refreshPosts,
     search,

@@ -26,6 +26,9 @@ importers:
       github-markdown-css:
         specifier: ^5.8.1
         version: 5.8.1
+      howler:
+        specifier: ^2.2.4
+        version: 2.2.4
       markdown-it:
         specifier: ^14.1.0
         version: 14.1.0
@@ -57,6 +60,9 @@ importers:
       '@types/crypto-js':
         specifier: ^4.2.2
         version: 4.2.2
+      '@types/howler':
+        specifier: ^2.2.13
+        version: 2.2.13
       '@types/markdown-it':
         specifier: ^14.1.2
         version: 14.1.2
@@ -851,6 +857,9 @@ packages:
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
+
+  '@types/howler@2.2.13':
+    resolution: {integrity: sha512-40+EBjqIHHrC4VShlz/7i0lBUsE3QkgzZinQQji74Hd8sBkJZUBaT7LWFLK6rcabsDOOQpoMbEJvtaFQwxOu/g==}
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
@@ -2003,6 +2012,9 @@ packages:
   he@1.2.0:
     resolution: {integrity: sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==}
     hasBin: true
+
+  howler@2.2.4:
+    resolution: {integrity: sha512-iARIBPgcQrwtEr+tALF+rapJ8qSc+Set2GJQl7xT1MQzWaVkFebdJhR3alVlSiUf5U7nAANKuj3aWpwerocD5w==}
 
   html-tags@2.0.0:
     resolution: {integrity: sha512-+Il6N8cCo2wB/Vd3gqy/8TZhTD3QvcVeQLCnZiGkGCH3JP28IgGAY41giccp2W4R3jfyJPAP318FQTa1yU7K7g==}
@@ -3772,6 +3784,8 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
+  '@types/howler@2.2.13': {}
+
   '@types/json-schema@7.0.15': {}
 
   '@types/linkify-it@5.0.0': {}
@@ -5248,6 +5262,8 @@ snapshots:
 
   he@1.2.0: {}
 
+  howler@2.2.4: {}
+
   html-tags@2.0.0: {}
 
   ignore@5.3.2: {}
@@ -5895,6 +5911,7 @@ snapshots:
       crypto-js: 3.3.0
       dompurify: 3.2.6
       github-markdown-css: 5.8.1
+      howler: 2.2.4
       markdown-it: 14.1.0
       pdfjs-dist: 2.16.105
       prismjs: 1.30.0
