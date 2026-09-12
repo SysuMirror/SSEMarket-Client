@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
+import { onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import {
   formatDuration,
   musicCoverOrDefault,
@@ -63,6 +63,25 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onBarMove)
   window.removeEventListener('pointerup', onBarUp)
 })
+
+// 音量：点图标静音/恢复，滑杆 hover 展开（网易云式省空间）
+const lastVolume = ref(0.8)
+
+function toggleMute() {
+  if (volume.value > 0) {
+    lastVolume.value = volume.value
+    setVolume(0)
+  }
+  else {
+    setVolume(lastVolume.value || 0.8)
+  }
+}
+
+function volumeIcon(): string {
+  if (volume.value === 0)
+    return 'tabler:volume-off'
+  return volume.value < 0.5 ? 'tabler:volume-1' : 'tabler:volume-2'
+}
 </script>
 
 <template>
@@ -71,14 +90,6 @@ onBeforeUnmount(() => {
       v-if="current"
       class="player-bar"
     >
-      <!-- 移动端：顶部长条进度（PC 由 CSS 隐藏） -->
-      <div class="mobile-progress">
-        <div
-          class="mobile-progress-fill"
-          :style="{ width: duration > 0 ? `${(progress / duration) * 100}%` : '0%' }"
-        />
-      </div>
-
       <div class="bar-inner">
         <!-- 封面 + 曲目信息（点封面进全屏大播放页） -->
         <button
@@ -150,7 +161,7 @@ onBeforeUnmount(() => {
           <span class="time">{{ formatDuration(duration) }}</span>
         </div>
 
-        <!-- PC：模式 / 音量 / 队列 / 展开 -->
+        <!-- PC：模式 / 音量（hover 展开） / 队列 / 展开 -->
         <div class="extras">
           <button
             type="button"
@@ -160,14 +171,22 @@ onBeforeUnmount(() => {
           >
             <Icon :icon="modeIcon[playMode]" />
           </button>
-          <div class="volume">
-            <Icon icon="tabler:volume-2" />
+          <div class="volume" title="音量">
+            <button
+              type="button"
+              class="volume-btn"
+              :title="volume > 0 ? '静音' : '取消静音'"
+              @click="toggleMute"
+            >
+              <Icon :icon="volumeIcon()" />
+            </button>
             <input
+              class="volume-slider"
               type="range"
               min="0"
               max="100"
               :value="Math.round(volume * 100)"
-              title="音量"
+              aria-label="音量"
               @input="setVolume(Number(($event.target as HTMLInputElement).value) / 100)"
             >
           </div>
@@ -188,14 +207,39 @@ onBeforeUnmount(() => {
             <Icon icon="tabler:chevron-up" />
           </button>
         </div>
+
+        <!-- 移动端：药丸内底部发丝进度线（PC 由 CSS 隐藏） -->
+        <div class="mobile-progress">
+          <div
+            class="mobile-progress-fill"
+            :style="{ width: duration > 0 ? `${(progress / duration) * 100}%` : '0%' }"
+          />
+        </div>
+
+        <!-- 移动端：药丸内的下一首按钮（PC 由 CSS 隐藏） -->
+        <button
+          type="button"
+          class="ctrl mobile-next"
+          title="下一首"
+          @click="nextTrack()"
+        >
+          <Icon icon="tabler:player-skip-forward-filled" />
+        </button>
       </div>
     </div>
   </Transition>
 </template>
 
+<style lang="scss">
+/* 非 scoped：PWA 桌面体验侧边栏展开时播放栏让位（侧边栏 280px，收起时移出视口） */
+body.pwa-sidebar-open .player-bar {
+  left: 280px;
+}
+</style>
+
 <style lang="scss" scoped>
 $accent: #ec4141;
-$bar-height: 64px;
+$bar-height: 72px;
 
 .player-bar {
   position: fixed;
@@ -212,19 +256,19 @@ $bar-height: 64px;
 .bar-inner {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
   height: $bar-height;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 18px;
 }
 
 .track {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
-  width: 240px;
+  width: 250px;
   background: none;
   border: none;
   cursor: pointer;
@@ -232,9 +276,9 @@ $bar-height: 64px;
   padding: 0;
 
   .cover {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
     object-fit: cover;
     flex-shrink: 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -267,7 +311,7 @@ $bar-height: 64px;
 .controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
@@ -275,40 +319,51 @@ $bar-height: 64px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   border: none;
   border-radius: 50%;
   background: none;
   color: var(--color-text);
   cursor: pointer;
-  font-size: 22px;
+  font-size: 26px;
   transition:
     color 0.15s,
-    background 0.15s;
+    background 0.15s,
+    transform 0.15s;
 
   &:hover {
     background: rgba(236, 65, 65, 0.12);
     color: $accent;
   }
 
+  &:active {
+    transform: scale(0.94);
+  }
+
   &.play {
-    width: 42px;
-    height: 42px;
+    width: 50px;
+    height: 50px;
     background: $accent;
     color: #fff;
-    font-size: 28px;
+    font-size: 32px;
+    box-shadow: 0 4px 14px rgba(236, 65, 65, 0.4);
 
     &:hover {
       background: darken($accent, 8%);
       color: #fff;
+      transform: scale(1.04);
+    }
+
+    &:active {
+      transform: scale(0.96);
     }
   }
 
   &.small {
-    width: 30px;
-    height: 30px;
-    font-size: 18px;
+    width: 34px;
+    height: 34px;
+    font-size: 20px;
   }
 }
 
@@ -345,8 +400,8 @@ $bar-height: 64px;
   .progress-thumb {
     position: absolute;
     top: 50%;
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: $accent;
     transform: translate(-50%, -50%);
@@ -363,66 +418,64 @@ $bar-height: 64px;
 .extras {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
+/* 音量：默认只显图标，hover 展开滑杆（网易云式省空间） */
 .volume {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding-right: 6px;
+  margin-right: 2px;
   color: var(--color-text);
-  opacity: 0.75;
+  opacity: 0.85;
 
-  input[type='range'] {
-    width: 80px;
+  .volume-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 20px;
+
+    &:hover {
+      background: rgba(236, 65, 65, 0.12);
+      color: $accent;
+    }
+  }
+
+  .volume-slider {
+    width: 0;
+    opacity: 0;
     height: 4px;
     accent-color: $accent;
     cursor: pointer;
+    transition:
+      width 0.22s ease,
+      opacity 0.22s ease;
+  }
+
+  &:hover .volume-slider,
+  .volume-slider:active {
+    width: 96px;
+    opacity: 1;
   }
 }
 
-// 移动端：顶部长条进度（PC 隐藏，media query 中显示）
+/* 移动端元素：PC 隐藏 */
 .mobile-progress {
   display: none;
-  height: 3px;
-  background: var(--color-border);
-
-  .mobile-progress-fill {
-    height: 100%;
-    background: $accent;
-  }
 }
 
-@media screen and (max-width: 768px) {
-  .player-bar {
-    bottom: var(--layout-bottom-nav-h, 80px); // BottomNavbar 高度
-  }
-
-  .mobile-progress {
-    display: block;
-  }
-
-  .bar-inner {
-    gap: 8px;
-    padding: 0 12px;
-  }
-
-  .track {
-    flex: 1;
-    width: auto;
-  }
-
-  .progress-wrap,
-  .extras {
-    display: none;
-  }
-
-  .ctrl.play {
-    width: 38px;
-    height: 38px;
-    font-size: 26px;
-  }
+.mobile-next {
+  display: none;
 }
 
 .playerbar-enter-active,
@@ -436,5 +489,84 @@ $bar-height: 64px;
 .playerbar-leave-to {
   transform: translateY(100%);
   opacity: 0;
+}
+
+/* —— 移动端：悬浮迷你药丸（YouTube Music 式浮动，避开底栏与发帖 FAB） —— */
+@media screen and (max-width: 768px) {
+  .player-bar {
+    left: 10px;
+    right: 10px;
+    bottom: calc(var(--layout-bottom-nav-h, 80px) + 84px);
+    background: var(--color-nav-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    box-shadow: 0 6px 24px rgba(2, 6, 23, 0.22);
+    backdrop-filter: blur(14px);
+    overflow: hidden;
+  }
+
+  .bar-inner {
+    gap: 10px;
+    height: 58px;
+    padding: 0 12px;
+    max-width: none;
+  }
+
+  .track {
+    flex: 1;
+    width: auto;
+    gap: 10px;
+
+    .cover {
+      width: 40px;
+      height: 40px;
+      border-radius: 9px;
+    }
+  }
+
+  .controls {
+    gap: 4px;
+  }
+
+  .ctrl.play {
+    width: 42px;
+    height: 42px;
+    font-size: 27px;
+    box-shadow: 0 3px 10px rgba(236, 65, 65, 0.35);
+  }
+
+  .ctrl:not(.play) {
+    display: none;
+  }
+
+  /* 药丸内的下一首（专用于移动端显示） */
+  .ctrl.mobile-next {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .progress-wrap,
+  .extras {
+    display: none;
+  }
+
+  /* 发丝进度线：药丸底部内嵌 */
+  .mobile-progress {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: rgba(148, 163, 184, 0.25);
+
+    .mobile-progress-fill {
+      height: 100%;
+      background: $accent;
+    }
+  }
 }
 </style>

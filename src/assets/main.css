@@ -226,24 +226,3 @@ hr {
   color: var(--accent);
 }
 
-/* 全站统一的日期时间输入（开奖时间/搜索时间范围等），来源：抽奖面板最新设计 */
-.app-datetime {
-  width: 100%;
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px solid var(--chat-border);
-  border-radius: 8px;
-  background: var(--chat-bg-main);
-  color: var(--chat-text);
-  font-size: 0.8125rem;
-  font-family: inherit;
-  box-sizing: border-box;
-  font-variant-numeric: tabular-nums;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.app-datetime:focus {
-  outline: none;
-  border-color: var(--chat-accent);
-  box-shadow: 0 0 0 2px var(--chat-accent-soft);
-}

@@ -3,6 +3,7 @@ import type { LotteryMode, LotteryPrizeInput } from '@/api/lottery/lottery'
 
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
+import AppDatetimePicker from '@/components/AppDatetimePicker.vue'
 
 const mode = defineModel<LotteryMode>('mode', { required: true })
 const drawAt = defineModel<string>('drawAt', { required: true })
@@ -58,11 +59,7 @@ function stepQty(prize: LotteryPrizeInput, delta: number) {
       <div class="lc__grid">
         <label class="lc__time">
           <span class="lc__tag"><Icon icon="tabler:calendar-event" width="14" height="14" aria-hidden="true" />开奖时间</span>
-          <input
-            v-model="drawAt"
-            type="datetime-local"
-            class="app-datetime"
-          >
+          <AppDatetimePicker v-model="drawAt" placeholder="选择开奖时间" />
         </label>
 
         <div class="lc__mode-wrap">

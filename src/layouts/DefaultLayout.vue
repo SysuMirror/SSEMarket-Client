@@ -7,6 +7,7 @@ import {
   provide,
   ref,
   watch,
+  watchEffect,
 } from 'vue'
 
 import { useRoute, useRouter } from 'vue-router'
@@ -14,8 +15,8 @@ import { useRoute, useRouter } from 'vue-router'
 import ModeButton from '@/components/ModeButton.vue'
 import { useChat } from '@/composables/useChat'
 import { usePWA } from '@/composables/usePWA'
-import { useNewPostsStore } from '@/store/newPostsStore'
 import { useMusicStore } from '@/store/musicStore'
+import { useNewPostsStore } from '@/store/newPostsStore'
 import { useNoticeStore } from '@/store/noticeStore'
 import { handleHomeNavClick } from '@/utils/scrollHome'
 import { showSnackbar } from '@/utils/snackbar'
@@ -53,6 +54,11 @@ const isDesktopExperience = computed(() => isPC.value && desktopExperienceEnable
 
 // PWA/电脑端菜单状态管理
 const pwaMenuOpen = ref(true)
+
+// 同步到 body：全局固定定位层（播放栏等）据此避让 PWA 侧边栏
+watchEffect(() => {
+  document.body.classList.toggle('pwa-sidebar-open', isDesktopExperience.value && pwaMenuOpen.value)
+})
 
 // 计算是否应该折叠菜单
 const isMenuCollapsed = computed(() => {
@@ -436,5 +442,4 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
     padding-bottom: 24px;
   }
 }
-
 </style>
