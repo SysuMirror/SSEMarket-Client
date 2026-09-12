@@ -159,7 +159,7 @@ watch(
           <input
             v-model="timeFrom"
             type="datetime-local"
-            class="search-page__input"
+            class="app-datetime"
           >
         </label>
         <span class="search-page__sep" aria-hidden="true">—</span>
@@ -168,7 +168,7 @@ watch(
           <input
             v-model="timeTo"
             type="datetime-local"
-            class="search-page__input"
+            class="app-datetime"
           >
         </label>
       </div>

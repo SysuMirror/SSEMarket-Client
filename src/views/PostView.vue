@@ -381,7 +381,8 @@ onUnmounted(() => {
           @click="postPrivate = !postPrivate"
         >
           <Icon icon="tabler:lock" width="14" height="14" aria-hidden="true" />
-          仅自己可见
+          <span class="post-page__chip-full">仅自己可见</span>
+          <span class="post-page__chip-short">私密</span>
         </button>
 
         <button
@@ -406,7 +407,8 @@ onUnmounted(() => {
           @click="postPinned = !postPinned"
         >
           <Icon icon="tabler:pinned" width="14" height="14" aria-hidden="true" />
-          置顶 1 小时
+          <span class="post-page__chip-full">置顶 1 小时</span>
+          <span class="post-page__chip-short">置顶</span>
         </button>
       </div>
 
@@ -994,10 +996,26 @@ onUnmounted(() => {
   .post-page__meta {
     padding: 8px 10px;
     gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .post-page__meta::-webkit-scrollbar {
+    display: none;
+  }
+
+  .post-page__chip {
+    flex-shrink: 0;
+  }
+
+  .post-page__chip-full {
+    display: none;
   }
 
   .post-page__select {
-    max-width: 150px;
+    max-width: 128px;
+    flex-shrink: 0;
   }
 
   .post-page__draftdrop {

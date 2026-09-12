@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { LotteryMode, LotteryPrizeInput } from '@/api/lottery/lottery'
 
-import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
+import { computed } from 'vue'
 
 const mode = defineModel<LotteryMode>('mode', { required: true })
 const drawAt = defineModel<string>('drawAt', { required: true })
@@ -61,7 +61,7 @@ function stepQty(prize: LotteryPrizeInput, delta: number) {
           <input
             v-model="drawAt"
             type="datetime-local"
-            class="lc__time-input"
+            class="app-datetime"
           >
         </label>
 
@@ -241,29 +241,6 @@ function stepQty(prize: LotteryPrizeInput, delta: number) {
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-.lc__time-input {
-  width: 100%;
-  min-height: 34px;
-  padding: 5px 10px;
-  border: 1px solid var(--chat-border);
-  border-radius: 8px;
-  background: var(--chat-bg-main);
-  color: var(--chat-text);
-  font-size: 0.8125rem;
-  font-family: inherit;
-  box-sizing: border-box;
-  font-variant-numeric: tabular-nums;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-
-  &:focus {
-    outline: none;
-    border-color: var(--chat-accent);
-    box-shadow: 0 0 0 2px var(--chat-accent-soft);
-  }
 }
 
 .lc__mode-wrap {
