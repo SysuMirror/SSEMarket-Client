@@ -432,14 +432,5 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   }
 }
 
-@media screen and (max-width: 768px) {
-  .root--has-player .app-main:not(.app-main--layout-fill) {
-    height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h) - 64px);
-    max-height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h) - 64px);
-  }
-
-  .root--has-player .content:not(.content--layout-fill) {
-    padding-bottom: 24px;
-  }
-}
+/* 移动端播放器为可拖动悬浮球（overlay），布局无需预留槽位 */
 </style>

@@ -297,6 +297,22 @@ function removeFromPlaylist(index: number) {
   persistState()
 }
 
+/** 关闭播放器：停止播放并清空列表（悬浮球关闭按钮用） */
+function closePlayer() {
+  stopProgressTimer()
+  howl?.unload()
+  howl = null
+  playlist.value = []
+  currentIndex.value = -1
+  isPlaying.value = false
+  progress.value = 0
+  duration.value = 0
+  showNowPlaying.value = false
+  showPlaylist.value = false
+  playError.value = ''
+  persistState()
+}
+
 function openNowPlaying() {
   if (currentIndex.value >= 0)
     showNowPlaying.value = true
@@ -327,6 +343,7 @@ export function useMusicStore() {
     cyclePlayMode,
     removeFromPlaylist,
     openNowPlaying,
+    closePlayer,
   }
 }
 

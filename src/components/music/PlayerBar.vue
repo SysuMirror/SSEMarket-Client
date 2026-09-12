@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import {
   formatDuration,
   musicCoverOrDefault,
@@ -23,6 +23,7 @@ const {
   setVolume,
   cyclePlayMode,
   openNowPlaying,
+  closePlayer,
 } = useMusicStore()
 
 const modeIcon = { list: 'tabler:repeat', one: 'tabler:repeat-once', shuffle: 'tabler:shuffle' } as const
@@ -82,16 +83,132 @@ function volumeIcon(): string {
     return 'tabler:volume-off'
   return volume.value < 0.5 ? 'tabler:volume-1' : 'tabler:volume-2'
 }
+
+/* ---------------- 移动端悬浮球（可点击 / 可拖动 / 可关闭 / 可隐藏） ---------------- */
+
+const isMobile = ref(typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches)
+const BALL_SIZE = 56
+const EDGE = 10
+const POS_KEY = 'music-ball-pos'
+
+const ballPos = ref<{ x: number, y: number } | null>(null)
+const ballHidden = ref(false)
+const ballDragging = ref(false)
+let ballDrag: { startX: number, startY: number, origX: number, origY: number, moved: boolean } | null = null
+
+function ballDefaultPos() {
+  return { x: window.innerWidth - EDGE - BALL_SIZE, y: Math.round(window.innerHeight * 0.62) }
+}
+
+function clampBallPos(pos: { x: number, y: number }) {
+  const minX = EDGE
+  const maxX = window.innerWidth - EDGE - BALL_SIZE
+  const minY = 70
+  const maxY = window.innerHeight - 65 - 12 - BALL_SIZE
+  return {
+    x: Math.min(Math.max(pos.x, minX), Math.max(minX, maxX)),
+    y: Math.min(Math.max(pos.y, minY), Math.max(minY, maxY)),
+  }
+}
+
+function restoreBallPos() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(POS_KEY) || 'null')
+    if (saved && Number.isFinite(saved.xPct) && Number.isFinite(saved.yPct))
+      ballPos.value = clampBallPos({ x: saved.xPct * window.innerWidth, y: saved.yPct * window.innerHeight })
+  }
+  catch { /* ignore */ }
+  if (!ballPos.value)
+    ballPos.value = ballDefaultPos()
+}
+
+function persistBallPos() {
+  if (!ballPos.value)
+    return
+  try {
+    localStorage.setItem(POS_KEY, JSON.stringify({
+      xPct: ballPos.value.x / window.innerWidth,
+      yPct: ballPos.value.y / window.innerHeight,
+    }))
+  }
+  catch { /* ignore */ }
+}
+
+function onBallMove(e: PointerEvent) {
+  if (!ballDrag)
+    return
+  const dx = e.clientX - ballDrag.startX
+  const dy = e.clientY - ballDrag.startY
+  if (!ballDrag.moved && Math.abs(dx) + Math.abs(dy) > 6)
+    ballDrag.moved = true
+  if (ballDrag.moved)
+    ballPos.value = clampBallPos({ x: ballDrag.origX + dx, y: ballDrag.origY + dy })
+}
+
+function onBallUp() {
+  if (!ballDrag)
+    return
+  const wasMoved = ballDrag.moved
+  ballDrag = null
+  ballDragging.value = false
+  window.removeEventListener('pointermove', onBallMove)
+  window.removeEventListener('pointerup', onBallUp)
+  if (wasMoved && ballPos.value) {
+    // 贴边吸附
+    const center = ballPos.value.x + BALL_SIZE / 2
+    const targetX = center < window.innerWidth / 2 ? EDGE : window.innerWidth - EDGE - BALL_SIZE
+    ballPos.value = clampBallPos({ x: targetX, y: ballPos.value.y })
+    persistBallPos()
+  }
+  else if (!wasMoved) {
+    openNowPlaying()
+  }
+}
+
+function onBallDown(e: PointerEvent) {
+  if (!ballPos.value)
+    return
+  ballDrag = { startX: e.clientX, startY: e.clientY, origX: ballPos.value.x, origY: ballPos.value.y, moved: false }
+  ballDragging.value = true
+  window.addEventListener('pointermove', onBallMove)
+  window.addEventListener('pointerup', onBallUp)
+}
+
+const ballStyle = computed(() => {
+  const pos = ballPos.value
+  if (!pos)
+    return {}
+  return { left: `${pos.x}px`, top: `${pos.y}px` }
+})
+
+const ringCirc = 2 * Math.PI * 26.5
+const ringOffset = computed(() => {
+  const ratio = duration.value > 0 ? Math.min(Math.max(progress.value / duration.value, 0), 1) : 0
+  return ringCirc * (1 - ratio)
+})
+
+function onBallResize() {
+  if (ballPos.value)
+    ballPos.value = clampBallPos(ballPos.value)
+}
+
+onMounted(() => {
+  window.matchMedia('(max-width: 768px)').addEventListener('change', (e) => {
+    isMobile.value = e.matches
+  })
+  window.addEventListener('resize', onBallResize)
+  restoreBallPos()
+})
 </script>
 
 <template>
+  <!-- 桌面：全宽播放栏（侧边栏展开时通过 body.pwa-sidebar-open 让位） -->
   <Transition name="playerbar" :duration="350">
     <div
-      v-if="current"
+      v-if="current && !isMobile"
       class="player-bar"
     >
       <div class="bar-inner">
-        <!-- 封面 + 曲目信息（点封面进全屏大播放页） -->
         <button
           class="track"
           type="button"
@@ -113,7 +230,6 @@ function volumeIcon(): string {
           </div>
         </button>
 
-        <!-- 控制区 -->
         <div class="controls">
           <button
             type="button"
@@ -141,7 +257,6 @@ function volumeIcon(): string {
           </button>
         </div>
 
-        <!-- PC：进度条 + 时间 -->
         <div class="progress-wrap">
           <span class="time">{{ formatDuration(progress) }}</span>
           <div
@@ -161,7 +276,6 @@ function volumeIcon(): string {
           <span class="time">{{ formatDuration(duration) }}</span>
         </div>
 
-        <!-- PC：模式 / 音量（hover 展开） / 队列 / 展开 -->
         <div class="extras">
           <button
             type="button"
@@ -207,26 +321,65 @@ function volumeIcon(): string {
             <Icon icon="tabler:chevron-up" />
           </button>
         </div>
-
-        <!-- 移动端：药丸内底部发丝进度线（PC 由 CSS 隐藏） -->
-        <div class="mobile-progress">
-          <div
-            class="mobile-progress-fill"
-            :style="{ width: duration > 0 ? `${(progress / duration) * 100}%` : '0%' }"
-          />
-        </div>
-
-        <!-- 移动端：药丸内的下一首按钮（PC 由 CSS 隐藏） -->
-        <button
-          type="button"
-          class="ctrl mobile-next"
-          title="下一首"
-          @click="nextTrack()"
-        >
-          <Icon icon="tabler:player-skip-forward-filled" />
-        </button>
       </div>
     </div>
+  </Transition>
+
+  <!-- 移动端：可拖动悬浮球（点按展开播放页 / 拖动换位贴边 / X 关闭 / — 缩为圆点） -->
+  <Transition name="playerbar" :duration="300">
+    <div
+      v-if="current && isMobile && !ballHidden"
+      class="music-ball"
+      :class="{ 'music-ball--dragging': ballDragging }"
+      :style="ballStyle"
+      @pointerdown="onBallDown"
+    >
+      <svg class="ball-ring" viewBox="0 0 56 56">
+        <circle class="ball-ring__track" cx="28" cy="28" r="26.5" />
+        <circle
+          class="ball-ring__fill"
+          cx="28"
+          cy="28"
+          r="26.5"
+          :stroke-dasharray="ringCirc"
+          :stroke-dashoffset="ringOffset"
+        />
+      </svg>
+      <img
+        class="ball-cover"
+        :src="musicCoverOrDefault(current)"
+        alt="播放悬浮球"
+        @error="current && (current.hasCover = false)"
+      >
+      <button
+        type="button"
+        class="ball-act ball-act--close"
+        aria-label="关闭播放器"
+        @pointerdown.stop
+        @click.stop="closePlayer()"
+      >
+        <Icon icon="tabler:x" width="11" height="11" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="ball-act ball-act--hide"
+        aria-label="隐藏悬浮球"
+        @pointerdown.stop
+        @click.stop="ballHidden = true"
+      >
+        <Icon icon="tabler:minus" width="11" height="11" aria-hidden="true" />
+      </button>
+    </div>
+  </Transition>
+  <Transition name="playerbar" :duration="300">
+    <button
+      v-if="current && isMobile && ballHidden"
+      type="button"
+      class="music-ball-dot"
+      aria-label="恢复播放悬浮球"
+      :style="ballStyle"
+      @click.stop="ballHidden = false"
+    />
   </Transition>
 </template>
 
@@ -469,15 +622,6 @@ $bar-height: 72px;
   }
 }
 
-/* 移动端元素：PC 隐藏 */
-.mobile-progress {
-  display: none;
-}
-
-.mobile-next {
-  display: none;
-}
-
 .playerbar-enter-active,
 .playerbar-leave-active {
   transition:
@@ -491,82 +635,102 @@ $bar-height: 72px;
   opacity: 0;
 }
 
-/* —— 移动端：悬浮迷你药丸（YouTube Music 式浮动，避开底栏与发帖 FAB） —— */
-@media screen and (max-width: 768px) {
-  .player-bar {
-    left: 10px;
-    right: 10px;
-    bottom: calc(var(--layout-bottom-nav-h, 80px) + 84px);
-    background: var(--color-nav-bg);
-    border: 1px solid var(--color-border);
-    border-radius: 16px;
-    box-shadow: 0 6px 24px rgba(2, 6, 23, 0.22);
-    backdrop-filter: blur(14px);
-    overflow: hidden;
+/* —— 移动端：可拖动悬浮球 —— */
+.music-ball {
+  position: fixed;
+  z-index: 2100;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  padding: 4px;
+  box-sizing: border-box;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition:
+    left 0.25s ease,
+    top 0.25s ease;
+  filter: drop-shadow(0 4px 12px rgba(2, 6, 23, 0.35));
+
+  &--dragging {
+    transition: none;
+    cursor: grabbing;
   }
 
-  .bar-inner {
-    gap: 10px;
-    height: 58px;
-    padding: 0 12px;
-    max-width: none;
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.ball-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+
+  .ball-ring__track {
+    fill: none;
+    stroke: rgba(148, 163, 184, 0.35);
+    stroke-width: 3;
   }
 
-  .track {
-    flex: 1;
-    width: auto;
-    gap: 10px;
+  .ball-ring__fill {
+    fill: none;
+    stroke: $accent;
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+}
 
-    .cover {
-      width: 40px;
-      height: 40px;
-      border-radius: 9px;
-    }
+.ball-cover {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  pointer-events: none;
+  background: var(--color-nav-bg);
+}
+
+.ball-act {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  cursor: pointer;
+
+  &--close {
+    top: -3px;
+    right: -3px;
   }
 
-  .controls {
-    gap: 4px;
+  &--hide {
+    bottom: -3px;
+    right: -3px;
   }
 
-  .ctrl.play {
-    width: 42px;
-    height: 42px;
-    font-size: 27px;
-    box-shadow: 0 3px 10px rgba(236, 65, 65, 0.35);
+  &:active {
+    transform: scale(0.9);
   }
+}
 
-  .ctrl:not(.play) {
-    display: none;
-  }
-
-  /* 药丸内的下一首（专用于移动端显示） */
-  .ctrl.mobile-next {
-    display: inline-flex;
-    width: 36px;
-    height: 36px;
-    font-size: 22px;
-    flex-shrink: 0;
-  }
-
-  .progress-wrap,
-  .extras {
-    display: none;
-  }
-
-  /* 发丝进度线：药丸底部内嵌 */
-  .mobile-progress {
-    display: block;
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: rgba(148, 163, 184, 0.25);
-
-    .mobile-progress-fill {
-      height: 100%;
-      background: $accent;
-    }
-  }
+.music-ball-dot {
+  position: fixed;
+  z-index: 2100;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(236, 65, 65, 0.65);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(2, 6, 23, 0.3);
 }
 </style>
