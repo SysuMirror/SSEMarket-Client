@@ -24,6 +24,7 @@ const {
   cyclePlayMode,
   openNowPlaying,
   closePlayer,
+  ballSuppressed,
 } = useMusicStore()
 
 const modeIcon = { list: 'tabler:repeat', one: 'tabler:repeat-once', shuffle: 'tabler:shuffle' } as const
@@ -92,7 +93,6 @@ const EDGE = 10
 const POS_KEY = 'music-ball-pos'
 
 const ballPos = ref<{ x: number, y: number } | null>(null)
-const ballHidden = ref(false)
 const ballDragging = ref(false)
 let ballDrag: { startX: number, startY: number, origX: number, origY: number, moved: boolean } | null = null
 
@@ -153,14 +153,10 @@ function onBallUp() {
   ballDragging.value = false
   window.removeEventListener('pointermove', onBallMove)
   window.removeEventListener('pointerup', onBallUp)
-  if (wasMoved && ballPos.value) {
-    // 贴边吸附
-    const center = ballPos.value.x + BALL_SIZE / 2
-    const targetX = center < window.innerWidth / 2 ? EDGE : window.innerWidth - EDGE - BALL_SIZE
-    ballPos.value = clampBallPos({ x: targetX, y: ballPos.value.y })
+  if (wasMoved) {
     persistBallPos()
   }
-  else if (!wasMoved) {
+  else {
     openNowPlaying()
   }
 }
@@ -328,7 +324,7 @@ onMounted(() => {
   <!-- 移动端：可拖动悬浮球（点按展开播放页 / 拖动换位贴边 / X 关闭 / — 缩为圆点） -->
   <Transition name="playerbar" :duration="300">
     <div
-      v-if="current && isMobile && !ballHidden"
+      v-if="current && isMobile && !ballSuppressed"
       class="music-ball"
       :class="{ 'music-ball--dragging': ballDragging }"
       :style="ballStyle"
@@ -360,26 +356,7 @@ onMounted(() => {
       >
         <Icon icon="tabler:x" width="11" height="11" aria-hidden="true" />
       </button>
-      <button
-        type="button"
-        class="ball-act ball-act--hide"
-        aria-label="隐藏悬浮球"
-        @pointerdown.stop
-        @click.stop="ballHidden = true"
-      >
-        <Icon icon="tabler:minus" width="11" height="11" aria-hidden="true" />
-      </button>
     </div>
-  </Transition>
-  <Transition name="playerbar" :duration="300">
-    <button
-      v-if="current && isMobile && ballHidden"
-      type="button"
-      class="music-ball-dot"
-      aria-label="恢复播放悬浮球"
-      :style="ballStyle"
-      @click.stop="ballHidden = false"
-    />
   </Transition>
 </template>
 
@@ -635,7 +612,7 @@ $bar-height: 72px;
   opacity: 0;
 }
 
-/* —— 移动端：可拖动悬浮球 —— */
+/* —— 移动端：可自由拖动悬浮球 —— */
 .music-ball {
   position: fixed;
   z-index: 2100;
@@ -647,13 +624,9 @@ $bar-height: 72px;
   cursor: grab;
   touch-action: none;
   user-select: none;
-  transition:
-    left 0.25s ease,
-    top 0.25s ease;
   filter: drop-shadow(0 4px 12px rgba(2, 6, 23, 0.35));
 
   &--dragging {
-    transition: none;
     cursor: grabbing;
   }
 
@@ -711,26 +684,8 @@ $bar-height: 72px;
     right: -3px;
   }
 
-  &--hide {
-    bottom: -3px;
-    right: -3px;
-  }
-
   &:active {
     transform: scale(0.9);
   }
-}
-
-.music-ball-dot {
-  position: fixed;
-  z-index: 2100;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: rgba(236, 65, 65, 0.65);
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(2, 6, 23, 0.3);
 }
 </style>

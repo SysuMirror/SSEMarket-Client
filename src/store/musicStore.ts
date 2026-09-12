@@ -36,6 +36,9 @@ const volume = ref(0.8)
 const playMode = ref<PlayMode>('list')
 const showNowPlaying = ref(false)
 const showPlaylist = ref(false)
+/* 悬浮球抑制：仅当用户在音乐页（或帖子卡片）显式点播后才出现；
+   关闭/隐藏后置回 true，直到下一次显式点播 */
+const ballSuppressed = ref(true)
 const playError = ref('')
 
 let howl: Howl | null = null
@@ -200,6 +203,7 @@ function prevTrack() {
 
 /** 播放一首：已在列表则定位，否则追加到列表末尾 */
 function playMusic(music: MusicSummary) {
+  ballSuppressed.value = false
   const idx = playlist.value.findIndex(m => m.musicID === music.musicID)
   if (idx >= 0) {
     // 同一曲重复点击：从头播
@@ -237,6 +241,7 @@ async function playById(musicID: number) {
 
 /** 整表替换（"播放全部"） */
 function playAll(list: MusicSummary[], startIndex = 0) {
+  ballSuppressed.value = false
   playlist.value = [...list]
   if (playlist.value.length === 0)
     return
@@ -310,7 +315,13 @@ function closePlayer() {
   showNowPlaying.value = false
   showPlaylist.value = false
   playError.value = ''
+  ballSuppressed.value = true
   persistState()
+}
+
+/** 收起悬浮球（音乐继续播放），下一次显式点播时再出现 */
+function dismissBall() {
+  ballSuppressed.value = true
 }
 
 function openNowPlaying() {
@@ -344,6 +355,8 @@ export function useMusicStore() {
     removeFromPlaylist,
     openNowPlaying,
     closePlayer,
+    dismissBall,
+    ballSuppressed,
   }
 }
 

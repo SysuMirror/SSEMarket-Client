@@ -146,6 +146,7 @@ function onBarUp() {
               <button
                 type="button"
                 class="ctrl"
+                :class="{ 'ctrl--active': playMode !== 'list' }"
                 :title="modeLabel[playMode]"
                 @click="cyclePlayMode()"
               >
@@ -385,6 +386,10 @@ $accent: #ec4141;
     font-weight: 700;
     line-height: 1.3;
     word-break: break-all;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .meta {
@@ -420,6 +425,13 @@ $accent: #ec4141;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.22);
   cursor: pointer;
+
+  /* 扩大触摸命中区（视觉不变） */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -12px 0;
+  }
 
   .progress-fill {
     height: 100%;
@@ -473,6 +485,10 @@ $accent: #ec4141;
     font-size: 34px;
   }
 
+  &.ctrl--active {
+    color: $accent;
+  }
+
   &.play {
     width: 62px;
     height: 62px;
@@ -487,7 +503,6 @@ $accent: #ec4141;
 }
 
 .volume {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -501,23 +516,29 @@ $accent: #ec4141;
   }
 }
 
-/* 移动端：上下布局 */
+/* 移动端：上下布局，整体垂直居中；矮屏时 auto margin 退化为顶部对齐可滚动 */
 @media screen and (max-width: 768px) {
   .layout {
     flex-direction: column;
-    gap: 32px;
-    padding: 56px 24px 96px;
+    gap: 20px;
+    padding: 64px 24px calc(28px + env(safe-area-inset-bottom, 0px));
     justify-content: flex-start;
     overflow-y: auto;
   }
 
   .disc-area {
-    width: min(64vw, 280px);
+    width: min(58vw, 250px);
+    margin-top: auto;
   }
 
   .panel {
     max-width: none;
     width: 100%;
+    margin-bottom: auto;
+  }
+
+  .song {
+    margin-bottom: 24px;
   }
 
   .song .title {
@@ -529,8 +550,13 @@ $accent: #ec4141;
     text-align: center;
   }
 
+  .progress {
+    margin-bottom: 20px;
+  }
+
   .controls {
     justify-content: center;
+    gap: 18px;
   }
 
   .volume {
