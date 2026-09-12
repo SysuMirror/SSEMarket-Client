@@ -536,6 +536,18 @@ $accent: #ec4141;
   }
 }
 
+/* 窄桌面：唱片缩小防两列溢出 */
+@media screen and (min-width: 769px) and (max-width: 1100px) {
+  .disc-area {
+    width: min(240px, 32vw);
+  }
+
+  .layout {
+    gap: 36px;
+    padding: 40px 24px 24px;
+  }
+}
+
 /* 移动端：上下布局，整体垂直居中；矮屏时 auto margin 退化为顶部对齐可滚动 */
 @media screen and (max-width: 768px) {
   .layout {

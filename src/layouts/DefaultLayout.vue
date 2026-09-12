@@ -427,8 +427,8 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 /* ---------- 全局音乐播放器底栏出现时的避让 ---------- */
 @media screen and (min-width: 769px) {
   .root--has-player .app-main:not(.app-main--layout-fill) {
-    height: calc(100dvh - var(--layout-header-h) - 64px);
-    max-height: calc(100dvh - var(--layout-header-h) - 64px);
+    height: calc(100dvh - var(--layout-header-h) - 74px);
+    max-height: calc(100dvh - var(--layout-header-h) - 74px);
   }
 }
 

@@ -275,7 +275,7 @@ onMounted(() => {
         <div class="extras">
           <button
             type="button"
-            class="ctrl small"
+            class="ctrl small mode"
             :title="modeLabel[playMode]"
             @click="cyclePlayMode()"
           >
@@ -310,7 +310,7 @@ onMounted(() => {
           </button>
           <button
             type="button"
-            class="ctrl small"
+            class="ctrl small expand"
             title="展开大播放页"
             @click="openNowPlaying()"
           >
@@ -610,6 +610,42 @@ $bar-height: 72px;
 .playerbar-leave-to {
   transform: translateY(100%);
   opacity: 0;
+}
+
+/* —— 桌面窄宽度渐进收缩（保进度条可用为第一优先级） —— */
+@media screen and (min-width: 769px) {
+  @media (max-width: 1280px) {
+    .track {
+      width: 200px;
+    }
+  }
+
+  @media (max-width: 1120px) {
+    .track {
+      width: auto;
+
+      .info {
+        display: none;
+      }
+    }
+  }
+
+  @media (max-width: 1000px) {
+    .ctrl.small.mode,
+    .ctrl.small.expand {
+      display: none;
+    }
+
+    .bar-inner {
+      gap: 12px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .volume {
+      display: none;
+    }
+  }
 }
 
 /* —— 移动端：可自由拖动悬浮球 —— */
