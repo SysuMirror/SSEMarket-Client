@@ -260,7 +260,7 @@ onUnmounted(() => {
           @click="draftsOpen = !draftsOpen"
         >
           <Icon icon="tabler:file-text" width="16" height="16" aria-hidden="true" />
-          草稿
+          <span class="post-page__drafts-text">草稿</span>
           <span class="post-page__drafts-badge">{{ drafts.length }}</span>
           <Icon icon="tabler:chevron-down" width="14" height="14" aria-hidden="true" class="post-page__drafts-caret" />
         </button>
@@ -296,7 +296,8 @@ onUnmounted(() => {
           title="保存草稿（此后每 20 秒自动保存）"
           @click="saveDraft"
         >
-          存草稿
+          <Icon icon="tabler:device-floppy" width="16" height="16" aria-hidden="true" />
+          <span class="post-page__ghost-text">存草稿</span>
         </button>
 
         <button
@@ -592,8 +593,12 @@ onUnmounted(() => {
 }
 
 .post-page__ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   min-height: 32px;
   padding: 0 12px;
+  flex-shrink: 0;
   font-size: 0.8125rem;
   font-weight: 500;
   font-family: inherit;
@@ -939,18 +944,51 @@ onUnmounted(() => {
     padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* 卡片随内容生长、至少撑满视口：超长时由 .post-page 滚动（.content 在移动端是 overflow:hidden） */
+  .post-page__card {
+    flex: 0 0 auto;
+    min-height: 100%;
+  }
+
+  /* 顶栏单行紧凑：藏标题、图标化按钮，绝不换行 */
   .post-page__topbar {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 6px;
     padding: 8px 10px;
   }
 
   .post-page__heading {
-    font-size: 1rem;
+    display: none;
+  }
+
+  .post-page__drafts-text {
+    display: none;
+  }
+
+  .post-page__drafts-trigger {
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+
+  .post-page__kind {
+    flex-shrink: 0;
   }
 
   .post-page__kind-btn {
     padding: 5px 10px;
+  }
+
+  .post-page__ghost {
+    padding: 0 9px;
+  }
+
+  .post-page__ghost-text {
+    display: none;
+  }
+
+  .post-page__submit {
+    padding: 0 14px;
+    flex-shrink: 0;
   }
 
   .post-page__meta {
