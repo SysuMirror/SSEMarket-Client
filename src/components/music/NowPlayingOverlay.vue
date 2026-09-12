@@ -143,49 +143,55 @@ function onBarUp() {
             </div>
 
             <div class="controls">
-              <button
-                type="button"
-                class="ctrl"
-                :class="{ 'ctrl--active': playMode !== 'list' }"
-                :title="modeLabel[playMode]"
-                @click="cyclePlayMode()"
-              >
-                <Icon :icon="modeIcon[playMode]" />
-              </button>
-              <button
-                type="button"
-                class="ctrl big"
-                title="上一首"
-                @click="prevTrack()"
-              >
-                <Icon icon="tabler:player-skip-back-filled" />
-              </button>
-              <button
-                type="button"
-                class="ctrl play"
-                :title="isPlaying ? '暂停' : '播放'"
-                @click="togglePlay()"
-              >
-                <Icon :icon="isPlaying ? 'tabler:player-pause-filled' : 'tabler:player-play-filled'" />
-              </button>
-              <button
-                type="button"
-                class="ctrl big"
-                title="下一首"
-                @click="nextTrack()"
-              >
-                <Icon icon="tabler:player-skip-forward-filled" />
-              </button>
-              <div class="volume">
-                <Icon icon="tabler:volume-2" />
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  :value="Math.round(volume * 100)"
-                  title="音量"
-                  @input="setVolume(Number(($event.target as HTMLInputElement).value) / 100)"
+              <div class="controls__side controls__side--left">
+                <button
+                  type="button"
+                  class="ctrl"
+                  :class="{ 'ctrl--active': playMode !== 'list' }"
+                  :title="modeLabel[playMode]"
+                  @click="cyclePlayMode()"
                 >
+                  <Icon :icon="modeIcon[playMode]" />
+                </button>
+              </div>
+              <div class="controls__main">
+                <button
+                  type="button"
+                  class="ctrl big"
+                  title="上一首"
+                  @click="prevTrack()"
+                >
+                  <Icon icon="tabler:player-skip-back-filled" />
+                </button>
+                <button
+                  type="button"
+                  class="ctrl play"
+                  :title="isPlaying ? '暂停' : '播放'"
+                  @click="togglePlay()"
+                >
+                  <Icon :icon="isPlaying ? 'tabler:player-pause-filled' : 'tabler:player-play-filled'" />
+                </button>
+                <button
+                  type="button"
+                  class="ctrl big"
+                  title="下一首"
+                  @click="nextTrack()"
+                >
+                  <Icon icon="tabler:player-skip-forward-filled" />
+                </button>
+              </div>
+              <div class="controls__side controls__side--right">
+                <div class="volume">
+                  <Icon icon="tabler:volume-2" />
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    :value="Math.round(volume * 100)"
+                    title="音量"
+                    @input="setVolume(Number(($event.target as HTMLInputElement).value) / 100)"
+                  >
+                </div>
               </div>
             </div>
           </div>
@@ -452,9 +458,23 @@ $accent: #ec4141;
 }
 
 .controls {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 14px;
+
+  &__side--left {
+    justify-self: start;
+  }
+
+  &__side--right {
+    justify-self: end;
+  }
+
+  &__main {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
 }
 
 .ctrl {
@@ -554,9 +574,8 @@ $accent: #ec4141;
     margin-bottom: 20px;
   }
 
-  .controls {
-    justify-content: center;
-    gap: 18px;
+  .controls__main {
+    gap: 22px;
   }
 
   .volume {
