@@ -25,6 +25,7 @@ const {
 } = useOpsAgentStream()
 
 const xiaoQiuAvatarUrl = `${import.meta.env.BASE_URL}xiaoqiu-avatar.png`
+const xiaoQiuChatBgUrl = `${import.meta.env.BASE_URL}xiaoqiu-chat-bg.webp`
 
 function scrollToBottom() {
   nextTick(() => {
@@ -191,7 +192,11 @@ function onDraftUpdate(updated: TimelinePostDraft) {
       </button>
     </header>
 
-    <main ref="historyDiv" class="lite-scrollbar chat-scroll">
+    <main
+      ref="historyDiv"
+      class="lite-scrollbar chat-scroll"
+      :style="{ backgroundImage: `url(${xiaoQiuChatBgUrl})` }"
+    >
       <div class="chat-inner">
         <SmartXiaoQiuTimeline :items="timeline" @draft-update="onDraftUpdate" />
       </div>
@@ -398,6 +403,9 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   min-height: 0;
   overflow: auto;
   padding: 16px 12px 8px;
+  background-size: cover;
+  background-position: center 22%;
+  background-repeat: no-repeat;
 }
 
 .chat-inner {
