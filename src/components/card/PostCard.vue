@@ -385,6 +385,10 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
     bottom: 0;
     left: 0;
     width: 4px;
+    max-width: 4px;
+    min-width: 4px;
+    box-sizing: border-box;
+    pointer-events: none;
     border-radius: var(--radius-lg, 8px) 0 0 var(--radius-lg, 8px);
     background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 60%, transparent));
     z-index: 1;
