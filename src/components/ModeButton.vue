@@ -33,10 +33,15 @@ document.body.classList.toggle('dark-mode', mode.value === 'dark-mode')
 
 <style scoped lang="scss">
 .mode-select {
-  color: #eee;
+  color: var(--color-text, #0f172a);
   display: flex;
   align-items: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.mode-select :deep(svg) {
+  color: inherit;
+  fill: currentColor;
 }
 </style>
