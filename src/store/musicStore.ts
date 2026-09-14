@@ -39,6 +39,13 @@ const showPlaylist = ref(false)
 /* 悬浮球抑制：仅当用户在音乐页（或帖子卡片）显式点播后才出现；
    关闭/隐藏后置回 true，直到下一次显式点播 */
 const ballSuppressed = ref(true)
+/* 桌面端底栏收起态（收成悬浮球）；移动端无底栏，不受影响 */
+const BAR_COLLAPSED_KEY = 'music-bar-collapsed'
+const barCollapsed = ref(false)
+try {
+  barCollapsed.value = localStorage.getItem(BAR_COLLAPSED_KEY) === '1'
+}
+catch { /* localStorage 不可用时忽略 */ }
 const playError = ref('')
 
 let howl: Howl | null = null
@@ -250,8 +257,9 @@ function playAll(list: MusicSummary[], startIndex = 0) {
 
 function togglePlay() {
   if (!howl) {
-    if (currentIndex.value < 0 && playlist.value.length > 0)
-      playIndex(0)
+    // 刷新恢复后 howl 为空但列表/游标还在：从当前游标起播
+    if (playlist.value.length > 0)
+      playIndex(Math.max(currentIndex.value, 0))
     return
   }
   if (isPlaying.value)
@@ -316,7 +324,17 @@ function closePlayer() {
   showPlaylist.value = false
   playError.value = ''
   ballSuppressed.value = true
+  setBarCollapsed(false)
   persistState()
+}
+
+/** 桌面端底栏收起/还原（收起后为可拖动悬浮球，音乐继续播放） */
+function setBarCollapsed(v: boolean) {
+  barCollapsed.value = v
+  try {
+    localStorage.setItem(BAR_COLLAPSED_KEY, v ? '1' : '0')
+  }
+  catch { /* localStorage 不可用时忽略 */ }
 }
 
 /** 收起悬浮球（音乐继续播放），下一次显式点播时再出现 */
@@ -357,6 +375,8 @@ export function useMusicStore() {
     closePlayer,
     dismissBall,
     ballSuppressed,
+    barCollapsed,
+    setBarCollapsed,
   }
 }
 

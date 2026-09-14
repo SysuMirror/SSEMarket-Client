@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import {
   formatDuration,
   musicCoverOrDefault,
@@ -25,6 +25,8 @@ const {
   openNowPlaying,
   closePlayer,
   ballSuppressed,
+  barCollapsed,
+  setBarCollapsed,
 } = useMusicStore()
 
 const modeIcon = { list: 'tabler:repeat', one: 'tabler:repeat-once', shuffle: 'tabler:shuffle' } as const
@@ -88,6 +90,22 @@ function volumeIcon(): string {
 /* ---------------- 移动端悬浮球（可点击 / 可拖动 / 可关闭 / 可隐藏） ---------------- */
 
 const isMobile = ref(typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches)
+
+/* ---------------- 占位声明（组件自管，布局只消费 --music-bar-h 变量） ---------------- */
+
+// 底栏实际高 72px + 1px 上边框
+const BAR_HEIGHT = 73
+const barVisible = computed(() => !!current.value && !isMobile.value && !barCollapsed.value)
+// 移动端：显式点播后出现，纯刷新不出现；但音频正在播（如桌面收起后缩窗）必须有控件
+const showBall = computed(() => !!current.value && (isMobile.value ? (!ballSuppressed.value || isPlaying.value) : barCollapsed.value))
+
+watch(barVisible, (visible) => {
+  document.documentElement.style.setProperty('--music-bar-h', visible ? `${BAR_HEIGHT}px` : '0px')
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  document.documentElement.style.setProperty('--music-bar-h', '0px')
+})
 const BALL_SIZE = 56
 const EDGE = 10
 const POS_KEY = 'music-ball-pos'
@@ -103,8 +121,10 @@ function ballDefaultPos() {
 function clampBallPos(pos: { x: number, y: number }) {
   const minX = EDGE
   const maxX = window.innerWidth - EDGE - BALL_SIZE
+  // 移动端给底部导航留空间；桌面端无底栏可贴到底
+  const bottomSafe = isMobile.value ? 65 + 12 : EDGE
   const minY = 70
-  const maxY = window.innerHeight - 65 - 12 - BALL_SIZE
+  const maxY = window.innerHeight - bottomSafe - BALL_SIZE
   return {
     x: Math.min(Math.max(pos.x, minX), Math.max(minX, maxX)),
     y: Math.min(Math.max(pos.y, minY), Math.max(minY, maxY)),
@@ -157,8 +177,15 @@ function onBallUp() {
     persistBallPos()
   }
   else {
-    openNowPlaying()
+    onBallTap()
   }
+}
+
+/** 点按悬浮球：桌面端先还原底栏再展开播放页；移动端直接展开播放页 */
+function onBallTap() {
+  if (!isMobile.value && barCollapsed.value)
+    setBarCollapsed(false)
+  openNowPlaying()
 }
 
 function onBallDown(e: PointerEvent) {
@@ -183,6 +210,11 @@ const ringOffset = computed(() => {
   return ringCirc * (1 - ratio)
 })
 
+function onCoverError() {
+  if (current.value)
+    current.value.hasCover = false
+}
+
 function onBallResize() {
   if (ballPos.value)
     ballPos.value = clampBallPos(ballPos.value)
@@ -201,7 +233,7 @@ onMounted(() => {
   <!-- 桌面：全宽播放栏（侧边栏展开时通过 body.pwa-sidebar-open 让位） -->
   <Transition name="playerbar" :duration="350">
     <div
-      v-if="current && !isMobile"
+      v-if="barVisible"
       class="player-bar"
     >
       <div class="bar-inner">
@@ -214,14 +246,14 @@ onMounted(() => {
             class="cover"
             :src="musicCoverOrDefault(current)"
             alt="封面"
-            @error="current && (current.hasCover = false)"
+            @error="onCoverError"
           >
           <div class="info">
             <div class="title">
-              {{ current.title }}
+              {{ current?.title }}
             </div>
             <div class="artist">
-              {{ current.artist || '未知歌手' }}
+              {{ current?.artist || '未知歌手' }}
             </div>
           </div>
         </button>
@@ -316,15 +348,31 @@ onMounted(() => {
           >
             <Icon icon="tabler:chevron-up" />
           </button>
+          <button
+            type="button"
+            class="ctrl small minimize"
+            title="收起为悬浮球"
+            @click="setBarCollapsed(true)"
+          >
+            <Icon icon="tabler:chevron-down" />
+          </button>
+          <button
+            type="button"
+            class="ctrl small close-bar"
+            title="关闭播放器"
+            @click="closePlayer()"
+          >
+            <Icon icon="tabler:x" />
+          </button>
         </div>
       </div>
     </div>
   </Transition>
 
-  <!-- 移动端：可拖动悬浮球（点按展开播放页 / 拖动换位贴边 / X 关闭 / — 缩为圆点） -->
+  <!-- 悬浮球：移动端点播后出现；桌面端点「收起」后替代底栏（点按还原底栏） -->
   <Transition name="playerbar" :duration="300">
     <div
-      v-if="current && isMobile && !ballSuppressed"
+      v-if="showBall"
       class="music-ball"
       :class="{ 'music-ball--dragging': ballDragging }"
       :style="ballStyle"
@@ -345,7 +393,7 @@ onMounted(() => {
         class="ball-cover"
         :src="musicCoverOrDefault(current)"
         alt="播放悬浮球"
-        @error="current && (current.hasCover = false)"
+        @error="onCoverError"
       >
       <button
         type="button"
@@ -452,6 +500,8 @@ $bar-height: 72px;
   width: 42px;
   height: 42px;
   border: none;
+  /* 全局 button 有 8px 16px 内边距，不重置会把 1em 图标挤成细条 */
+  padding: 0;
   border-radius: 50%;
   background: none;
   color: var(--color-text);
@@ -569,6 +619,7 @@ $bar-height: 72px;
     width: 34px;
     height: 34px;
     border: none;
+    padding: 0;
     border-radius: 50%;
     background: none;
     color: inherit;

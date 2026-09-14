@@ -15,7 +15,6 @@ import { useRoute, useRouter } from 'vue-router'
 import ModeButton from '@/components/ModeButton.vue'
 import { useChat } from '@/composables/useChat'
 import { usePWA } from '@/composables/usePWA'
-import { useMusicStore } from '@/store/musicStore'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { useNoticeStore } from '@/store/noticeStore'
 import { handleHomeNavClick } from '@/utils/scrollHome'
@@ -37,8 +36,6 @@ const route = useRoute()
 const router = useRouter()
 
 const { noticeNum, refreshNoticeNum } = useNoticeStore()
-// 全局播放器出现时收紧主内容高度，避免底栏盖住内容
-const { current: currentMusic } = useMusicStore()
 const { startPolling, stopPolling, newPostsNotification, hideNotification } = useNewPostsStore()
 
 const { connect, disconnect, chatNum } = useChat()
@@ -148,7 +145,6 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
       'pwa-mode': isDesktopExperience,
       'root--layout-fill': layoutFill,
       'root--input-focused': isAnyInputFocused && !isPC,
-      'root--has-player': !!currentMusic,
     }"
   >
     <header class="site-header-stack">
@@ -424,13 +420,20 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   }
 }
 
-/* ---------- 全局音乐播放器底栏出现时的避让 ---------- */
+/* ---------- 全局音乐播放器避让 ----------
+   底栏高度由 PlayerBar 组件经 --music-bar-h 变量自行声明（不可见时为 0px），
+   布局只消费变量；普通页与满高页（发帖/私信/小秋）同样生效。
+   移动端播放器为悬浮球（overlay），变量恒为 0，不受影响。 */
 @media screen and (min-width: 769px) {
-  .root--has-player .app-main:not(.app-main--layout-fill) {
-    height: calc(100dvh - var(--layout-header-h) - 74px);
-    max-height: calc(100dvh - var(--layout-header-h) - 74px);
+  .app-main:not(.app-main--layout-fill) {
+    height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
+    max-height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
+  }
+
+  .root.root--layout-fill > .app-main.app-main--layout-fill {
+    height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
+    max-height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
   }
 }
 
-/* 移动端播放器为可拖动悬浮球（overlay），布局无需预留槽位 */
 </style>
