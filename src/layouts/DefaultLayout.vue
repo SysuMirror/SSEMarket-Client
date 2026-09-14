@@ -189,7 +189,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
         </template>
         <router-view v-slot="{ Component }">
           <KeepAlive include="HomeView,PartitionView">
-            <component :is="Component" :key="route.fullPath" />
+            <component :is="Component" :key="route.path" />
           </KeepAlive>
         </router-view>
       </div>
