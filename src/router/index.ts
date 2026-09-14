@@ -167,6 +167,11 @@ const router = createRouter({
           }),
         },
         {
+          path: 'music',
+          name: 'Music',
+          component: () => import('@/views/MusicView.vue'),
+        },
+        {
           path: 'smart-xiaoqiu',
           name: 'SmartXiaoQiu',
           meta: { layoutFill: true },
@@ -222,6 +227,16 @@ const router = createRouter({
           path: 'register',
           name: 'Register',
           component: () => import('@/views/RegisterView.vue'),
+        },
+        {
+          path: 'sso/result',
+          name: 'SsoResult',
+          component: () => import('@/views/SsoResultView.vue'),
+        },
+        {
+          path: 'sso/bind',
+          name: 'SsoBind',
+          component: () => import('@/views/SsoBindView.vue'),
         },
         {
           path: 'reset',

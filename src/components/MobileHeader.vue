@@ -43,9 +43,16 @@ const {
     <RouterLink
       to="/smart-xiaoqiu"
       class="header-icon header-icon--xiaoqiu"
-      aria-label="智能小秋"
+      aria-label="小秋"
     >
       <Icon icon="tabler:sparkles" width="22" height="22" aria-hidden="true" />
+    </RouterLink>
+    <RouterLink
+      to="/music"
+      class="header-icon"
+      aria-label="音乐"
+    >
+      <Icon icon="tabler:music" width="22" height="22" aria-hidden="true" />
     </RouterLink>
   </div>
 </template>

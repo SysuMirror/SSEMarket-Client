@@ -40,9 +40,6 @@ const subCommentAuthorProfileId = computed(() => {
   const n = Number(s.authorID ?? s.AuthorID ?? s.author_id)
   if (Number.isFinite(n) && n > 0)
     return n
-  const phone = (s.authorTelephone || '').trim()
-  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
-    return userInfo.userID
   return 0
 })
 

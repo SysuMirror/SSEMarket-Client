@@ -4,6 +4,7 @@ import type { Condition, HomeOrderBy } from '@/store/postStore'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
 import {
+  computed,
   nextTick,
   onActivated,
   onMounted,
@@ -28,11 +29,12 @@ type SortField = 'time' | 'like' | 'comment'
 const route = useRoute()
 const { userInfo } = useUserStore()
 const { restorePosts, storePosts, setHomeOrder, updateNum } = usePostStore()
-const { posts, isLoading, hasMore, update, initialize } = usePostView()
+const { posts, pinnedPosts, isLoading, hasMore, update, initialize, refreshPinned } = usePostView()
 const { initNewPostsCache, newPostsNotification } = useNewPostsStore()
 const scrollTop = ref(0)
 const hasCache = ref(false)
 const cachePosts = reactive<Post[]>([])
+const cachePinnedPosts = reactive<Post[]>([])
 const cacheTotalNum = ref(0)
 const cacheCondition = reactive<Condition>({
   limit: 10,
@@ -45,6 +47,10 @@ const cacheCondition = reactive<Condition>({
   timeFrom: '',
   timeTo: '',
 })
+
+// 主页列表渲染数据:置顶帖拼接在普通帖之前。
+// pinnedPosts 在非主页场景下由 store 清空,所以拼接结果仍是普通帖。
+const allPosts = computed<Post[]>(() => [...pinnedPosts, ...posts])
 
 const sortField = ref<SortField>('time')
 const sortDesc = ref(true)
@@ -64,6 +70,15 @@ function toOrderBy(field: SortField, desc: boolean): HomeOrderBy {
   return `comment_${dir}` as HomeOrderBy
 }
 
+function syncSortUiFromOrderBy(orderBy: string) {
+  const [field, dir] = orderBy.split('_')
+  if (field === 'time' || field === 'like' || field === 'comment')
+    sortField.value = field
+  else
+    sortField.value = 'time'
+  sortDesc.value = dir !== 'asc'
+}
+
 async function applySort(field: SortField) {
   if (sortField.value === field) {
     sortDesc.value = !sortDesc.value
@@ -75,14 +90,16 @@ async function applySort(field: SortField) {
   const orderBy = toOrderBy(sortField.value, sortDesc.value)
   if (!setHomeOrder(orderBy))
     return
+  // 切排序后必须重新拉首页；勿在此先置 isLoading=true，
+  // 否则 usePostView.update 会因 isLoading 守卫直接 return，列表被清空却不请求。
   hasMore.value = true
-  isLoading.value = true
   await update()
   await updateNum(userInfo.phone)
 }
 
 onMounted(async () => {
   await initialize('主页')
+  syncSortUiFromOrderBy('time_desc')
   await initNewPostsCache()
   hasCache.value = true
 })
@@ -93,11 +110,13 @@ onActivated(async () => {
 
   if (newPostsNotification.isVisible) {
     await initialize('主页')
+    syncSortUiFromOrderBy('time_desc')
     await initNewPostsCache()
   }
   else {
     isLoading.value = true
-    await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition)
+    await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition, cachePinnedPosts)
+    syncSortUiFromOrderBy(cacheCondition.orderBy || 'time_desc')
     hasMore.value = cachePosts.length < cacheTotalNum.value
     isLoading.value = false
     await nextTick()
@@ -112,6 +131,7 @@ onBeforeRouteLeave(() => {
   scrollTop.value = getWindowScrollY()
   const data = storePosts()
   cachePosts.splice(0, cachePosts.length, ...data.cachePosts)
+  cachePinnedPosts.splice(0, cachePinnedPosts.length, ...(data.cachePinnedPosts ?? []))
   cacheTotalNum.value = data.cacheTotalNum
   Object.assign(cacheCondition, data.cacheConditions)
 })
@@ -119,6 +139,7 @@ onBeforeRouteLeave(() => {
 watch(() => route.query.refresh, async (newRefresh) => {
   if (newRefresh && hasCache.value) {
     await initialize('主页')
+    syncSortUiFromOrderBy('time_desc')
     await initNewPostsCache()
 
     const newQuery = { ...route.query }
@@ -156,11 +177,12 @@ watch(() => route.query.refresh, async (newRefresh) => {
     </header>
 
     <PostList
-      :posts="posts"
+      :posts="allPosts"
       :is-loading="isLoading"
       :has-more="hasMore"
       :new-post-ids="newPostsNotification.newPostIds"
       @bottom="update"
+      @pin-change="refreshPinned(userInfo.phone)"
     />
   </div>
 </template>

@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
+import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
 
 import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
+import { pinPost, unpinPost } from '@/api/browse/getPost'
 import { showMsg } from '@/components/MessageBox'
 import { applyPostMutation, usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
@@ -23,9 +26,15 @@ const { isDense, post, isNew, noSave = false } = defineProps<{
   noSave?: boolean
 }>()
 
+const router = useRouter()
+
 const { updatePost } = usePostStore()
 
 const { userInfo } = useUserStore()
+
+// 是否显示置顶按钮:仅自己的帖子可见,后端校验主页分区+权限。
+// 非主页帖点置顶会被后端拒绝,不影响系统。
+const canPinPost = computed(() => isSelf.value)
 
 /** 提取帖子预览图：优先 Photos（| 分割），不足时从 Content 提取 markdown 图片 */
 const previewImages = computed<string[]>(() => {
@@ -53,6 +62,36 @@ const excerptText = computed(() => {
   return cleaned.slice(0, 100) || 'loading'
 })
 
+/** 热门评论纯文本预览:去掉 markdown 图片语法,只保留文字 */
+const hotCommentExcerpt = computed(() => {
+  const raw = post.HotComment?.content || ''
+  const cleaned = raw.replace(/!\[[^\]]*?\]\([^)]*?\)/g, '').trim()
+  if (cleaned.length <= 50)
+    return cleaned
+  return `${cleaned.slice(0, 50)}…`
+})
+
+/** 热门评论内嵌图片(最多 3 张,避免卡片过高) */
+const hotCommentImages = computed<string[]>(() => {
+  const content = post.HotComment?.content || ''
+  if (!content)
+    return []
+  const mdImgRe = /!\[[^\]]*?\]\(\s*([^)]+?)\s*\)/gs
+  const imgs: string[] = []
+  let m: RegExpExecArray | null
+  while (imgs.length < 3 && (m = mdImgRe.exec(content)) !== null) {
+    const url = m[1].trim().replace(/\s+/g, '')
+    if (url)
+      imgs.push(url)
+  }
+  return imgs
+})
+
+/** 点击热门评论预览块跳转帖子详情 */
+function goDetail() {
+  router.push(`/postdetail/${post.PostID}`)
+}
+
 const isSelf = computed(() => isPostOwner(post, userInfo))
 
 const profileOwnerId = computed(() => {
@@ -60,9 +99,6 @@ const profileOwnerId = computed(() => {
   const n = Number(p.UserID ?? (p as { userID?: number }).userID ?? (p as { user_id?: number }).user_id)
   if (Number.isFinite(n) && n > 0)
     return n
-  const phone = (p.UserTelephone || '').trim()
-  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
-    return userInfo.userID
   return 0
 })
 
@@ -78,7 +114,7 @@ async function like() {
 }
 
 const handleUserActionDebounce = debounceAsync(handleUserAction)
-async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
+async function handleUserAction(type: 'delete' | 'save' | 'privacy' | 'pin' | 'unpin') {
   switch (type) {
     case 'save': {
       try {
@@ -120,8 +156,51 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
         console.error(error)
         showMsg('设置失败，请稍后再试')
       }
+      break
+    }
+    case 'pin': {
+      try {
+        const { ok, msg } = await pinPost(post.PostID)
+        if (!ok) {
+          showMsg(msg || '置顶失败')
+          return
+        }
+        post.IsPinned = true
+        showMsg('已置顶 1 小时')
+        // 通知上层刷新置顶列表(主页场景下 store 会重置 pinnedPosts)
+        usePinCustomEvent(true)
+      }
+      catch (error) {
+        console.error(error)
+        showMsg('置顶失败，请稍后再试')
+      }
+      break
+    }
+    case 'unpin': {
+      try {
+        const { ok, msg } = await unpinPost(post.PostID)
+        if (!ok) {
+          showMsg(msg || '取消置顶失败')
+          return
+        }
+        post.IsPinned = false
+        showMsg('已取消置顶')
+        usePinCustomEvent(false)
+      }
+      catch (error) {
+        console.error(error)
+        showMsg('取消置顶失败，请稍后再试')
+      }
+      break
     }
   }
+}
+
+// pin/unpin 后需要刷新主页置顶列表。
+// emit 事件让父级(HomeView)调用 store.refreshPinned。
+const pinEmits = defineEmits<{ pinChange: [pinned: boolean] }>()
+function usePinCustomEvent(pinned: boolean) {
+  pinEmits('pinChange', pinned)
 }
 
 function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: boolean) {
@@ -138,7 +217,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
 </script>
 
 <template>
-  <BasicCard class="feed-card post-card" :class="[{ 'post-card--dense': isDense, 'new-post': isNew }]">
+  <BasicCard class="feed-card post-card" :class="[{ 'post-card--dense': isDense, 'new-post': isNew, 'post-card--pinned': post.IsPinned }]">
     <div v-if="isDense && isSelf" class="post-card__dense-toolbar">
       <UserButton
         class="post-card__toolbar"
@@ -146,6 +225,8 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
         no-save
         :is-self="true"
         :is-private="!!post.IsPrivate"
+        :can-pin="canPinPost"
+        :is-pinned="!!post.IsPinned"
         @user-action="handleUserActionDebounce"
       />
     </div>
@@ -164,6 +245,8 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
         :is-self="isSelf"
         :is-private="!!post.IsPrivate"
         :no-save="noSave"
+        :can-pin="canPinPost"
+        :is-pinned="!!post.IsPinned"
         @user-action="handleUserActionDebounce"
       />
     </div>
@@ -172,6 +255,10 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
     </div>
     <RouterLink class="post-card__link" :to="`/postdetail/${post.PostID}`">
       <div class="post-card__title-wrap">
+        <span v-if="post.IsPinned" class="post-card__pinned-badge">
+          <Icon icon="tabler:pinned-filled" width="11" height="11" aria-hidden="true" />
+          置顶
+        </span>
         <span v-if="post.IsPrivate" class="post-card__private-badge">仅自己可见</span>
         <h3 class="post-card__title">
           {{ post.Title || '' }}
@@ -189,6 +276,28 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
           class="post-card__image-item"
           alt=""
         >
+      </div>
+      <div
+        v-if="!isDense && post.HotComment && (hotCommentExcerpt || hotCommentImages.length)"
+        class="post-card__hot-comment"
+        @click.prevent.stop="goDetail"
+      >
+        <div v-if="hotCommentImages.length" class="post-card__hot-comment-images">
+          <img
+            v-for="(img, i) in hotCommentImages"
+            :key="i"
+            :src="img"
+            loading="lazy"
+            class="post-card__hot-comment-image"
+            alt=""
+          >
+        </div>
+        <span class="post-card__hot-comment-name">{{ post.HotComment.userName || '匿名用户' }}:</span>
+        <span v-if="hotCommentExcerpt" class="post-card__hot-comment-text">{{ hotCommentExcerpt }}</span>
+        <span v-if="post.HotComment.likeNum > 0" class="post-card__hot-comment-likes">
+          <Icon icon="tabler:heart" width="11" height="11" aria-hidden="true" />
+          {{ post.HotComment.likeNum }}
+        </span>
       </div>
     </RouterLink>
     <div class="extension-slot">
@@ -258,6 +367,43 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
 
 .post-card__title-wrap {
   margin-top: 2px;
+}
+
+.post-card--pinned {
+  position: relative;
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
+  background: color-mix(in srgb, var(--accent) 12%, var(--color-card, #fff)) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent),
+    0 6px 20px -6px color-mix(in srgb, var(--accent) 45%, transparent) !important;
+
+  /* 左侧 accent 色条,作为最明显的视觉锚点 */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 4px;
+    border-radius: var(--radius-lg, 8px) 0 0 var(--radius-lg, 8px);
+    background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 60%, transparent));
+    z-index: 1;
+  }
+}
+
+.post-card__pinned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .post-card__private-badge {
@@ -349,6 +495,68 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
   object-fit: cover;
   border-radius: var(--radius-sm, 4px);
   display: block;
+}
+
+/* 热门评论预览块:参考国内 App 习惯,柔和底色,避免抢主视觉 */
+.post-card__hot-comment {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm, 6px);
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--color-text);
+  }
+}
+
+.post-card__hot-comment-images {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 2px;
+}
+
+.post-card__hot-comment-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius-sm, 4px);
+  display: block;
+}
+
+.post-card__hot-comment-name {
+  flex-shrink: 0;
+  color: var(--color-text);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.post-card__hot-comment-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-card__hot-comment-likes {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .post-card--dense .post-card__title-wrap {

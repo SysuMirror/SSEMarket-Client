@@ -99,13 +99,17 @@ function goBack() {
         <div class="icon" style="background-image: url(https://img.icons8.com/ios-filled/100/shopping-bag.png);" />
         <span>闲置</span>
       </router-link>
+      <router-link to="/music">
+        <div class="icon" style="background-image: url(https://img.icons8.com/ios-filled/100/music.png);" />
+        <span>音乐</span>
+      </router-link>
       <router-link to="/rating">
         <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=60985&format=png&color=000000);" />
         <span>打分</span>
       </router-link>
       <router-link to="/smart-xiaoqiu">
         <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=59695&format=png&color=000000); background-size: 90% 90%;" />
-        <span>智能小秋</span>
+        <span>小秋</span>
       </router-link>
       <div class="sidebar-divider" />
       <router-link to="/save">

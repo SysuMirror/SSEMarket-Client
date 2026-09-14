@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useSlots, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAllInfo } from '@/api/info/getInfo'
 import { levelClassHandler, levelNameHandler } from '@/utils/level'
 import UserIdentityIcon from './UserIdentityIcon.vue'
 
@@ -14,7 +13,7 @@ const props = withDefaults(
     userScore?: number
     /** 为 true 时不渲染内置个人主页链接（由外层 RouterLink 包裹时使用，避免 a 嵌套 a） */
     noProfileLink?: boolean
-    /** 用户手机号，用于当 userId 无效时尝试通过手机号获取用户信息并跳转 */
+    /** @deprecated 已废弃，个人主页跳转仅依赖 userId */
     userPhone?: string
     /** compact：评论区等窄场景，缩小头像与字号 */
     size?: 'default' | 'compact'
@@ -34,12 +33,9 @@ const resolvedUserId = computed(() => {
   return Number.isFinite(n) && n > 0 ? n : 0
 })
 
-/** 可进入个人主页：有 userId，或可通过手机号解析（所有人同一套逻辑） */
 const profileNavigable = computed(
-  () => !props.noProfileLink && (resolvedUserId.value > 0 || !!(props.userPhone?.trim())),
+  () => !props.noProfileLink && resolvedUserId.value > 0,
 )
-
-const phoneResolutionCache = new Map<string, number>()
 
 watch(
   () => props.src,
@@ -54,48 +50,14 @@ function onAvatarError() {
     displaySrc.value = defaultAvatar
 }
 
-async function resolveUserIdByPhone(phone: string): Promise<number> {
-  if (phoneResolutionCache.has(phone)) {
-    const cached = phoneResolutionCache.get(phone)!
-    return cached > 0 ? cached : 0
-  }
-
-  try {
-    const userInfo = await getAllInfo(phone)
-    const id = userInfo.userID > 0 ? userInfo.userID : -1
-    phoneResolutionCache.set(phone, id)
-    return userInfo.userID > 0 ? userInfo.userID : 0
-  }
-  catch (e) {
-    console.error('Failed to resolve user by phone:', e)
-    phoneResolutionCache.set(phone, -1)
-    return 0
-  }
-}
-
 async function goToProfile() {
   if (!profileNavigable.value)
     return
 
-  if (resolvedUserId.value > 0) {
-    await router.push({
-      name: 'UserProfile',
-      params: { id: String(resolvedUserId.value) },
-    })
-    return
-  }
-
-  const phone = props.userPhone?.trim()
-  if (!phone)
-    return
-
-  const id = await resolveUserIdByPhone(phone)
-  if (id > 0) {
-    await router.push({
-      name: 'UserProfile',
-      params: { id: String(id) },
-    })
-  }
+  await router.push({
+    name: 'UserProfile',
+    params: { id: String(resolvedUserId.value) },
+  })
 }
 
 function onProfileClick(event: MouseEvent) {

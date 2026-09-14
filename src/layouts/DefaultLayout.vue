@@ -7,6 +7,7 @@ import {
   provide,
   ref,
   watch,
+  watchEffect,
 } from 'vue'
 
 import { useRoute, useRouter } from 'vue-router'
@@ -51,6 +52,11 @@ const isDesktopExperience = computed(() => isPC.value && desktopExperienceEnable
 // PWA/电脑端菜单状态管理
 const pwaMenuOpen = ref(true)
 
+// 同步到 body：全局固定定位层（播放栏等）据此避让 PWA 侧边栏
+watchEffect(() => {
+  document.body.classList.toggle('pwa-sidebar-open', isDesktopExperience.value && pwaMenuOpen.value)
+})
+
 // 计算是否应该折叠菜单
 const isMenuCollapsed = computed(() => {
   if (!isDesktopExperience.value) {
@@ -74,7 +80,7 @@ const isHomePage = computed(() => {
   return seg === '' || seg === 'partition' || seg === 'rating'
 })
 
-/** 子页占满顶栏与主区域之间剩余高度，禁止整页滚动（如智能小秋） */
+/** 子页占满顶栏与主区域之间剩余高度，禁止整页滚动（如小秋） */
 const layoutFill = computed(() => Boolean(route.meta.layoutFill))
 
 function onTitleHomeClick(e: MouseEvent) {
@@ -378,7 +384,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   }
 }
 
-/* 发帖 / 智能小秋：主区域不滚动，子页面内部滚动 */
+/* 发帖 / 小秋：主区域不滚动，子页面内部滚动 */
 .root.root--layout-fill > .app-main.app-main--layout-fill {
   flex: 1 1 0;
   min-height: 0;
@@ -413,4 +419,21 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
     min-width: 0;
   }
 }
+
+/* ---------- 全局音乐播放器避让 ----------
+   底栏高度由 PlayerBar 组件经 --music-bar-h 变量自行声明（不可见时为 0px），
+   布局只消费变量；普通页与满高页（发帖/私信/小秋）同样生效。
+   移动端播放器为悬浮球（overlay），变量恒为 0，不受影响。 */
+@media screen and (min-width: 769px) {
+  .app-main:not(.app-main--layout-fill) {
+    height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
+    max-height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
+  }
+
+  .root.root--layout-fill > .app-main.app-main--layout-fill {
+    height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
+    max-height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
+  }
+}
+
 </style>

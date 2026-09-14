@@ -28,10 +28,14 @@ coverage
 *.sln
 *.sw?
 
-*.tsbuildinfo         
+*.tsbuildinfo
 
 .env
 .env.local
 
 dev-dist
 dev-dist/*
+
+dist.*/
+.superpowers/
+tmp_upload/

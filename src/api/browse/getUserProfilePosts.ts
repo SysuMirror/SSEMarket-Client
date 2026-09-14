@@ -3,10 +3,11 @@ import { normalizePosts } from '@/utils/postOwner'
 import { requestFunc } from '../req'
 
 export interface UserProfilePostsParams {
-  userTelephone: string
   targetUserID: number
   limit: number
   offset: number
+  /** @deprecated 后端已改为 JWT 鉴权，此字段不再使用 */
+  userTelephone?: string
 }
 
 export async function getUserProfilePosts(params: UserProfilePostsParams): Promise<Post[]> {
@@ -32,14 +33,14 @@ export async function getUserProfilePosts(params: UserProfilePostsParams): Promi
   }
 }
 
-export async function getUserProfilePostNum(userTelephone: string, targetUserID: number): Promise<number> {
+export async function getUserProfilePostNum(targetUserID: number): Promise<number> {
   try {
     const res = await requestFunc(
       '/auth/userProfilePostNum',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: { userTelephone, targetUserID },
+        body: { targetUserID },
       },
       true,
     )

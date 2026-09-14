@@ -76,19 +76,18 @@ const postsSectionTitle = computed(() => {
 })
 
 async function fetchProfilePostTotal() {
-  if (!user.value?.userID || !userInfo.phone)
+  if (!user.value?.userID)
     return
-  profileTotal.value = await getUserProfilePostNum(userInfo.phone, user.value.userID)
+  profileTotal.value = await getUserProfilePostNum(user.value.userID)
 }
 
 async function loadMoreProfilePosts() {
-  if (!user.value?.userID || !userInfo.phone || profileLoading.value || !profileHasMore.value)
+  if (!user.value?.userID || profileLoading.value || !profileHasMore.value)
     return
   if (!showPostHistory.value)
     return
   profileLoading.value = true
   const batch = await getUserProfilePosts({
-    userTelephone: userInfo.phone,
     targetUserID: user.value.userID,
     limit: PAGE_SIZE,
     offset: profileOffset.value,
@@ -107,7 +106,7 @@ async function resetAndLoadPosts() {
   profileOffset.value = 0
   profileHasMore.value = true
   profileTotal.value = 0
-  if (!user.value?.userID || !userInfo.phone)
+  if (!user.value?.userID)
     return
   if (!showPostHistory.value)
     return
@@ -120,7 +119,7 @@ async function resetAndLoadPosts() {
 }
 
 watch(
-  () => [user.value?.userID, user.value?.hideProfilePosts, userInfo.userID, userInfo.phone] as const,
+  () => [user.value?.userID, user.value?.hideProfilePosts, userInfo.userID] as const,
   () => {
     void resetAndLoadPosts()
   },

@@ -1,14 +1,14 @@
-import type { Post } from '@/types/post'
+import type { BrowseResult, Post } from '@/types/post'
 import { normalizePost, normalizePosts } from '@/utils/postOwner'
 import { requestFunc } from '../req'
 
 export type HomeOrderBy
   = | 'time_desc'
-    | 'time_asc'
-    | 'like_desc'
-    | 'like_asc'
-    | 'comment_desc'
-    | 'comment_asc'
+  | 'time_asc'
+  | 'like_desc'
+  | 'like_asc'
+  | 'comment_desc'
+  | 'comment_asc'
 
 export interface getPostsObject {
   limit: number
@@ -46,7 +46,21 @@ const defaultPost: Post = {
   Tag: '',
 }
 
-async function getPosts(object: getPostsObject): Promise<Post[]> {
+// 空 BrowseResult,用于请求失败时返回(保持调用方结构一致)。
+const emptyBrowseResult: BrowseResult = { pinned: [], posts: [], total: 0 }
+
+/**
+ * 拉取主页帖子列表。
+ *
+ * 后端返回 { pinned: [...], posts: [...], total: N }:
+ *   - pinned 是当前未过期置顶帖(最多 5,按 PinnedAt DESC)
+ *   - posts 是正常分页帖(已排除 pinned 中的 PostID,避免重复)
+ *   - total 是正常帖总数(不含 pinned)
+ *
+ * 注意:旧版后端直接返回数组,新版改为对象结构。前端 store 应分别维护
+ * pinned 和 posts 两个数组,渲染时由调用方拼接 [...pinned, ...posts]。
+ */
+async function getPosts(object: getPostsObject): Promise<BrowseResult> {
   try {
     const res = await requestFunc(
       '/auth/browse',
@@ -63,21 +77,76 @@ async function getPosts(object: getPostsObject): Promise<Post[]> {
     )
     if (!res) {
       console.error('getPosts: 请求失败，未获得响应')
-      return []
+      return emptyBrowseResult
     }
 
     try {
-      const data = await res.json()
-      return normalizePosts(data)
+      const data = await res.json() as Partial<BrowseResult>
+      // 兼容性兜底:若后端意外返回数组(老版),整体作为 posts 返回。
+      if (Array.isArray(data)) {
+        return { pinned: [], posts: normalizePosts(data), total: data.length }
+      }
+      return {
+        pinned: normalizePosts(data.pinned ?? []),
+        posts: normalizePosts(data.posts ?? []),
+        total: typeof data.total === 'number' ? data.total : 0,
+      }
     }
     catch (e) {
       console.error('getPosts: 解析响应失败', e)
-      return []
+      return emptyBrowseResult
     }
   }
   catch (e) {
     console.error(e)
-    return []
+    return emptyBrowseResult
+  }
+}
+
+/**
+ * 给帖子置顶 1 小时。
+ * 仅当当前用户有置顶权限时生效(后端校验),否则返回错误。
+ */
+export async function pinPost(postID: number): Promise<{ ok: boolean, msg?: string }> {
+  try {
+    const res = await requestFunc('/auth/pinPost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { postID },
+    }, true)
+    if (!res) {
+      return { ok: false, msg: '网络错误' }
+    }
+    const data = await res.json() as { code?: number, msg?: string }
+    if (data.code === 200)
+      return { ok: true }
+    return { ok: false, msg: data.msg || `code ${data.code}` }
+  }
+  catch (e) {
+    return { ok: false, msg: (e as Error).message }
+  }
+}
+
+/**
+ * 取消帖子置顶。
+ */
+export async function unpinPost(postID: number): Promise<{ ok: boolean, msg?: string }> {
+  try {
+    const res = await requestFunc('/auth/unpinPost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { postID },
+    }, true)
+    if (!res) {
+      return { ok: false, msg: '网络错误' }
+    }
+    const data = await res.json() as { code?: number, msg?: string }
+    if (data.code === 200)
+      return { ok: true }
+    return { ok: false, msg: data.msg || `code ${data.code}` }
+  }
+  catch (e) {
+    return { ok: false, msg: (e as Error).message }
   }
 }
 

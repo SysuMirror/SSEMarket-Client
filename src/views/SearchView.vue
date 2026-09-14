@@ -2,14 +2,15 @@
 import type { Partitions } from '@/store/postStore'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
-
 import {
   onMounted,
   ref,
   watch,
 } from 'vue'
+
 import { useRoute } from 'vue-router'
 import { searchRagPosts } from '@/api/ragSearch'
+import AppDatetimePicker from '@/components/AppDatetimePicker.vue'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { usePostView } from '@/composables/usePostView'
@@ -156,20 +157,12 @@ watch(
       <div class="search-page__filter-row">
         <label class="search-page__field">
           <span class="search-page__field-label">从</span>
-          <input
-            v-model="timeFrom"
-            type="datetime-local"
-            class="search-page__input"
-          >
+          <AppDatetimePicker v-model="timeFrom" placeholder="开始时间" />
         </label>
         <span class="search-page__sep" aria-hidden="true">—</span>
         <label class="search-page__field">
           <span class="search-page__field-label">到</span>
-          <input
-            v-model="timeTo"
-            type="datetime-local"
-            class="search-page__input"
-          >
+          <AppDatetimePicker v-model="timeTo" placeholder="结束时间" />
         </label>
       </div>
       <div class="search-page__filter-actions">

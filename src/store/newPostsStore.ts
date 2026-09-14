@@ -24,7 +24,7 @@ async function getHomePostIds(): Promise<number[]> {
   if (!userInfo.phone)
     return []
   try {
-    const posts = await getPosts({
+    const res = await getPosts({
       limit: 20,
       offset: 0,
       partition: '主页',
@@ -33,7 +33,7 @@ async function getHomePostIds(): Promise<number[]> {
       userTelephone: userInfo.phone,
       tag: '',
     })
-    return posts.map(post => post.PostID)
+    return res.posts.map(post => post.PostID)
   }
   catch (error) {
     console.error('获取首页帖子ID失败:', error)

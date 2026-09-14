@@ -12,7 +12,7 @@ function changeMode() {
 }
 
 mode.value = localStorage.getItem('mode') || ''
-document.body.className = mode.value
+document.body.classList.toggle('dark-mode', mode.value === 'dark-mode')
 </script>
 
 <template>

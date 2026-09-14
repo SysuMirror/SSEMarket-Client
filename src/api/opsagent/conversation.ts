@@ -46,7 +46,7 @@ function normalizeBootstrapData(raw: BootstrapPayload): ConversationBootstrapDat
 /** GET /api/v1/agent/conversation/bootstrap */
 export async function fetchConversationBootstrap(): Promise<ConversationBootstrapData> {
   if (!(await ensureAccessToken())) {
-    throw new Error('请先登录后再使用智能小秋')
+    throw new Error('请先登录后再使用小秋')
   }
   const res = await fetch(`${opsagentBaseURL()}/api/v1/agent/conversation/bootstrap`, {
     method: 'GET',
@@ -75,7 +75,7 @@ export async function fetchConversationBootstrap(): Promise<ConversationBootstra
 /** POST /api/v1/agent/conversation/close */
 export async function closeConversation(sessionId: string): Promise<void> {
   if (!(await ensureAccessToken())) {
-    throw new Error('请先登录后再使用智能小秋')
+    throw new Error('请先登录后再使用小秋')
   }
   const res = await fetch(`${opsagentBaseURL()}/api/v1/agent/conversation/close`, {
     method: 'POST',

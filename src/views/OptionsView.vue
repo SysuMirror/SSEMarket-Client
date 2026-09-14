@@ -3,10 +3,12 @@ import type { Ref } from 'vue'
 import type { AllInfo } from '@/api/info/getInfo'
 import { computed, inject, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAllInfo, isEmailNotificationBlocked, normalizeAllInfo } from '@/api/info/getInfo'
+import { getSelfAllInfo, isEmailNotificationBlocked, normalizeAllInfo } from '@/api/info/getInfo'
 import { updateEmailPush, updateUserInfo, uploadAvatar } from '@/api/info/updateInfo'
+import { changeEmail } from '@/api/LoginAndRegister/changeEmail'
 import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
 import { sendCode } from '@/api/LoginAndRegister/utils'
+import { ssoBindStart, ssoStatus, ssoUnbind } from '@/api/sso/sso'
 import ApiTokenPanel from '@/components/ApiTokenPanel.vue'
 import { showMsg } from '@/components/MessageBox'
 import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsToggle } from '@/components/settings'
@@ -16,7 +18,7 @@ import { levelClassHandler, levelExpHandler, levelNameHandler } from '@/utils/le
 
 const router = useRouter()
 const isPC = inject('isPC', ref(false)) as Ref<boolean>
-const { userInfo, setToken, setRefreshToken } = useUserStore()
+const { userInfo, setToken, setRefreshToken, setUserInfo } = useUserStore()
 const { pwaExperienceEnabled } = usePWA()
 
 const allInfo = ref<AllInfo>({
@@ -44,9 +46,20 @@ const userNameOpen = ref(false)
 const userIntroOpen = ref(false)
 const passwordOpen = ref(false)
 const patOpen = ref(false)
+const ssoOpen = ref(false)
+const emailOpen = ref(false)
+
+// SSO 绑定状态
+const ssoBound = ref(false)
+const ssoBoundUsername = ref('')
+const ssoBoundAt = ref('')
+const ssoUnbindPassword = ref('')
+const ssoBusy = ref(false)
 
 // 表单本地草稿(展开时初始化,保存时写回 allInfo)
 const passwordForm = ref({ vcode: '', password1: '', password2: '' })
+const emailForm = ref({ newEmail: '', vcode: '' })
+let changingEmail = false
 const userNameDraft = ref('')
 const userIntroDraft = ref('')
 
@@ -78,7 +91,7 @@ watch(
 
 /** 从服务端拉取设置并同步开关状态(避免本地状态与 DB 不一致) */
 async function reloadSettingsFromServer() {
-  const info = normalizeAllInfo(await getAllInfo(userInfo.phone))
+  const info = normalizeAllInfo(await getSelfAllInfo(userInfo.userID))
   allInfo.value = info
   isPushDisabled.value = isEmailNotificationBlocked(
     info.emailNotificationBlocked ?? info.emailpush,
@@ -269,6 +282,83 @@ async function resetPassword() {
   }
 }
 
+function validateNewEmail(email: string): boolean {
+  const trimmed = email.trim()
+  if (trimmed === '') {
+    showMsg('请输入新邮箱')
+    return false
+  }
+  if (trimmed.length > 255) {
+    showMsg('邮箱长度不能超过255个字符')
+    return false
+  }
+  const at = trimmed.indexOf('@')
+  if (at <= 0 || at !== trimmed.lastIndexOf('@') || at === trimmed.length - 1) {
+    showMsg('邮箱格式不正确')
+    return false
+  }
+  return true
+}
+
+async function sendEmailCode() {
+  try {
+    if (!validateNewEmail(emailForm.value.newEmail))
+      return
+    const email = emailForm.value.newEmail.trim()
+    const data = await sendCode(email, 0)
+    if (!data)
+      return
+    showMsg('验证码发过去啦')
+  }
+  catch (e) {
+    showMsg('发送验证码失败')
+    console.error(e)
+  }
+}
+
+async function resetEmail() {
+  if (changingEmail)
+    return
+  if (!validateNewEmail(emailForm.value.newEmail))
+    return
+  if (emailForm.value.vcode === '') {
+    showMsg('请输入验证码')
+    return
+  }
+  const email = emailForm.value.newEmail.trim()
+  if (email.toLowerCase() === userInfo.email.trim().toLowerCase()) {
+    showMsg('新邮箱不能与当前邮箱相同')
+    return
+  }
+  changingEmail = true
+  try {
+    const res = await changeEmail(email, emailForm.value.vcode)
+    if (!res)
+      return
+    showMsg(`${res.msg || '邮箱修改成功'}，请重新登录`)
+    setToken('')
+    setRefreshToken('')
+    setUserInfo({
+      userID: 0,
+      name: '',
+      avatarURL: '',
+      phone: '',
+      email: '',
+      identity: '',
+    })
+    emailForm.value = { newEmail: '', vcode: '' }
+    emailOpen.value = false
+    router.push('/auth/login')
+  }
+  catch (e) {
+    showMsg('更新邮箱失败')
+    console.error(e)
+  }
+  finally {
+    changingEmail = false
+  }
+}
+
 function logout() {
   if (confirm('确定要退出登录吗')) {
     localStorage.removeItem('userInfo')
@@ -283,8 +373,63 @@ function logout() {
   }
 }
 
+async function loadSsoStatus() {
+  const status = await ssoStatus()
+  if (!status) {
+    ssoBound.value = false
+    ssoBoundUsername.value = ''
+    ssoBoundAt.value = ''
+    return
+  }
+  ssoBound.value = !!status.bound
+  ssoBoundUsername.value = status.sso_username ?? ''
+  ssoBoundAt.value = status.bound_at ?? ''
+}
+
+async function startSsoBind() {
+  if (ssoBusy.value)
+    return
+  ssoBusy.value = true
+  try {
+    const url = await ssoBindStart()
+    if (!url) {
+      showMsg('SSO 服务暂不可用')
+      return
+    }
+    window.location.href = url
+  }
+  finally {
+    ssoBusy.value = false
+  }
+}
+
+async function confirmUnbindSso() {
+  if (ssoBusy.value)
+    return
+  const password = ssoUnbindPassword.value.trim()
+  if (!password) {
+    showMsg('请输入登录密码以确认解绑')
+    return
+  }
+  ssoBusy.value = true
+  try {
+    const ok = await ssoUnbind(password)
+    if (!ok) {
+      showMsg('密码错误或解绑失败')
+      return
+    }
+    ssoUnbindPassword.value = ''
+    await loadSsoStatus()
+    showMsg('已解绑 SSO')
+  }
+  finally {
+    ssoBusy.value = false
+  }
+}
+
 onMounted(() => {
   void reloadSettingsFromServer()
+  void loadSsoStatus()
 })
 </script>
 
@@ -383,9 +528,74 @@ onMounted(() => {
           重置密码
         </button>
       </SettingsExpander>
+
+      <SettingsExpander v-model:open="emailOpen" label="修改邮箱">
+        <SettingsInput
+          v-model="emailForm.newEmail"
+          label="新邮箱"
+          type="email"
+          placeholder="新邮箱地址"
+          autocomplete="email"
+        />
+        <button type="button" class="options-form-btn options-form-btn--secondary" @click="sendEmailCode">
+          发送验证码
+        </button>
+        <SettingsInput
+          v-model="emailForm.vcode"
+          label="邮箱验证码"
+          placeholder="发送到新邮箱"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+        />
+        <button type="button" class="options-form-btn options-form-btn--primary" @click="resetEmail">
+          修改邮箱
+        </button>
+      </SettingsExpander>
     </SettingsGroup>
 
-    <!-- 分组 3: 通用 -->
+    <!-- 分组 3: SSO 账号绑定 -->
+    <SettingsGroup title="SSO 账号绑定">
+      <SettingsExpander v-model:open="ssoOpen" label="UniSSO 绑定" :hint="ssoBound ? '已绑定' : '未绑定'">
+        <template v-if="ssoBound">
+          <p class="options-hint">
+            当前绑定 SSO：{{ ssoBoundUsername || '未知' }}
+            <span v-if="ssoBoundAt" class="options-hint__meta">
+              绑定于 {{ ssoBoundAt }}
+            </span>
+          </p>
+          <SettingsInput
+            v-model="ssoUnbindPassword"
+            label="登录密码"
+            type="password"
+            placeholder="输入登录密码以确认解绑"
+            autocomplete="current-password"
+          />
+          <button
+            type="button"
+            class="options-form-btn options-form-btn--primary"
+            :disabled="ssoBusy"
+            @click="confirmUnbindSso"
+          >
+            解绑 SSO
+          </button>
+        </template>
+        <template v-else>
+          <p class="options-hint">
+            绑定后可使用 UniSSO 账号直接登录集市。点击下方按钮将跳转至 UniSSO 完成授权。
+          </p>
+          <button
+            type="button"
+            class="options-form-btn options-form-btn--primary"
+            :disabled="ssoBusy"
+            @click="startSsoBind"
+          >
+            绑定 UniSSO
+          </button>
+        </template>
+      </SettingsExpander>
+    </SettingsGroup>
+
+    <!-- 分组 4: 通用 -->
     <SettingsGroup title="通用">
       <SettingsToggle
         :model-value="isPushDisabled"
@@ -402,7 +612,7 @@ onMounted(() => {
       />
     </SettingsGroup>
 
-    <!-- 分组 4: 开发者(默认折叠) -->
+    <!-- 分组 5: 开发者(默认折叠) -->
     <SettingsGroup title="开发者">
       <SettingsExpander v-model:open="patOpen" label="个人访问令牌(PAT)" hint="用于 MCP 等对外调用">
         <ApiTokenPanel v-if="patOpen" />
@@ -488,5 +698,19 @@ onMounted(() => {
     background: rgba(239, 68, 68, 0.06);
     border-color: rgba(239, 68, 68, 0.55);
   }
+}
+
+.options-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.options-hint__meta {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
 }
 </style>

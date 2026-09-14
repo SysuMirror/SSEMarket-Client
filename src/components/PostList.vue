@@ -12,7 +12,7 @@ const { isDense, posts = [], isLoading = false, hasMore = true, newPostIds = [] 
   newPostIds?: number[]
 }>()
 
-const emits = defineEmits(['bottom'])
+const emits = defineEmits(['bottom', 'pinChange'])
 
 const bottom = useTemplateRef('bottom')
 let observer: IntersectionObserver
@@ -66,6 +66,7 @@ onUnmounted(() => {
       :is-dense="isDense"
       :is-new="newPostIds.includes(post.PostID)"
       :post="post"
+      @pin-change="emits('pinChange', $event)"
     />
     <template v-if="hasMore">
       <div

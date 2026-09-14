@@ -10,6 +10,7 @@ import { requestFunc } from '../req'
  * @param {string} userTelephone
  * @param {boolean} isPrivate 仅自己可见
  * @param {boolean} isAnonymous 匿名发帖（隐藏作者身份）
+ * @param {boolean} pinned 同时置顶 1 小时(仅有置顶权限的用户生效,后端校验)
  */
 async function sendPost(
   content: string,
@@ -20,6 +21,7 @@ async function sendPost(
   userTelephone: string,
   isPrivate = false,
   isAnonymous = false,
+  pinned = false,
 ) {
   try {
     const res = await requestFunc(`/auth/post`, {
@@ -36,6 +38,7 @@ async function sendPost(
         userTelephone,
         isPrivate,
         isAnonymous,
+        pinned,
       },
     }, true)
     const data = await res!.json()

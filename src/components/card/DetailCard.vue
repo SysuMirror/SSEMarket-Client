@@ -49,9 +49,6 @@ const profileOwnerId = computed(() => {
   const n = Number(p.UserID ?? (p as { userID?: number }).userID ?? (p as { user_id?: number }).user_id)
   if (Number.isFinite(n) && n > 0)
     return n
-  const phone = (p.UserTelephone || '').trim()
-  if (phone && userInfo.phone && phone === userInfo.phone.trim() && userInfo.userID > 0)
-    return userInfo.userID
   return 0
 })
 

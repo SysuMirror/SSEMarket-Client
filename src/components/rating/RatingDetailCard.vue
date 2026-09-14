@@ -39,7 +39,10 @@ const currStars = ref<[number, number, number, number, number]>(
 const currRating = ref(post.userStar || 0)
 const averageRating = ref(post.averageRating || 0)
 const raterCount = computed(() => currStars.value.reduce((s, n) => s + n, 0))
-const isOwner = computed(() => post.userTelephone === userInfo.phone)
+const isOwner = computed(() => {
+  const ownerId = Number(post.userID)
+  return ownerId > 0 && userInfo.userID > 0 && ownerId === userInfo.userID
+})
 
 watch(() => post.userStar, (v) => {
   if (typeof v === 'number' && v >= 0)

@@ -2,7 +2,7 @@
 import type { OAuth2Info } from '@/api/oauth2/oauth2'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getAllInfo } from '@/api/info/getInfo'
+import { getSelfAllInfo } from '@/api/info/getInfo'
 import { authorizeOAuth2App, checkOAuth2App } from '@/api/oauth2/oauth2'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
@@ -97,7 +97,7 @@ async function checkAppInfo() {
  */
 async function fetchuserBasicInfo() {
   try {
-    const detailInfo = await getAllInfo(userInfo.phone)
+    const detailInfo = await getSelfAllInfo(userInfo.userID)
     userBasicInfo.value = {
       avatarURL: detailInfo.avatarURL,
       name: detailInfo.name,

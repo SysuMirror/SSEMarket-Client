@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+import { onMounted, ref } from 'vue'
+import { requestFunc } from '@/api/req'
 import { CONTENT_PARTITIONS } from '@/constants/partitions'
 
-/** 常用入口：固定 6 项，iWiki 为外链 */
+/** 常用入口项：前 8 项为内置固定入口，接口返回的动态应用追加其后；link 为外链 */
 interface CommonEntry {
   key: string
   label: string
   icon: string
   to?: string
   href?: string
+  colorBg?: string
+  colorFg?: string
 }
 
-const commonEntries: CommonEntry[] = [
+/** 内置固定入口：始终展示，不依赖接口 */
+const fallbackEntries: CommonEntry[] = [
   { key: 'ranking', label: '排行榜', icon: 'tabler:trophy', to: '/ranking' },
   { key: 'xiaoqiu', label: '小秋', icon: 'tabler:sparkles', to: '/smart-xiaoqiu' },
   { key: 'rating', label: '打分', icon: 'tabler:star', to: '/rating' },
@@ -19,9 +24,65 @@ const commonEntries: CommonEntry[] = [
   { key: 'shop', label: '商城', icon: 'tabler:shopping-bag', to: '/shop' },
   { key: 'iwiki', label: 'iWiki', icon: 'tabler:book-2', href: 'https://ssemarket.cn/iwiki/' },
   { key: 'course', label: '课程专区', icon: 'tabler:book', to: '/course' },
+  { key: 'xuerenhui', label: '学人汇', icon: 'tabler:external-link', href: 'https://scholarhub.top/' },
 ]
 
+const commonEntries = ref<CommonEntry[]>(fallbackEntries)
+
+/** 接口返回的工作台应用 */
+interface WorkbenchAppItem {
+  appID: number
+  name: string
+  icon: string
+  targetType: 'route' | 'link'
+  target: string
+  colorBg?: string
+  colorFg?: string
+}
+
+async function loadWorkbenchApps() {
+  try {
+    const res = await requestFunc('/auth/workbench/apps', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    }, false)
+    if (!res || !res.ok)
+      return
+    const list = (await res.json()) as WorkbenchAppItem[]
+    if (!Array.isArray(list) || list.length === 0)
+      return
+    // 默认 8 项始终在前，接口返回的动态应用追加在后（按 name 去重）
+    const builtin = fallbackEntries.map(e => e.label)
+    const dynamic = list
+      .filter(app => !builtin.includes(app.name))
+      .map(app => ({
+        key: `app-${app.appID}`,
+        label: app.name,
+        icon: app.icon,
+        to: app.targetType === 'route' ? app.target : undefined,
+        href: app.targetType === 'link' ? app.target : undefined,
+        colorBg: app.colorBg || undefined,
+        colorFg: app.colorFg || undefined,
+      }))
+    commonEntries.value = [...fallbackEntries, ...dynamic]
+  }
+  catch {
+    // 静默回退到内置列表
+  }
+}
+
+onMounted(loadWorkbenchApps)
+
 const partitions = CONTENT_PARTITIONS
+
+function entryStyle(entry: CommonEntry) {
+  const style: Record<string, string> = {}
+  if (entry.colorBg)
+    style['--cell-bg'] = entry.colorBg
+  if (entry.colorFg)
+    style['--cell-fg'] = entry.colorFg
+  return style
+}
 </script>
 
 <template>
@@ -46,7 +107,8 @@ const partitions = CONTENT_PARTITIONS
             v-for="entry in commonEntries"
             :key="entry.key"
             class="wb-cell"
-            :class="`wb-cell--${entry.key}`"
+            :class="entry.colorBg ? '' : `wb-cell--${entry.key}`"
+            :style="entryStyle(entry)"
             :href="entry.href"
             :target="entry.href ? '_blank' : undefined"
             :rel="entry.href ? 'noopener noreferrer' : undefined"

@@ -5,8 +5,10 @@ import MarkdownIt from 'markdown-it'
 import Prism from 'prismjs'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { getMusicList } from '@/api/music/getMusicList'
 import { showMsg } from '@/components/MessageBox'
 import { primeMentionCache, useMentionResolve } from '@/composables/useMentionResolve'
+import { musicCoverOrDefault, useMusicStore } from '@/store/musicStore'
 import { injectMentionsInRenderedHTML } from '@/utils/mention'
 import 'prismjs/plugins/autoloader/prism-autoloader'
 import 'github-markdown-css'
@@ -24,6 +26,7 @@ const { markdownContent, openLinksInNewTab = false, variant = 'default', extraMe
 
 const content = useTemplateRef<HTMLDivElement>('content')
 const router = useRouter()
+const { playById } = useMusicStore()
 const mentionMap = useMentionResolve(computed(() => markdownContent))
 const mentionMapVersion = ref(0)
 watch(mentionMap, () => {
@@ -141,6 +144,8 @@ function preprocessMarkdown(content: string): string {
   let text = content
   if (variant === 'chat')
     text = normalizeChatMarkdown(text)
+  // 帖子内嵌音乐标记：独占一行的 ::music 123:: 渲染为占位卡片，水合后可点播
+  text = text.replace(/(^|\n)[ \t]*::music\s+(\d+)::[ \t]*(?=\n|$)/g, (m, lead, id) => `${lead}<div class="post-music" data-music-id="${id}"></div>`)
   // 先用正则匹配一下
   return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, urlPart) => {
     const titleIndex = urlPart.lastIndexOf(' "')
@@ -204,6 +209,7 @@ const safeHTML = computed(() => {
       'target',
       'aria-hidden',
       'data-user-id',
+      'data-music-id',
       'role',
       'tabindex',
     ],
@@ -218,6 +224,16 @@ const safeHTML = computed(() => {
 
 async function handleMarkdownClick(event: MouseEvent) {
   const target = event.target as HTMLElement
+
+  const musicCard = target.closest('.post-music[data-music-id]') as HTMLElement | null
+  if (musicCard) {
+    event.preventDefault()
+    event.stopPropagation()
+    const id = Number(musicCard.dataset.musicId)
+    if (id > 0)
+      playById(id)
+    return
+  }
 
   const mentionEl = target.closest('[data-user-id].md-mention') as HTMLElement | null
   if (mentionEl) {
@@ -249,6 +265,56 @@ async function handleMarkdownClick(event: MouseEvent) {
     showMsg('复制失败，请重试')
   }
 }
+
+/** 把 ::music id:: 占位 div 填成可播卡片（meta 批量拉一次，删除的显示已失效） */
+async function hydrateMusicCards() {
+  const root = content.value
+  if (!root)
+    return
+  const cardList = root.querySelectorAll<HTMLElement>('.post-music[data-music-id]:not([data-hydrated])')
+  const cards = Array.from(cardList)
+  if (cards.length === 0)
+    return
+  const ids = [...new Set(cards.map(c => Number(c.dataset.musicId)).filter(n => Number.isInteger(n) && n > 0))]
+  cards.forEach((c) => {
+    c.dataset.hydrated = '1'
+  })
+  if (ids.length === 0)
+    return
+  const byId = new Map<number, Awaited<ReturnType<typeof getMusicList>>[number]>()
+  try {
+    for (const m of await getMusicList({ ids }))
+      byId.set(m.musicID, m)
+  }
+  catch { /* 拉取失败保持占位样式 */ }
+  for (const card of cards) {
+    const music = byId.get(Number(card.dataset.musicId))
+    if (!music) {
+      card.classList.add('post-music--gone')
+      card.innerHTML = '<span class="post-music__gone-text">音频已失效</span>'
+      continue
+    }
+    const cover = musicCoverOrDefault(music)
+    const title = md.utils.escapeHtml(music.title)
+    const artist = md.utils.escapeHtml(music.artist || '未知歌手')
+    card.innerHTML = `
+      <img class="post-music__cover" src="${cover}" alt="" loading="lazy">
+      <div class="post-music__meta">
+        <div class="post-music__title">${title}</div>
+        <div class="post-music__artist">${artist}</div>
+      </div>
+      <span class="post-music__play" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5.14v14l11-7-11-7z"/></svg>
+      </span>`
+  }
+}
+
+watch(safeHTML, () => {
+  nextTick(() => {
+    Prism.highlightAllUnder(content.value!)
+    hydrateMusicCards()
+  })
+}, { immediate: true })
 </script>
 
 <template>
@@ -295,6 +361,79 @@ async function handleMarkdownClick(event: MouseEvent) {
 .markdown-body--chat :deep(p:empty) {
   display: none;
   margin: 0;
+}
+
+.markdown-body :deep(.post-music) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+  padding: 8px 12px 8px 8px;
+  max-width: 420px;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--color-card, #f8fafc);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.markdown-body :deep(.post-music:hover) {
+  border-color: #ec4141;
+  box-shadow: 0 2px 10px rgba(236, 65, 65, 0.12);
+}
+
+.markdown-body :deep(.post-music__cover) {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.markdown-body :deep(.post-music__meta) {
+  flex: 1;
+  min-width: 0;
+}
+
+.markdown-body :deep(.post-music__title) {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text, #1f2328);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdown-body :deep(.post-music__artist) {
+  font-size: 12px;
+  color: var(--color-text-secondary, #6a737d);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdown-body :deep(.post-music__play) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ec4141;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.markdown-body :deep(.post-music--gone) {
+  cursor: default;
+}
+
+.markdown-body :deep(.post-music__gone-text) {
+  font-size: 13px;
+  color: var(--color-text-secondary, #9ca3af);
 }
 
 /*
