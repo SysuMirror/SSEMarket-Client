@@ -40,7 +40,13 @@ const isTabActive = (to: string) => {
   display: flex;
   box-sizing: border-box;
   background: var(--color-card, #fff);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-border);
+
+  @supports (background: color-mix(in srgb, white 80%, transparent)) {
+    background: color-mix(in srgb, var(--color-card, #fff) 82%, transparent);
+  }
 }
 
 .partition-tab {

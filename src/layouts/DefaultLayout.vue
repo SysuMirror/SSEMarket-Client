@@ -214,8 +214,20 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   right: 0;
   z-index: 2100;
   width: 100%;
-  background: #0f172a;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+@supports not (
+  (
+    backdrop-filter: blur(1px),
+  )
+) {
+  .site-header-stack {
+    background: #0f172a;
+  }
 }
 
 /* 二级导航（搜索/链接条）统一高度，避免主内容遮挡计算不准 */
@@ -231,7 +243,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   display: flex;
   align-items: center;
   min-height: var(--layout-site-top-h);
-  background: #0f172a;
+  background: transparent;
 
   .title {
     flex: 1;
@@ -289,6 +301,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
   scroll-padding-top: 12px;
   align-items: stretch;
@@ -319,9 +332,17 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 }
 
 @media screen and (max-width: 768px) {
+  .site-header-stack {
+    background: var(--color-card, #fff);
+  }
+
+  .site-top .title {
+    color: var(--color-text, #1e293b);
+  }
+
   .app-main:not(.app-main--layout-fill) {
-    height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h));
-    max-height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h));
+    height: calc(100dvh - var(--layout-header-h));
+    max-height: calc(100dvh - var(--layout-header-h));
   }
 
   /* 输入法聚焦时底栏已隐藏，不再预留底栏高度，避免输入框与键盘之间留白 */
@@ -337,6 +358,10 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 
   .content {
     padding-top: 0;
+    padding-bottom: calc(16px + var(--layout-bottom-nav-h));
+  }
+
+  .root.root--input-focused .content:not(.content--layout-fill) {
     padding-bottom: 16px;
   }
 
@@ -349,6 +374,10 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   }
 
   .root.root--layout-fill .content.content--layout-fill {
+    padding-bottom: var(--layout-bottom-nav-h);
+  }
+
+  .root.root--input-focused.root--layout-fill .content.content--layout-fill {
     padding-bottom: 0;
   }
 }
@@ -394,8 +423,8 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 
 @media screen and (max-width: 768px) {
   .root.root--layout-fill > .app-main.app-main--layout-fill {
-    height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h));
-    max-height: calc(100dvh - var(--layout-header-h) - var(--layout-bottom-nav-h));
+    height: calc(100dvh - var(--layout-header-h));
+    max-height: calc(100dvh - var(--layout-header-h));
   }
 }
 

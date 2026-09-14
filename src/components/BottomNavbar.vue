@@ -171,7 +171,20 @@ onUnmounted(() => {
   bottom: 0;
   z-index: 2000;
   padding: 0;
+  background: var(--color-nav-bg, var(--chat-bg-highlight));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   pointer-events: none;
+}
+
+@supports not (
+  (
+    backdrop-filter: blur(1px),
+  )
+) {
+  .bottom-nav {
+    background: var(--color-card, #fff);
+  }
 }
 
 .bottom-nav__inner {
@@ -184,7 +197,7 @@ onUnmounted(() => {
   max-width: none;
   margin: 0;
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
-  background: var(--color-nav-bg, var(--chat-bg-highlight));
+  background: transparent;
   border: none;
   border-top: 1px solid var(--color-border, var(--chat-border));
   border-radius: 0;

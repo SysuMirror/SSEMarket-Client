@@ -64,14 +64,18 @@ const {
   min-height: var(--layout-nav-h, 2.75rem);
   height: var(--layout-nav-h, 2.75rem);
   background: var(--color-card, #fff);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: var(--color-text);
   align-items: center;
   padding: 0 12px;
   gap: 10px;
   box-shadow: none;
   overflow: visible;
+
+  @supports (background: color-mix(in srgb, white 80%, transparent)) {
+    background: color-mix(in srgb, var(--color-card, #fff) 82%, transparent);
+  }
 
   .search {
     display: flex;
@@ -87,10 +91,15 @@ const {
       display: flex;
       align-items: center;
       height: 36px;
-      background: var(--color-button-bg-secondary, #f1f3f5);
+      background: var(--color-card, #fff);
+      border: 1px solid var(--color-border-strong, rgba(71, 85, 105, 0.2));
       border-radius: 999px;
       padding: 0 10px;
       gap: 6px;
+
+      @supports (background: color-mix(in srgb, white 80%, transparent)) {
+        background: color-mix(in srgb, var(--color-card, #fff) 82%, transparent);
+      }
     }
 
     .search-icon {

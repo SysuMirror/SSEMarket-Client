@@ -212,6 +212,17 @@ function goBack() {
   transition: transform 0.3s ease;
 }
 
+@supports not (
+  (
+    backdrop-filter: blur(1px),
+  )
+) {
+  .pwa-sidebar,
+  .site-header.pwa-header {
+    background: var(--color-card, #fff);
+  }
+}
+
 .pwa-sidebar.collapsed {
   transform: translateX(-100%);
 }
