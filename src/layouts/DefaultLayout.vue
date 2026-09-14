@@ -259,8 +259,6 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 
 /* 主内容区：顶栏下方独立滚动，避免 body 滚动时内容滑入顶栏下方 */
 .root {
-  --layout-bottom-nav-h: calc(52px + env(safe-area-inset-bottom, 0px));
-
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -435,5 +433,4 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
     max-height: calc(100dvh - var(--layout-header-h) - var(--music-bar-h, 0px));
   }
 }
-
 </style>

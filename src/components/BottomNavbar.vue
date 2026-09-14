@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { handleHomeNavClick } from '@/utils/scrollHome'
 
@@ -23,6 +23,15 @@ const myRoutes = ['/options', '/save', '/history', '/feedback']
 const isMySection = computed(() => myRoutes.some(p => path.value === p || path.value.startsWith(`${p}/`)))
 
 const myMenuVisible = ref(false)
+let navResizeObserver: ResizeObserver | undefined
+
+function syncLayoutBottomNavHeight() {
+  const nav = document.getElementById('bottomNavBar')
+  if (!nav || nav.offsetHeight === 0)
+    return
+
+  document.documentElement.style.setProperty('--layout-bottom-nav-h', `${nav.offsetHeight}px`)
+}
 
 function toggleMyMenu() {
   myMenuVisible.value = !myMenuVisible.value
@@ -50,9 +59,20 @@ watch(() => route.path, () => {
 
 onMounted(() => {
   document.addEventListener('click', onDocClick)
+  nextTick(() => {
+    const nav = document.getElementById('bottomNavBar')
+    if (!nav)
+      return
+
+    syncLayoutBottomNavHeight()
+    navResizeObserver = new ResizeObserver(syncLayoutBottomNavHeight)
+    navResizeObserver.observe(nav)
+  })
 })
 onUnmounted(() => {
   document.removeEventListener('click', onDocClick)
+  navResizeObserver?.disconnect()
+  navResizeObserver = undefined
 })
 </script>
 
