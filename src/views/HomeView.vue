@@ -12,7 +12,7 @@ import {
   ref,
   watch,
 } from 'vue'
-import { onBeforeRouteLeave, useRoute } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import PostList from '@/components/PostList.vue'
 import { usePostView } from '@/composables/usePostView'
 import { useNewPostsStore } from '@/store/newPostsStore'
@@ -27,6 +27,7 @@ defineOptions({
 type SortField = 'time' | 'like' | 'comment'
 
 const route = useRoute()
+const router = useRouter()
 const { userInfo } = useUserStore()
 const { restorePosts, storePosts, setHomeOrder, updateNum } = usePostStore()
 const { posts, pinnedPosts, isLoading, hasMore, update, initialize, refreshPinned } = usePostView()
@@ -144,8 +145,7 @@ watch(() => route.query.refresh, async (newRefresh) => {
 
     const newQuery = { ...route.query }
     delete newQuery.refresh
-    const queryString = Object.keys(newQuery).length > 0 ? `?${new URLSearchParams(newQuery as Record<string, string>).toString()}` : ''
-    window.history.replaceState({}, '', `${route.path}${queryString}`)
+    await router.replace({ query: newQuery })
   }
 })
 </script>
