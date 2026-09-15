@@ -68,6 +68,27 @@ const isMenuCollapsed = computed(() => {
 const isAnyInputFocused = ref(false)
 provide('isAnyInputFocused', isAnyInputFocused)
 
+/**
+ * 失焦回落防抖（~280ms）：移动端点按"发送"等按钮时，pointerdown 会先让
+ * 输入框 blur——若立刻恢复底栏与页底预留，布局在 click 派发前移动，
+ * 第一次点击落到按钮原位之外而落空（表现为按钮按灰了但没发送，要点第二次）。
+ * 延迟到 click 完成后再恢复；期间再次聚焦（切换输入框）则取消回落。
+ */
+let inputBlurTimer: ReturnType<typeof setTimeout> | undefined
+function markInputFocused() {
+  if (inputBlurTimer)
+    clearTimeout(inputBlurTimer)
+  isAnyInputFocused.value = true
+}
+function markInputBlurred() {
+  if (inputBlurTimer)
+    clearTimeout(inputBlurTimer)
+  inputBlurTimer = setTimeout(() => {
+    isAnyInputFocused.value = false
+    inputBlurTimer = undefined
+  }, 280)
+}
+
 function updateWidth() {
   windowWidth.value = window.innerWidth
 }
@@ -88,10 +109,7 @@ onMounted(() => {
 
   // 导入模块并注册
   import('@/utils/focusHandler').then(({ setupFocusHandlers }) => {
-    const _ = setupFocusHandlers(
-      () => { isAnyInputFocused.value = true },
-      () => { isAnyInputFocused.value = false },
-    )
+    const _ = setupFocusHandlers(markInputFocused, markInputBlurred)
     // 可选：提供给子组件使用
     // provide('focusCleanup', _);
   })
