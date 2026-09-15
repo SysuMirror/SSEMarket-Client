@@ -2,6 +2,7 @@
 import { Icon } from '@iconify/vue'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import ModeButton from '@/components/ModeButton.vue'
 import { useHeaderSearch } from '@/composables/useHeaderSearch'
 import { useUserStore } from '@/store/userStore'
 
@@ -191,6 +192,7 @@ function goBack() {
         </button>
       </form>
     </div>
+    <ModeButton class="pwa-mode-toggle" />
   </div>
 </template>
 
@@ -255,6 +257,14 @@ function goBack() {
 
 .site-header.pwa-header.menu-collapsed .search-container {
   margin-left: 0;
+}
+
+.site-header.pwa-header .pwa-mode-toggle {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 0.25em;
+  color: #444;
 }
 
 .menu-button {

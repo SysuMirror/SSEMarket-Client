@@ -155,6 +155,7 @@ $accent: #ec4141;
   flex-direction: column;
   width: min(420px, calc(100vw - 32px));
   max-height: min(560px, calc(100vh - 48px));
+  max-height: min(560px, calc(100dvh - 48px));
   background: var(--color-card, #fff);
   border-radius: 14px;
   box-shadow: 0 18px 50px rgba(2, 6, 23, 0.25);

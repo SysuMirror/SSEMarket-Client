@@ -7,7 +7,8 @@
 }
 
 :root {
-  --layout-site-top-h: 1.875rem;
+  /* site-top 品牌条已移除（2026-09-15），高度归零 */
+  --layout-site-top-h: 0rem;
   --layout-nav-h: 2.75rem;
   --layout-header-h: calc(var(--layout-site-top-h) + var(--layout-nav-h));
   --layout-bottom-nav-h: calc(52px + env(safe-area-inset-bottom, 0px));
@@ -15,6 +16,7 @@
 
 html {
   width: 100%;
+  /* 老系统回退链：不支持 dvh 的浏览器用 vh / 百分比 */
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
@@ -43,9 +45,23 @@ body {
 
 body:has(.root),
 body:has(.root) #app {
-  height: 100dvh;
-  max-height: 100dvh;
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+  body:has(.root),
+  body:has(.root) #app {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+}
+
+/* iOS：应用壳（body overflow hidden）下禁止文档橡皮筋，
+   防止手势被零高度的 body 滚动劫持、内层 .content 滑不动（WebKit 153852 家族） */
+body:has(.root) {
+  overscroll-behavior-y: none;
 }
 
 @media screen and (min-width: 768px) {

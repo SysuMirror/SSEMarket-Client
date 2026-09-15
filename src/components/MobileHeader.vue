@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { Icon } from '@iconify/vue'
 import { useTemplateRef } from 'vue'
+import ModeButton from '@/components/ModeButton.vue'
 import { useHeaderSearch } from '@/composables/useHeaderSearch'
 
 const sinfo = useTemplateRef<HTMLInputElement>('sinfo')
@@ -54,6 +55,7 @@ const {
     >
       <Icon icon="tabler:music" width="22" height="22" aria-hidden="true" />
     </RouterLink>
+    <ModeButton class="header-icon" />
   </div>
 </template>
 
@@ -63,19 +65,15 @@ const {
   flex-shrink: 0;
   min-height: var(--layout-nav-h, 2.75rem);
   height: var(--layout-nav-h, 2.75rem);
+  /* 移动端头部保持不透明：父层 site-header-stack 已是不透明底色，
+     blur 只产生 GPU 开销（iOS 滚动卡顿主因之一），不再使用半透明+模糊 */
   background: var(--color-card, #fff);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   color: var(--color-text);
   align-items: center;
   padding: 0 12px;
   gap: 10px;
   box-shadow: none;
   overflow: visible;
-
-  @supports (background: color-mix(in srgb, white 80%, transparent)) {
-    background: color-mix(in srgb, var(--color-card, #fff) 82%, transparent);
-  }
 
   .search {
     display: flex;

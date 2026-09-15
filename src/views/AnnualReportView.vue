@@ -1020,6 +1020,7 @@ onMounted(async () => {
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background-color: #030712; /* Very dark blue/black */
   /* 调整为更温馨的深紫色基调，并让光晕范围跟随音乐微动 */
   background-image:
@@ -1038,6 +1039,7 @@ onMounted(async () => {
   position: absolute;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   top: 0;
   left: 0;
   pointer-events: none;

@@ -142,7 +142,7 @@ onUnmounted(() => {
           <Icon icon="tabler:user" class="bottom-nav__icon bottom-nav__icon--user" width="24" height="24" aria-hidden="true" />
           <span class="bottom-nav__text">我的</span>
         </button>
-        <Transition name="bottom-nav-drop">
+        <Transition name="bottom-nav-drop" :duration="150">
           <div v-show="myMenuVisible" class="bottom-nav__dropdown" role="menu">
             <RouterLink class="bottom-nav__drop-link" role="menuitem" to="/options" @click="closeMyMenu">
               个人信息

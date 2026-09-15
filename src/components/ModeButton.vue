@@ -2,7 +2,8 @@
 import { Icon } from '@iconify/vue'
 import { ref } from 'vue'
 
-const mode = ref(document.body.className)
+// 主题引导已移至 main.ts（首帧前同步应用）；此处仅负责切换与展示
+const mode = ref(document.body.classList.contains('dark-mode') ? 'dark-mode' : 'light-mode')
 function changeMode() {
   document.body.classList.toggle('dark-mode')
   mode.value = document.body.classList.contains('dark-mode')
@@ -10,9 +11,6 @@ function changeMode() {
     : 'light-mode'
   localStorage.setItem('mode', mode.value)
 }
-
-mode.value = localStorage.getItem('mode') || ''
-document.body.classList.toggle('dark-mode', mode.value === 'dark-mode')
 </script>
 
 <template>

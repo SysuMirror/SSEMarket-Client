@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useTemplateRef } from 'vue'
+import ModeButton from '@/components/ModeButton.vue'
 import { useHeaderSearch } from '@/composables/useHeaderSearch'
 import { useUserStore } from '@/store/userStore'
 
@@ -184,6 +185,7 @@ const {
       <router-link to="/options">
         {{ userInfo.name }}
       </router-link>
+      <ModeButton class="pc-mode-toggle" />
     </div>
   </div>
 </template>
@@ -203,6 +205,15 @@ const {
   margin-bottom: 0px;
   overflow: hidden;
   transition: height 0.3s ease;
+
+  .pc-mode-toggle {
+    display: inline-flex;
+    vertical-align: middle;
+    align-items: center;
+    margin-left: 0.45em;
+    padding: 0 0.25em;
+    color: #444;
+  }
 
   .links {
     a {

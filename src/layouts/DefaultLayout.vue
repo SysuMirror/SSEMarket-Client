@@ -12,12 +12,10 @@ import {
 
 import { useRoute, useRouter } from 'vue-router'
 
-import ModeButton from '@/components/ModeButton.vue'
 import { useChat } from '@/composables/useChat'
 import { usePWA } from '@/composables/usePWA'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { useNoticeStore } from '@/store/noticeStore'
-import { handleHomeNavClick } from '@/utils/scrollHome'
 import { showSnackbar } from '@/utils/snackbar'
 
 const BottomNavbar = defineAsyncComponent(
@@ -83,10 +81,6 @@ const isHomePage = computed(() => {
 /** 子页占满顶栏与主区域之间剩余高度，禁止整页滚动（如小秋） */
 const layoutFill = computed(() => Boolean(route.meta.layoutFill))
 
-function onTitleHomeClick(e: MouseEvent) {
-  handleHomeNavClick(e, route)
-}
-
 onMounted(() => {
   connect()
   refreshNoticeNum()
@@ -148,15 +142,6 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
     }"
   >
     <header class="site-header-stack">
-      <div class="site-top">
-        <div class="top-left" />
-        <RouterLink class="title" to="/" @click="onTitleHomeClick">
-          SSE MARKET
-        </RouterLink>
-        <div class="top-right">
-          <ModeButton />
-        </div>
-      </div>
       <template v-if="isPC">
         <PwaPcHeader v-if="isDesktopExperience" v-model:menu-open="pwaMenuOpen" :unread-chat-num="chatNum" :unread-notice-num="noticeNum.unreadTotalNum" />
         <PcHeader v-else :unread-chat-num="chatNum" :unread-notice-num="noticeNum.unreadTotalNum" />
@@ -200,7 +185,8 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 <style lang="scss" scoped>
 /* 顶栏高度变量：全端固定导航，主内容用 padding-top 避让 */
 .site-header-stack {
-  --layout-site-top-h: 1.875rem;
+  /* 原 site-top 品牌条已移除（2026-09-15），保留变量让旧引用归零即可 */
+  --layout-site-top-h: 0rem;
   --layout-nav-h: 2.75rem;
   --layout-header-h: calc(var(--layout-site-top-h) + var(--layout-nav-h));
   /* 兼容 PWA 侧栏组件内联样式 */
@@ -239,44 +225,22 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
   box-sizing: border-box;
 }
 
-.site-top {
-  display: flex;
-  align-items: center;
-  min-height: var(--layout-site-top-h);
-  background: transparent;
-
-  .title {
-    flex: 1;
-    color: #eee;
-    text-align: center;
-    margin: 0;
-    padding: 0 0.35rem;
-    letter-spacing: 0.14em;
-    font-size: 14px;
-    line-height: 1.15;
-    font-family: 'Ubuntu Mono', Arial, Helvetica, sans-serif;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .top-left,
-  .top-right {
-    width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: end;
-    padding: 0 0.5rem;
-  }
-}
-
 /* 主内容区：顶栏下方独立滚动，避免 body 滚动时内容滑入顶栏下方 */
 .root {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  max-height: 100dvh;
+  /* 老系统回退：不支持 dvh 的浏览器（iOS<15.4 等）退到 vh，再由 flex 约束内容 */
+  height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+@supports (height: 100dvh) {
+  .root {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
 }
 
 .app-main {
@@ -334,10 +298,9 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 @media screen and (max-width: 768px) {
   .site-header-stack {
     background: var(--color-card, #fff);
-  }
-
-  .site-top .title {
-    color: var(--color-text, #1e293b);
+    /* iOS：移动端背景已不透明，backdrop-filter 属纯 GPU 开销，是滚动卡顿主因之一 */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .app-main:not(.app-main--layout-fill) {
@@ -385,10 +348,6 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 /* PWA 桌面：侧栏 + 主内容分区 */
 .root.pwa-mode {
   position: relative;
-}
-
-.root.pwa-mode .site-top {
-  min-height: var(--layout-site-top-h);
 }
 
 @media screen and (min-width: 769px) {
