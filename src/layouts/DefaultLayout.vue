@@ -321,11 +321,23 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
 
   .content {
     padding-top: 0;
-    padding-bottom: calc(16px + var(--layout-bottom-nav-h));
+    padding-bottom: 16px;
   }
 
-  .root.root--input-focused .content:not(.content--layout-fill) {
-    padding-bottom: 16px;
+  /* iOS Safari 不把 flex 列滚动容器的 padding-bottom 计入可滚动范围，
+     底部内容滚不出底栏遮挡区（安卓 Chrome 正常）；
+     改用 ::after 垫片预留底栏高度（真实 flex item 始终计入 scrollHeight）。
+     --layout-bottom-nav-h 由 BottomNavbar 用 ResizeObserver 实测 offsetHeight 写入 */
+  .content:not(.content--layout-fill)::after {
+    content: '';
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    height: var(--layout-bottom-nav-h, calc(52px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .root.root--input-focused .content:not(.content--layout-fill)::after {
+    height: 0;
   }
 
   /* 移动端首页分区条 sticky */
