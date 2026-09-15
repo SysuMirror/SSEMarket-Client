@@ -347,14 +347,6 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
     top: 0;
     z-index: 5;
   }
-
-  .root.root--layout-fill .content.content--layout-fill {
-    padding-bottom: var(--layout-bottom-nav-h);
-  }
-
-  .root.root--input-focused.root--layout-fill .content.content--layout-fill {
-    padding-bottom: 0;
-  }
 }
 
 /* PWA 桌面：侧栏 + 主内容分区 */
@@ -415,6 +407,20 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
     flex: 1 1 auto;
     min-height: 0;
     min-width: 0;
+  }
+}
+
+/* 移动端满高页（私信/小秋/发帖）底栏预留。
+   必须放在上面的基础规则之后：此前写在首个 media 块里，被这里的
+   padding:0 同特异性后向覆盖，从未生效——满高页底部（含输入栏）
+   一直被固定底栏盖住（安卓 69px / iPhone 更多，含安全区） */
+@media screen and (max-width: 768px) {
+  .root.root--layout-fill .content.content--layout-fill {
+    padding-bottom: var(--layout-bottom-nav-h, calc(52px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .root.root--input-focused.root--layout-fill .content.content--layout-fill {
+    padding-bottom: 0;
   }
 }
 
