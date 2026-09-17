@@ -1,9 +1,9 @@
 <!-- eslint-disable vue/html-self-closing -->
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
-
 import { Icon } from '@iconify/vue'
-import { uploadPhoto } from '@/api/editPostAndComment/utils'
+
+import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
 import { showMsg } from '@/components/MessageBox'
 import MarkdownContainer from './MarkdownContainer.vue'
@@ -51,6 +51,8 @@ function emitSend() {
 const isPreview = ref(false)
 const fileInputId = useId()
 const fileInputRef = useTemplateRef<HTMLInputElement>('fileInput')
+const fileUploadId = useId()
+const fileUploadRef = useTemplateRef<HTMLInputElement>('fileUpload')
 const textarea = useTemplateRef<HTMLTextAreaElement>('textarea')
 
 const modelValue = defineModel({
@@ -78,12 +80,35 @@ async function upload(file: File) {
   }
 }
 
-async function uploadFile(event: Event) {
+async function handleImageUpload(event: Event) {
   const el = event.target as HTMLInputElement
   const file = el.files?.[0]
   if (file)
     await upload(file)
   el.value = ''
+}
+
+function openFilePicker() {
+  fileUploadRef.value?.click()
+}
+
+async function handleFileUpload(event: Event) {
+  const el = event.target as HTMLInputElement
+  const file = el.files?.[0]
+  if (!file)
+    return
+  try {
+    const data = await uploadFile(file)
+    showMsg(data.message)
+    insertAtCursor(`[${file.name}](${data.fileURL})`)
+  }
+  catch (error) {
+    console.error('Error uploading file:', error)
+    showMsg('上传失败，请重试')
+  }
+  finally {
+    el.value = ''
+  }
 }
 
 async function handlePaste(event: ClipboardEvent) {
@@ -432,6 +457,9 @@ watch(isPreview, (preview) => {
         <button type="button" class="md-editor__tool" title="插入图片(可直接粘贴)" @click="openImagePicker">
           <Icon icon="tabler:photo" width="17" height="17" aria-hidden="true" />
         </button>
+        <button type="button" class="md-editor__tool" title="上传文件" @click="openFilePicker">
+          <Icon icon="tabler:paperclip" width="17" height="17" aria-hidden="true" />
+        </button>
         <button
           v-if="musicEnabled"
           type="button"
@@ -456,7 +484,14 @@ watch(isPreview, (preview) => {
           type="file"
           accept="image/*"
           class="md-editor__file-input"
-          @input="uploadFile"
+          @input="handleImageUpload"
+        >
+        <input
+          :id="fileUploadId"
+          ref="fileUpload"
+          type="file"
+          class="md-editor__file-input"
+          @input="handleFileUpload"
         >
       </div>
     </div>
@@ -585,14 +620,37 @@ watch(isPreview, (preview) => {
   line-height: 1;
   user-select: none;
 
-  &--h { font-size: 13px; letter-spacing: 0; }
-  &--b { font-weight: 700; }
-  &--i { font-style: italic; font-family: Georgia, serif; }
-  &--s { text-decoration: line-through; }
-  &--ol { font-size: 12px; font-weight: 600; }
-  &--code { font-size: 11px; font-family: ui-monospace, monospace; font-weight: 500; }
-  &--table { font-size: 13px; }
-  &--preview { font-size: 12px; font-weight: 500; padding: 0 2px; }
+  &--h {
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+  &--b {
+    font-weight: 700;
+  }
+  &--i {
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+  &--s {
+    text-decoration: line-through;
+  }
+  &--ol {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  &--code {
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    font-weight: 500;
+  }
+  &--table {
+    font-size: 13px;
+  }
+  &--preview {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0 2px;
+  }
 }
 
 .md-editor__sep {
