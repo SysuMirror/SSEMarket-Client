@@ -172,6 +172,17 @@ const router = createRouter({
           component: () => import('@/views/MusicView.vue'),
         },
         {
+          path: 'video',
+          name: 'Video',
+          component: () => import('@/views/VideoView.vue'),
+        },
+        {
+          path: 'video/:videoID',
+          name: 'VideoDetail',
+          component: () => import('@/views/VideoDetailView.vue'),
+          props: true,
+        },
+        {
           path: 'smart-xiaoqiu',
           name: 'SmartXiaoQiu',
           meta: { layoutFill: true },
