@@ -3,10 +3,12 @@ import mk from '@vscode/markdown-it-katex'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import Prism from 'prismjs'
-import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { computed, createApp, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMusicList } from '@/api/music/getMusicList'
+import { getVideo } from '@/api/video/getVideos'
 import { showMsg } from '@/components/MessageBox'
+import VideoPlayer from '@/components/video/VideoPlayer.vue'
 import { primeMentionCache, useMentionResolve } from '@/composables/useMentionResolve'
 import { musicCoverOrDefault, useMusicStore } from '@/store/musicStore'
 import { injectMentionsInRenderedHTML } from '@/utils/mention'
@@ -146,6 +148,8 @@ function preprocessMarkdown(content: string): string {
     text = normalizeChatMarkdown(text)
   // 帖子内嵌音乐标记：独占一行的 ::music 123:: 渲染为占位卡片，水合后可点播
   text = text.replace(/(^|\n)[ \t]*::music\s+(\d+)::[ \t]*(?=\n|$)/g, (m, lead, id) => `${lead}<div class="post-music" data-music-id="${id}"></div>`)
+  // 帖子内嵌视频标记：[video:123] 渲染为受控播放器占位节点
+  text = text.replace(/(^|\n)[ \t]*\[video:(\d+)\][ \t]*(?=\n|$)/g, (_m, lead, id) => `${lead}<div class="post-video" data-video-id="${id}"></div>`)
   // 先用正则匹配一下
   return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, urlPart) => {
     const titleIndex = urlPart.lastIndexOf(' "')
@@ -196,6 +200,7 @@ const safeHTML = computed(() => {
       'msub',
       'span',
       'button',
+      'div',
       'svg',
       'path',
     ],
@@ -210,6 +215,7 @@ const safeHTML = computed(() => {
       'aria-hidden',
       'data-user-id',
       'data-music-id',
+      'data-video-id',
       'role',
       'tabindex',
     ],
@@ -309,10 +315,32 @@ async function hydrateMusicCards() {
   }
 }
 
+async function hydrateVideoCards() {
+  const nodes = Array.from(content.value?.querySelectorAll<HTMLElement>('.post-video[data-video-id]:not([data-hydrated])') ?? [])
+  if (nodes.length === 0)
+    return
+
+  for (const node of nodes) {
+    node.dataset.hydrated = '1'
+    const id = Number(node.dataset.videoId)
+    if (!Number.isInteger(id) || id <= 0)
+      continue
+
+    try {
+      const video = await getVideo(id)
+      createApp(VideoPlayer, { video }).mount(node)
+    }
+    catch {
+      node.textContent = '视频不存在'
+    }
+  }
+}
+
 watch(safeHTML, () => {
   nextTick(() => {
     Prism.highlightAllUnder(content.value!)
     hydrateMusicCards()
+    hydrateVideoCards()
   })
 }, { immediate: true })
 </script>
