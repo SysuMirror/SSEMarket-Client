@@ -174,11 +174,13 @@ const router = createRouter({
         {
           path: 'video',
           name: 'Video',
+          meta: { public: true },
           component: () => import('@/views/VideoView.vue'),
         },
         {
           path: 'video/:videoID',
           name: 'VideoDetail',
+          meta: { public: true },
           component: () => import('@/views/VideoDetailView.vue'),
           props: true,
         },
