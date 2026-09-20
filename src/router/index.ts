@@ -3,7 +3,7 @@ import { useUserStore } from '@/store/userStore'
 import { setTitle } from '@/utils/title'
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory(import.meta.env?.BASE_URL ?? '/'),
   routes: [
     {
       path: '/',
@@ -267,6 +267,13 @@ const router = createRouter({
       path: '/annual2025',
       name: 'AnnualReport2025',
       component: () => import('@/views/AnnualReportView.vue'),
+    },
+    {
+      path: '/embed/video/:videoID',
+      name: 'VideoEmbed',
+      meta: { public: true },
+      component: () => import('@/views/VideoEmbedView.vue'),
+      props: true,
     },
     {
       path: '/:catchAll(.*)',
