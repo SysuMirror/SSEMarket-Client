@@ -602,8 +602,12 @@ body.dark-mode .vote-link--prominent {
     }
 
     &.comment-toolbar__btn--active {
-      filter: brightness(0.96);
+      color: var(--chat-unread-text) !important;
+      background: var(--chat-accent) !important;
+      background-color: var(--chat-accent) !important;
       border-color: var(--chat-accent) !important;
+      text-decoration: none;
+      filter: brightness(0.96);
     }
   }
 }
