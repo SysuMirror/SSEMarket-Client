@@ -1,18 +1,46 @@
 <script setup lang="ts">
-import type { BootstrapMessage } from '@/api/opsagent/conversation'
+import type { BootstrapMessage, ConversationSummary } from '@/api/opsagent/conversation'
+import type { Suggestion } from '@/api/opsagent/suggestions'
 import type { TimelineItem, TimelinePostDraft } from '@/composables/useOpsAgentStream'
-import { nextTick, onMounted, ref, useTemplateRef } from 'vue'
-import { closeConversation, fetchConversationBootstrap } from '@/api/opsagent/conversation'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  deleteConversation,
+  fetchConversationBootstrap,
+  fetchConversationMessages,
+  fetchConversations,
+  renameConversation,
+} from '@/api/opsagent/conversation'
 import { OpsAgentRequestError, shouldRebootstrapAfterTaskError } from '@/api/opsagent/errors'
+import { submitMessageFeedback, fetchSuggestions } from '@/api/opsagent/suggestions'
 import { showMsg } from '@/components/MessageBox'
+import ConversationSidebar from '@/components/smart-xiaoqiu/ConversationSidebar.vue'
+import MemoryDrawer from '@/components/smart-xiaoqiu/MemoryDrawer.vue'
 import SmartXiaoQiuTimeline from '@/components/smart-xiaoqiu/SmartXiaoQiuTimeline.vue'
 import { useOpsAgentStream } from '@/composables/useOpsAgentStream'
 
+const DRAFT_KEY = 'xq:draft'
+
+const route = useRoute()
+const router = useRouter()
+
 const draft = ref('')
 const historyDiv = useTemplateRef('historyDiv')
+const composerInput = useTemplateRef('composerInput')
 const sessionId = ref('')
 const sessionReady = ref(false)
 const bootstrapError = ref('')
+
+const conversations = ref<ConversationSummary[]>([])
+const convLoading = ref(false)
+const sidebarOpen = ref(false)
+const memoryOpen = ref(false)
+const suggestions = ref<Suggestion[]>([])
+const ratings = ref<Record<string, 1 | -1>>({})
+
+// 贴底跟随：用户上翻时不再强制拉底，提供"回到底部"
+const stickToBottom = ref(true)
+const showJumpToBottom = ref(false)
 
 const {
   timeline,
@@ -24,15 +52,56 @@ const {
   abort,
 } = useOpsAgentStream()
 
+const showSuggestions = computed(() =>
+  suggestions.value.length > 0 && !isStreaming.value && timeline.value.length <= 1)
+
 const xiaoQiuAvatarUrl = `${import.meta.env.BASE_URL}xiaoqiu-avatar.png`
 const xiaoQiuChatBgUrl = `${import.meta.env.BASE_URL}xiaoqiu-chat-bg.webp`
 
-function scrollToBottom() {
+function scrollToBottom(force = false) {
+  if (!force && !stickToBottom.value)
+    return
   nextTick(() => {
     const el = historyDiv.value
     if (el)
       el.scrollTop = el.scrollHeight
   })
+}
+
+function onChatScroll() {
+  const el = historyDiv.value
+  if (!el)
+    return
+  const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+  stickToBottom.value = distance < 120
+  showJumpToBottom.value = distance > 400
+}
+
+function jumpToBottom() {
+  const el = historyDiv.value
+  if (!el)
+    return
+  stickToBottom.value = true
+  showJumpToBottom.value = false
+  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+}
+
+function autoResizeComposer() {
+  const el = composerInput.value
+  if (!el)
+    return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+}
+
+/** Enter 发送 / Shift+Enter 换行；中文输入法组词阶段的 Enter 不发送 */
+function onComposerKeydown(e: KeyboardEvent) {
+  if (e.isComposing)
+    return
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    void sendMessage()
+  }
 }
 
 function fallbackAssistantText() {
@@ -45,6 +114,10 @@ function formatTimeShort(d: Date) {
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function newSessionId() {
+  return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function bootstrapMessagesToTimeline(messages: BootstrapMessage[]): TimelineItem[] {
@@ -73,30 +146,169 @@ function bootstrapMessagesToTimeline(messages: BootstrapMessage[]): TimelineItem
   return out
 }
 
-async function runBootstrap() {
+async function refreshConversations() {
+  convLoading.value = true
+  try {
+    conversations.value = await fetchConversations(50)
+  }
+  catch (e) {
+    console.error(e)
+  }
+  finally {
+    convLoading.value = false
+  }
+}
+
+async function loadSuggestions() {
+  try {
+    suggestions.value = (await fetchSuggestions()).slice(0, 4)
+  }
+  catch {
+    suggestions.value = []
+  }
+}
+
+/** initialId：深链/恢复指定会话；不传则服务端恢复最近会话 */
+async function runBootstrap(initialId?: string) {
   bootstrapError.value = ''
   sessionReady.value = false
-  const data = await fetchConversationBootstrap()
-  sessionId.value = data.session_id
-  const msgs = data.messages ?? []
-  if (msgs.length > 0)
-    timeline.value = bootstrapMessagesToTimeline(msgs)
-  else
-    seedWelcomeMessages()
-  sessionReady.value = true
+  try {
+    let data
+    if (initialId) {
+      try {
+        data = await fetchConversationBootstrap(initialId)
+      }
+      catch (e) {
+        // 深链指向已删除/已结束的会话：回落到"恢复最近会话"
+        if (e instanceof OpsAgentRequestError && (e.httpStatus === 410 || e.httpStatus === 404))
+          data = await fetchConversationBootstrap()
+        else
+          throw e
+      }
+    }
+    else {
+      data = await fetchConversationBootstrap()
+    }
+    sessionId.value = data.session_id
+    const msgs = data.messages ?? []
+    if (msgs.length > 0)
+      timeline.value = bootstrapMessagesToTimeline(msgs)
+    else
+      timeline.value = []
+    if (timeline.value.length === 0)
+      seedWelcomeMessages()
+    sessionReady.value = true
+    void loadSuggestions()
+  }
+  finally {
+    stickToBottom.value = true
+    scrollToBottom(true)
+  }
 }
 
 async function startNewChat() {
-  if (!sessionId.value || isStreaming.value)
+  if (isStreaming.value) {
+    showMsg('小秋正在回复，请先停止或等待完成。')
     return
+  }
   try {
-    await closeConversation(sessionId.value)
-    await runBootstrap()
+    const freshId = newSessionId()
+    await fetchConversationBootstrap(freshId)
+    sessionId.value = freshId
+    timeline.value = []
+    ratings.value = {}
+    seedWelcomeMessages()
+    void loadSuggestions()
+    sidebarOpen.value = false
+    void refreshConversations()
+    scrollToBottom(true)
   }
   catch (e) {
     console.error(e)
     showMsg('开启新对话失败，请稍后重试。')
   }
+}
+
+async function switchTo(id: string) {
+  if (id === sessionId.value) {
+    sidebarOpen.value = false
+    return
+  }
+  if (isStreaming.value) {
+    showMsg('小秋正在回复，请先停止或等待完成。')
+    return
+  }
+  try {
+    const data = await fetchConversationMessages(id)
+    sessionId.value = data.session_id
+    ratings.value = {}
+    const msgs = data.messages ?? []
+    timeline.value = msgs.length > 0 ? bootstrapMessagesToTimeline(msgs) : []
+    if (msgs.length === 0)
+      seedWelcomeMessages()
+    suggestions.value = []
+    sidebarOpen.value = false
+    scrollToBottom(true)
+  }
+  catch (e) {
+    console.error(e)
+    showMsg('加载历史对话失败。')
+  }
+}
+
+async function onRename(id: string, title: string) {
+  try {
+    await renameConversation(id, title)
+    conversations.value = conversations.value.map(c =>
+      c.session_id === id ? { ...c, title } : c)
+  }
+  catch (e) {
+    console.error(e)
+    showMsg('重命名失败，请稍后重试。')
+  }
+}
+
+async function onRemove(id: string) {
+  try {
+    await deleteConversation(id)
+    conversations.value = conversations.value.filter(c => c.session_id !== id)
+    if (id === sessionId.value) {
+      showMsg('当前会话已删除，已为你开启新对话。')
+      await startNewChat()
+    }
+  }
+  catch (e) {
+    console.error(e)
+    showMsg('删除失败，请稍后重试。')
+  }
+}
+
+async function onFeedback(runId: string, rating: 1 | -1) {
+  if (ratings.value[runId] === rating)
+    return
+  try {
+    await submitMessageFeedback(runId, sessionId.value, rating)
+    ratings.value = { ...ratings.value, [runId]: rating }
+    showMsg(rating === 1 ? '感谢反馈，对小秋是鼓励。' : '收到，我们会改进小秋的回答质量。')
+  }
+  catch (e) {
+    console.error(e)
+    showMsg('反馈提交失败，请稍后重试。')
+  }
+}
+
+function onSuggestion(s: Suggestion) {
+  if (isStreaming.value || !sessionReady.value)
+    return
+  draft.value = s.text
+  void sendMessage()
+}
+
+function schedulePostSendRefresh() {
+  void refreshConversations()
+  setTimeout(() => {
+    void refreshConversations()
+  }, 8000)
 }
 
 async function sendMessage() {
@@ -106,17 +318,24 @@ async function sendMessage() {
 
   pushUserMessage(content)
   draft.value = ''
-  scrollToBottom()
+  suggestions.value = []
+  scrollToBottom(true)
 
   try {
     await sendAgentMessage({
       sessionId: sessionId.value,
       task: content,
-      onAfterUpdate: scrollToBottom,
+      onAfterUpdate: () => scrollToBottom(),
     })
+    schedulePostSendRefresh()
   }
   catch (e) {
     console.error(e)
+    if (e instanceof OpsAgentRequestError && e.httpStatus === 410) {
+      showMsg('该会话已结束，已为你开启新对话，请重新发送。')
+      await startNewChat()
+      return
+    }
     if (e instanceof OpsAgentRequestError && shouldRebootstrapAfterTaskError(e.businessCode, e.message)) {
       try {
         await runBootstrap()
@@ -141,14 +360,59 @@ async function sendMessage() {
     ]
     scrollToBottom()
   }
+  finally {
+    autoResizeComposer()
+  }
+}
+
+// URL 深链：会话选择写入 ?c=<session_id>，刷新/分享可恢复
+watch(sessionId, (id) => {
+  if (id && route.query.c !== id)
+    router.replace({ query: { ...route.query, c: id } })
+})
+
+// 草稿持久化：误触返回/刷新不丢输入
+watch(draft, (v) => {
+  try {
+    if (v)
+      sessionStorage.setItem(DRAFT_KEY, v)
+    else
+      sessionStorage.removeItem(DRAFT_KEY)
+  }
+  catch {
+    /* 存储不可用时静默 */
+  }
+})
+
+// 移动端会话抽屉打开时锁页面滚动 + ESC 关闭
+watch(sidebarOpen, (open) => {
+  document.body.style.overflow = open ? 'hidden' : ''
+})
+
+function onGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && sidebarOpen.value) {
+    sidebarOpen.value = false
+    e.stopPropagation()
+  }
 }
 
 onMounted(() => {
-  runBootstrap().catch((e) => {
+  const restored = sessionStorage.getItem(DRAFT_KEY)
+  if (restored)
+    draft.value = restored
+  const deepLinkId = typeof route.query.c === 'string' ? route.query.c : ''
+  runBootstrap(deepLinkId || undefined).catch((e) => {
     console.error(e)
     bootstrapError.value = e instanceof Error ? e.message : '无法连接对话服务'
     sessionReady.value = false
   })
+  void refreshConversations()
+  window.addEventListener('keydown', onGlobalKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  document.body.style.overflow = ''
 })
 
 function onDraftUpdate(updated: TimelinePostDraft) {
@@ -163,88 +427,181 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 
 <template>
   <div class="smart-page">
-    <header class="top-bar">
-      <div class="brand">
-        <img class="brand-avatar" :src="xiaoQiuAvatarUrl" alt="" width="40" height="40">
-        <div class="brand-copy">
-          <h1>小秋</h1>
-          <p v-if="isStreaming" class="status live">
-            正在思考与整理回复…
-          </p>
-          <p v-else-if="sessionReady" class="status">
-            论坛助手 · 检索帖子 · 整理要点
-          </p>
-          <p v-else class="status pending">
-            正在连接…
-          </p>
+    <div class="page-shell">
+      <aside class="side-desktop">
+        <ConversationSidebar
+          :conversations="conversations"
+          :active-id="sessionId"
+          :loading="convLoading"
+          @select="switchTo"
+          @create="startNewChat"
+          @rename="onRename"
+          @remove="onRemove"
+        />
+      </aside>
+
+      <div v-if="sidebarOpen" class="side-mobile-mask" @click="sidebarOpen = false">
+        <div class="side-mobile-panel" role="dialog" aria-label="历史对话" @click.stop>
+          <ConversationSidebar
+            :conversations="conversations"
+            :active-id="sessionId"
+            :loading="convLoading"
+            @select="switchTo"
+            @create="startNewChat"
+            @rename="onRename"
+            @remove="onRemove"
+            @close="sidebarOpen = false"
+          />
         </div>
       </div>
-      <button
-        type="button"
-        class="ghost-btn"
-        :disabled="!sessionReady || isStreaming"
-        @click="startNewChat"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-        </svg>
-        新对话
-      </button>
-    </header>
 
-    <main
-      ref="historyDiv"
-      class="lite-scrollbar chat-scroll"
-      :style="{ backgroundImage: `url(${xiaoQiuChatBgUrl})` }"
-    >
-      <div class="chat-inner">
-        <SmartXiaoQiuTimeline :items="timeline" @draft-update="onDraftUpdate" />
+      <div class="chat-column">
+        <header class="top-bar">
+          <div class="brand">
+            <button
+              type="button"
+              class="icon-menu"
+              aria-label="打开历史对话"
+              :aria-expanded="sidebarOpen"
+              @click="sidebarOpen = true"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </button>
+            <img class="brand-avatar" :src="xiaoQiuAvatarUrl" alt="小秋头像" width="40" height="40">
+            <div class="brand-copy">
+              <h1>小秋</h1>
+              <p v-if="isStreaming" class="status live" aria-live="polite">
+                正在思考与整理回复…
+              </p>
+              <p v-else-if="sessionReady" class="status">
+                论坛助手 · 检索帖子 · 整理要点
+              </p>
+              <p v-else class="status pending">
+                正在连接…
+              </p>
+            </div>
+          </div>
+          <div class="top-actions">
+            <button type="button" class="ghost-btn" aria-label="查看小秋记住的记忆" @click="memoryOpen = true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V19a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-1.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 3z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M9.5 13.5c.8-1.4 4.2-1.4 5 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <span class="btn-text">记忆</span>
+            </button>
+            <button
+              type="button"
+              class="ghost-btn"
+              aria-label="开启新对话"
+              :disabled="!sessionReady || isStreaming"
+              @click="startNewChat"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <span class="btn-text">新对话</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="chat-wrap">
+          <main
+            ref="historyDiv"
+            class="lite-scrollbar chat-scroll"
+            :style="{ backgroundImage: `url(${xiaoQiuChatBgUrl})` }"
+            @scroll.passive="onChatScroll"
+          >
+            <div class="chat-inner">
+              <SmartXiaoQiuTimeline
+                :items="timeline"
+                :ratings="ratings"
+                @draft-update="onDraftUpdate"
+                @feedback="onFeedback"
+              />
+            </div>
+          </main>
+
+          <button
+            v-if="showJumpToBottom"
+            type="button"
+            class="jump-bottom"
+            aria-label="回到底部"
+            @click="jumpToBottom"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div v-if="bootstrapError || globalError" class="alert-bar" role="alert">
+          {{ bootstrapError || globalError }}
+        </div>
+
+        <div v-if="showSuggestions" class="sug-row lite-scrollbar" aria-label="你可以试试">
+          <button
+            v-for="s in suggestions"
+            :key="s.text"
+            type="button"
+            class="sug-chip"
+            @click="onSuggestion(s)"
+          >
+            {{ s.text }}
+          </button>
+        </div>
+
+        <footer class="composer-shell">
+          <div class="composer">
+            <textarea
+              ref="composerInput"
+              v-model="draft"
+              class="composer-input"
+              name="message"
+              rows="1"
+              placeholder="问我任何与论坛相关的问题…"
+              autocomplete="off"
+              :disabled="!sessionReady"
+              aria-label="向小秋提问"
+              @keydown="onComposerKeydown"
+              @input="autoResizeComposer"
+            />
+            <div class="composer-actions">
+              <button
+                v-if="isStreaming"
+                type="button"
+                class="icon-btn stop"
+                aria-label="停止生成"
+                title="停止生成"
+                @click="abort"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="send-btn"
+                aria-label="发送"
+                title="发送"
+                :disabled="!sessionReady || isStreaming || !draft.trim()"
+                @click="sendMessage"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <p class="composer-hint">
+            Enter 发送 · Shift+Enter 换行 · 帖子链接在新标签页打开
+          </p>
+        </footer>
       </div>
-    </main>
-
-    <div v-if="bootstrapError || globalError" class="alert-bar">
-      {{ bootstrapError || globalError }}
     </div>
 
-    <footer class="composer-shell">
-      <div class="composer">
-        <textarea
-          v-model="draft"
-          class="composer-input"
-          rows="1"
-          placeholder="问我任何与论坛相关的问题…"
-          :disabled="!sessionReady"
-          @keydown.enter.exact.prevent="sendMessage"
-        />
-        <div class="composer-actions">
-          <button
-            v-if="isStreaming"
-            type="button"
-            class="icon-btn stop"
-            title="停止生成"
-            @click="abort"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <rect x="6" y="6" width="12" height="12" rx="2" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="send-btn"
-            :disabled="!sessionReady || isStreaming || !draft.trim()"
-            title="发送"
-            @click="sendMessage"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </div>
-      </div>
-      <p class="composer-hint">
-        Enter 发送 · 帖子链接将在新标签页打开，不会中断当前对话
-      </p>
-    </footer>
+    <MemoryDrawer v-if="memoryOpen" @close="memoryOpen = false" />
   </div>
 </template>
 
@@ -310,6 +667,74 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   letter-spacing: normal;
   font-weight: 500;
   font-family: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.smart-page :deep(button:focus-visible),
+.smart-page :focus-visible,
+.smart-page :deep(input:focus-visible),
+.smart-page :deep(textarea:focus-visible) {
+  outline: 2px solid var(--xq-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.page-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.side-desktop {
+  display: none;
+  flex-shrink: 0;
+  width: 248px;
+}
+
+.chat-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.side-mobile-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  background: rgba(15, 23, 42, 0.36);
+}
+
+.side-mobile-panel {
+  width: min(280px, 82vw);
+  height: 100%;
+}
+
+.icon-menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-right: 2px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--xq-text-secondary);
+  cursor: pointer;
+}
+
+.icon-menu:hover {
+  background: var(--xq-surface-muted);
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 顶栏 */
@@ -339,6 +764,10 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   object-fit: cover;
   border: 2px solid var(--xq-surface);
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.1);
+}
+
+.brand-copy {
+  min-width: 0;
 }
 
 .brand-copy h1 {
@@ -398,19 +827,53 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 }
 
 /* 对话区 */
+.chat-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .chat-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   padding: 16px 12px 8px;
   background-size: cover;
   background-position: center 22%;
   background-repeat: no-repeat;
+  scrollbar-gutter: stable;
 }
 
 .chat-inner {
   max-width: 680px;
   margin: 0 auto;
+}
+
+.jump-bottom {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--xq-border);
+  background: var(--xq-surface);
+  color: var(--xq-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--xq-shadow);
+}
+
+.jump-bottom:hover {
+  color: var(--xq-accent-deep);
+  border-color: var(--xq-accent-border);
 }
 
 .lite-scrollbar::-webkit-scrollbar {
@@ -435,6 +898,49 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   color: #c62828;
   background: rgba(239, 83, 80, 0.1);
   border: 1px solid rgba(239, 83, 80, 0.2);
+}
+
+/* 开场建议 */
+.sug-row {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  max-width: 712px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 8px 16px 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.sug-row::-webkit-scrollbar {
+  display: none;
+}
+
+.sug-chip {
+  flex-shrink: 0;
+  max-width: 260px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--xq-accent-border);
+  background: color-mix(in srgb, var(--xq-surface) 88%, transparent);
+  color: var(--xq-text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.sug-chip:hover {
+  color: var(--xq-accent-deep);
+  background: var(--xq-accent-soft);
 }
 
 /* 输入区 */
@@ -471,6 +977,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 
 .composer-input {
   flex: 1;
+  min-width: 0;
   min-height: 24px;
   max-height: 120px;
   resize: none;
@@ -551,6 +1058,18 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 }
 
 @media (min-width: 768px) {
+  .side-desktop {
+    display: block;
+  }
+
+  .side-mobile-mask {
+    display: none;
+  }
+
+  .icon-menu {
+    display: none;
+  }
+
   .top-bar {
     padding-inline: 24px;
   }
@@ -562,6 +1081,30 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   .composer-shell {
     padding-inline: 24px;
     padding-bottom: 18px;
+  }
+}
+
+@media (max-width: 767px) {
+  .btn-text {
+    display: none;
+  }
+
+  .ghost-btn {
+    padding: 8px 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smart-page *,
+  .smart-page *::before,
+  .smart-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .jump-bottom {
+    scroll-behavior: auto;
   }
 }
 </style>

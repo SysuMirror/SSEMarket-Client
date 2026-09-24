@@ -1,4 +1,5 @@
 import { opsagentBaseURL } from '@/api/opsagent/baseUrl'
+import { OpsAgentRequestError } from '@/api/opsagent/errors'
 import { opsagentAuthHeaders } from '@/api/opsagent/headers'
 import { ensureAccessToken } from '@/api/req'
 
@@ -10,8 +11,22 @@ export interface BootstrapMessage {
 /** 与 OpsAgent `GET /api/v1/agent/conversation/bootstrap` 的 `data` 对齐（`segment_seq`、`archived`；不再使用 `closed`）。 */
 export interface ConversationBootstrapData {
   session_id: string
+  title: string
   segment_seq: number
   archived: boolean
+  messages: BootstrapMessage[]
+}
+
+export interface ConversationSummary {
+  session_id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ConversationMessagesData {
+  session_id: string
+  title: string
   messages: BootstrapMessage[]
 }
 
@@ -25,6 +40,7 @@ interface ApiEnvelope<T> {
 /** 后端原始 data：兼容历史字段 `closed`。 */
 interface BootstrapPayload {
   session_id?: string
+  title?: string
   segment_seq?: number
   archived?: boolean
   closed?: boolean
@@ -33,6 +49,7 @@ interface BootstrapPayload {
 
 function normalizeBootstrapData(raw: BootstrapPayload): ConversationBootstrapData {
   const session_id = String(raw.session_id || '').trim()
+  const title = String(raw.title || '').trim()
   const segment_seq = typeof raw.segment_seq === 'number' && !Number.isNaN(raw.segment_seq)
     ? raw.segment_seq
     : 0
@@ -40,61 +57,94 @@ function normalizeBootstrapData(raw: BootstrapPayload): ConversationBootstrapDat
     ? !!raw.archived
     : !!raw.closed
   const messages = Array.isArray(raw.messages) ? raw.messages : []
-  return { session_id, segment_seq, archived, messages }
+  return { session_id, title, segment_seq, archived, messages }
 }
 
-/** GET /api/v1/agent/conversation/bootstrap */
-export async function fetchConversationBootstrap(): Promise<ConversationBootstrapData> {
-  if (!(await ensureAccessToken())) {
+async function opsagentEnvelope<T>(path: string, init: RequestInit): Promise<T> {
+  if (!(await ensureAccessToken()))
     throw new Error('请先登录后再使用小秋')
-  }
-  const res = await fetch(`${opsagentBaseURL()}/api/v1/agent/conversation/bootstrap`, {
-    method: 'GET',
+  const res = await fetch(`${opsagentBaseURL()}${path}`, {
+    ...init,
     headers: {
-      Accept: 'application/json',
+      ...init.headers,
       ...opsagentAuthHeaders(),
     },
   })
   const text = await res.text()
-  let body: ApiEnvelope<BootstrapPayload>
+  let body: ApiEnvelope<T>
   try {
-    body = JSON.parse(text) as ApiEnvelope<BootstrapPayload>
+    body = JSON.parse(text) as ApiEnvelope<T>
   }
   catch {
-    throw new Error(text || `bootstrap 失败（${res.status}）`)
+    // 非 JSON（如 401/410 的 {detail} 体或网关错误页）：带状态码抛出
+    throw new OpsAgentRequestError(res.status, text.trim() || `请求失败（${res.status}）`)
   }
-  if (res.status === 503 || body.code === 50301) {
-    throw new Error(body.msg || '会话服务未就绪（需配置 Redis）')
-  }
-  if (!res.ok || body.code !== 0 || !body.data) {
-    throw new Error(body.msg || `bootstrap 失败（${res.status}）`)
-  }
-  return normalizeBootstrapData(body.data)
+  if (!res.ok || body.code !== 0 || body.data === undefined)
+    throw new OpsAgentRequestError(res.status, body.msg || `请求失败（${res.status}）`, body.code)
+  return body.data
+}
+
+/** GET /api/v1/agent/conversation/bootstrap（不传 sessionId 时服务端恢复最近会话）；
+ *  传 sessionId 时走 POST（开新会话并绑定属主）。 */
+export async function fetchConversationBootstrap(sessionId?: string): Promise<ConversationBootstrapData> {
+  const raw = sessionId
+    ? await opsagentEnvelope<BootstrapPayload>(
+        '/api/v1/agent/conversation/bootstrap',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ session_id: sessionId }),
+        },
+      )
+    : await opsagentEnvelope<BootstrapPayload>(
+        '/api/v1/agent/conversation/bootstrap',
+        { method: 'GET', headers: { Accept: 'application/json' } },
+      )
+  return normalizeBootstrapData(raw)
 }
 
 /** POST /api/v1/agent/conversation/close */
 export async function closeConversation(sessionId: string): Promise<void> {
-  if (!(await ensureAccessToken())) {
-    throw new Error('请先登录后再使用小秋')
-  }
-  const res = await fetch(`${opsagentBaseURL()}/api/v1/agent/conversation/close`, {
+  await opsagentEnvelope<unknown>('/api/v1/agent/conversation/close', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...opsagentAuthHeaders(),
-    },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ session_id: sessionId }),
   })
-  const text = await res.text()
-  let body: ApiEnvelope<unknown>
-  try {
-    body = JSON.parse(text) as ApiEnvelope<unknown>
-  }
-  catch {
-    throw new Error(text || `关闭会话失败（${res.status}）`)
-  }
-  if (!res.ok || body.code !== 0) {
-    throw new Error(body.msg || `关闭会话失败（${res.status}）`)
-  }
+}
+
+/** GET /api/v1/agent/conversations —— 会话列表（按最近活跃倒序）。 */
+export async function fetchConversations(limit = 50): Promise<ConversationSummary[]> {
+  const data = await opsagentEnvelope<{ conversations: ConversationSummary[] }>(
+    `/api/v1/agent/conversations?limit=${limit}`,
+    { method: 'GET', headers: { Accept: 'application/json' } },
+  )
+  return data.conversations ?? []
+}
+
+/** GET /api/v1/agent/conversations/{id}/messages —— 任意历史会话的消息。 */
+export async function fetchConversationMessages(sessionId: string): Promise<ConversationMessagesData> {
+  return opsagentEnvelope<ConversationMessagesData>(
+    `/api/v1/agent/conversations/${encodeURIComponent(sessionId)}/messages`,
+    { method: 'GET', headers: { Accept: 'application/json' } },
+  )
+}
+
+/** POST /api/v1/agent/conversations/{id}/title —— 重命名会话。 */
+export async function renameConversation(sessionId: string, title: string): Promise<void> {
+  await opsagentEnvelope<unknown>(
+    `/api/v1/agent/conversations/${encodeURIComponent(sessionId)}/title`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ title }),
+    },
+  )
+}
+
+/** DELETE /api/v1/agent/conversations/{id} —— 删除会话（列表不再可见，且不可继续对话）。 */
+export async function deleteConversation(sessionId: string): Promise<void> {
+  await opsagentEnvelope<{ deleted: boolean }>(
+    `/api/v1/agent/conversations/${encodeURIComponent(sessionId)}`,
+    { method: 'DELETE', headers: { Accept: 'application/json' } },
+  )
 }

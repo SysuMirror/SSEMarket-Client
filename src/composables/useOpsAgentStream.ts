@@ -19,6 +19,8 @@ export interface TimelineAssistant {
   text: string
   time: string
   status: AssistantStatus
+  /** 服务端 run_id（final 事件携带），消息赞/踩反馈绑定用 */
+  runId?: string
 }
 
 /** 子专家中间摘要（SSE 无 round，带【标签】前缀） */
@@ -221,6 +223,9 @@ export function useOpsAgentStream() {
       const assistant = ensureAssistantTail()
       assistant.text = text
       assistant.status = 'done'
+      const runId = str(payload.run_id)
+      if (runId)
+        assistant.runId = runId
       bump()
       onAfterUpdate?.()
       return
@@ -275,6 +280,26 @@ export function useOpsAgentStream() {
     timeline.value = [...timeline.value, meta]
   }
 
+  /** 工具调用步骤（status 事件）：一次性完成，默认折叠，仅展示"查了什么"。 */
+  function pushToolStep(tool: string, args: string) {
+    const step: TimelineStep = {
+      kind: 'step',
+      id: newId('step'),
+      label: `【${tool}】`,
+      text: args || '正在调用工具…',
+      time: formatTime(new Date()),
+      status: 'done',
+      collapsed: true,
+    }
+    const items = [...timeline.value]
+    // 插到最后一个用户消息之后、assistant 气泡之前
+    let insertAt = lastUserIndex() + 1
+    while (insertAt < items.length && items[insertAt].kind === 'step')
+      insertAt++
+    items.splice(insertAt, 0, step)
+    timeline.value = items
+  }
+
   async function sendAgentMessage(opts: SendAgentOptions) {
     const { sessionId, task, onAfterUpdate } = opts
     globalError.value = ''
@@ -285,35 +310,48 @@ export function useOpsAgentStream() {
     }
     isStreaming.value = true
     abortController = new AbortController()
+    let aborted = false
 
     const body: Record<string, unknown> = {
       session_id: sessionId,
       task,
     }
 
-    const res = await fetch(`${opsagentBaseURL()}/api/v1/agent/task/sse`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        ...opsagentAuthHeaders(),
-      },
-      body: JSON.stringify(body),
-      signal: abortController.signal,
-    })
-
-    if (!res.ok || !res.body) {
-      isStreaming.value = false
-      const t = await res.text()
-      const p = parseOpsAgentJsonError(t)
-      throw new OpsAgentRequestError(res.status, p.msg || `请求失败（${res.status}）`, p.code)
-    }
-
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder('utf-8')
-    let buffer = ''
-
     try {
+      let res: Response | undefined
+      try {
+        res = await fetch(`${opsagentBaseURL()}/api/v1/agent/task/sse`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            ...opsagentAuthHeaders(),
+          },
+          body: JSON.stringify(body),
+          signal: abortController.signal,
+        })
+      }
+      catch (e) {
+        // 用户主动停止：静默收尾（保留已流出文本），不算错误
+        if (e instanceof DOMException && e.name === 'AbortError')
+          aborted = true
+        else
+          throw e
+      }
+
+      if (aborted || !res)
+        return
+
+      if (!res.ok || !res.body) {
+        const t = await res.text()
+        const p = parseOpsAgentJsonError(t)
+        throw new OpsAgentRequestError(res.status, p.msg || `请求失败（${res.status}）`, p.code)
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder('utf-8')
+      let buffer = ''
+
       while (true) {
         const { value, done } = await reader.read()
         if (done)
@@ -332,6 +370,12 @@ export function useOpsAgentStream() {
 
           if (eventName === 'content' && num(payload.schema_version) === 2) {
             applyContentV2(payload, onAfterUpdate)
+            continue
+          }
+
+          if (eventName === 'status') {
+            pushToolStep(str(payload.tool) || '工具', str(payload.args))
+            onAfterUpdate?.()
             continue
           }
 
@@ -380,13 +424,23 @@ export function useOpsAgentStream() {
           }
         }
       }
+
+    }
+    catch (e) {
+      // 停止生成不是错误：静默收尾；其余异常复位状态后原样抛给调用方
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        aborted = true
+      }
+      else {
+        throw e
+      }
     }
     finally {
       finalizeActiveSteps()
       const tail = timeline.value[timeline.value.length - 1]
       if (tail && tail.kind === 'assistant' && tail.status === 'streaming') {
         if (!tail.text.trim())
-          tail.text = '当前没有生成有效回复，请稍后重试。'
+          tail.text = aborted ? '已停止生成。' : '当前没有生成有效回复，请稍后重试。'
         tail.status = 'done'
         bump()
       }

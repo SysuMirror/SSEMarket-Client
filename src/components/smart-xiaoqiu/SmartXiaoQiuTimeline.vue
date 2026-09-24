@@ -12,10 +12,13 @@ import PostDraftCard from './PostDraftCard.vue'
 
 const props = defineProps<{
   items: TimelineItem[]
+  /** runId → 用户已提交的评分（1 赞 / -1 踩），用于回显按钮态 */
+  ratings?: Record<string, 1 | -1>
 }>()
 
 const emit = defineEmits<{
   (e: 'draft-update', item: TimelinePostDraft): void
+  (e: 'feedback', runId: string, rating: 1 | -1): void
 }>()
 
 const xiaoQiuAvatarUrl = `${import.meta.env.BASE_URL}xiaoqiu-avatar.png`
@@ -85,6 +88,10 @@ function isThinking(text: string, status: TimelineAssistant['status']) {
 function onDraftUpdate(updated: TimelinePostDraft) {
   emit('draft-update', updated)
 }
+
+function canRate(a: TimelineAssistant | undefined): boolean {
+  return !!a && a.status === 'done' && !!a.runId && !a.text.includes('该操作需要审批')
+}
 </script>
 
 <template>
@@ -128,6 +135,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
             <button
               type="button"
               class="step-toggle"
+              :aria-expanded="stepExpanded(step.id, step.collapsed)"
               @click="toggleStep(step.id, step.collapsed)"
             >
               <span class="step-icon" aria-hidden="true">
@@ -176,6 +184,35 @@ function onDraftUpdate(updated: TimelinePostDraft) {
               open-links-in-new-tab
             />
             <time v-if="turn.assistant.time" class="bubble-time">{{ turn.assistant.time }}</time>
+          </div>
+
+          <div v-if="canRate(turn.assistant)" class="rate-row">
+            <button
+              type="button"
+              class="rate-btn"
+              :class="{ on: props.ratings?.[turn.assistant!.runId!] === 1 }"
+              :aria-pressed="props.ratings?.[turn.assistant!.runId!] === 1"
+              :aria-label="props.ratings?.[turn.assistant!.runId!] === 1 ? '已标记有帮助' : '标记为有帮助'"
+              title="有帮助"
+              @click="emit('feedback', turn.assistant!.runId!, 1)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 10v12M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="rate-btn"
+              :class="{ on: props.ratings?.[turn.assistant!.runId!] === -1 }"
+              :aria-pressed="props.ratings?.[turn.assistant!.runId!] === -1"
+              :aria-label="props.ratings?.[turn.assistant!.runId!] === -1 ? '已标记需要改进' : '标记为需要改进'"
+              title="需要改进"
+              @click="emit('feedback', turn.assistant!.runId!, -1)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="transform: rotate(180deg);">
+                <path d="M7 10v12M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
           </div>
 
           <PostDraftCard
@@ -457,6 +494,47 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   border-top: 1px solid var(--xq-border);
 }
 
+/* —— 消息反馈 —— */
+.rate-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 2px;
+}
+
+.rate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--xq-text-muted);
+  cursor: pointer;
+  opacity: 0.72;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.rate-row:hover .rate-btn {
+  opacity: 1;
+}
+
+.rate-btn:hover {
+  background: var(--xq-surface-muted);
+  color: var(--xq-accent-deep);
+}
+
+.rate-btn.on {
+  color: var(--xq-accent-deep);
+  background: var(--xq-accent-soft);
+  opacity: 1;
+}
+
 /* 打字动画 */
 .typing {
   display: flex;
@@ -491,6 +569,27 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   30% {
     opacity: 1;
     transform: translateY(-3px);
+  }
+}
+
+.timeline button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.timeline :focus-visible {
+  outline: 2px solid var(--xq-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline *,
+  .timeline *::before,
+  .timeline *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 </style>
