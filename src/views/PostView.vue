@@ -194,12 +194,12 @@ async function submitPost() {
       showMsg('发帖失败，请检查网络后重试')
       return
     }
-    // 发帖自动生成 AI 解读:静默预生成落库,不阻塞跳转(2026-09-08)
+    // 发帖后生成一次并落库：静默预生成，不阻塞跳转；120s 覆盖服务端 LLM 最长 100s
     const newPostID = Number((res.data as { postID?: number } | null)?.postID ?? 0)
     if (newPostID > 0) {
       fetchAssistMatch(
         { partition: postPartition, title, content, postID: newPostID },
-        AbortSignal.timeout(45_000),
+        AbortSignal.timeout(120_000),
       ).catch(() => {})
     }
     showMsg(res.msg)

@@ -4,8 +4,9 @@ import type { Comment } from '@/types/comment'
 
 import type { Post } from '@/types/post'
 import type { AssistPostData } from '@/api/assist'
-import type { AssistMatchData } from '@/api/assist'
-import { fetchAssistMatch, fetchAssistPost } from '@/api/assist'
+import type { DigestPrefData } from '@/api/digestPref'
+import { fetchAssistPost } from '@/api/assist'
+import { getDigestPref } from '@/api/digestPref'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -17,6 +18,7 @@ import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import { showImg } from '@/components/ImageShower'
 import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
 import { showMsg } from '@/components/MessageBox'
+import { isDigestPrefEnabled } from '@/config/digestPref'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
@@ -28,6 +30,7 @@ const { removeNewPostId } = useNewPostsStore()
 
 const CommentCard = defineAsyncComponent(() => import('@/components/card/CommentCard.vue'))
 const AiPostDetailCard = defineAsyncComponent(() => import('@/components/ai-post-assist/AiPostDetailCard.vue'))
+const DigestPrefModal = defineAsyncComponent(() => import('@/components/DigestPrefModal.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -37,57 +40,48 @@ const post = ref<Post>()
 const comments = ref<Comment[]>([])
 const lottery = ref<LotteryDetail | null>(null)
 const aiAssistData = ref<AssistPostData | null>(null)
-const aiAssistLoading = ref(false)
-
-// 同一帖子的并发按需生成只跑一次（多标签页/多端同时点开时避免重复调用 LLM）
-const assistResolvers = new Map<number, Promise<AssistPostData | null>>()
-
-function toAssistPostData(data: AssistMatchData): AssistPostData {
-  return {
-    answer: data.answer,
-    references: data.references,
-    sources_type: data.meta.sources_type ?? 'local',
-    web_search_query: null,
-    feedback_upvotes: 0,
-    feedback_downvotes: 0,
-    created_at: null,
-  }
-}
+const digestBtnVisible = ref(false)
+const digestPrefData = ref<DigestPrefData | null>(null)
+const showDigestPrefModal = ref(false)
 
 /**
- * 详情页 AI 回答：自动展示。优先读库内留底；无留底时自动触发生成并落库
- * （同一帖子并发按需生成只跑一次；后端 assist 按 postID 回查帖子分区）。
- * 失败静默，不影响详情页。
+ * 详情页 AI 回答：只读数据库留底，不生成。
+ * 生成只发生在两处——发帖后 PostView 自动预生成、pod 常驻补量进程兜底；
+ * 这里无留底就什么都不显示，绝不现场触发生成。
  */
 async function resolveAssistForPost(p: Post): Promise<void> {
   try {
     const saved = await fetchAssistPost(p.PostID)
-    if (saved) {
+    if (saved)
       aiAssistData.value = saved
-      return
-    }
   }
   catch {
+    // 静默：AI 区域不可用不影响详情页
+  }
+}
+
+/**
+ * 日报人工倾向（digest-pref）：非白名单/编译开关关闭时提前返回——
+ * 不发任何 digest-pref 请求，弹窗 chunk 由 defineAsyncComponent 惰性加载，
+ * 按钮仅在当前帖为最新一期日报帖（daily_post_id 匹配）时出现。
+ */
+function currentPostId(): number | null {
+  const n = Number(route.params.id)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+async function refreshDigestPref() {
+  if (!isDigestPrefEnabled(userInfo.name))
     return
-  }
-  aiAssistLoading.value = true
-  try {
-    let task = assistResolvers.get(p.PostID)
-    if (!task) {
-      task = fetchAssistMatch(
-        { partition: '主页', title: p.Title, content: p.Content, postID: p.PostID },
-        AbortSignal.timeout(45_000),
-      )
-        .then(toAssistPostData)
-        .catch(() => null)
-      assistResolvers.set(p.PostID, task)
-      task.finally(() => assistResolvers.delete(p.PostID))
-    }
-    aiAssistData.value = await task
-  }
-  finally {
-    aiAssistLoading.value = false
-  }
+  const data = await getDigestPref()
+  digestPrefData.value = data
+  const pid = currentPostId()
+  digestBtnVisible.value = !!data?.daily_post_id && pid === Number(data.daily_post_id)
+}
+
+async function onPrefModalClose() {
+  showDigestPrefModal.value = false
+  await refreshDigestPref()
 }
 
 type CommentTimeOrder = 'desc' | 'asc'
@@ -194,8 +188,10 @@ onMounted(async () => {
     const curPost = await getPostByID(ID, userInfo.phone)
     post.value = curPost as Post
     setTitle(post.value.Title)
-    // 加载 AI 回答（无留底时按需生成；与评论/抽奖并行加载，静默失败）
+    // 加载 AI 回答留底（只读，不生成；与评论/抽奖并行加载，静默失败）
     void resolveAssistForPost(post.value)
+    // 白名单用户拉取日报倾向状态（决定「调整日报倾向」按钮可见性；静默失败）
+    void refreshDigestPref()
     await getCommentList()
     await loadLottery()
     removeNewPostId(ID)
@@ -230,12 +226,19 @@ onMounted(async () => {
       :data="aiAssistData"
       :post-id="post.PostID"
     />
-    <section
-      v-if="post && aiAssistLoading && !aiAssistData"
-      class="ai-detail-loading"
+    <button
+      v-if="digestBtnVisible"
+      class="digest-pref-entry"
+      type="button"
+      @click="showDigestPrefModal = true"
     >
-      AI 正在汇总站内相关讨论…
-    </section>
+      调整日报倾向
+    </button>
+    <DigestPrefModal
+      v-if="showDigestPrefModal"
+      :data="digestPrefData"
+      @close="onPrefModalClose"
+    />
     <section v-if="post" class="comment-panel mx-a w-15/16">
       <header class="comment-panel__header">
         <h2 class="comment-panel__title">
@@ -273,21 +276,25 @@ onMounted(async () => {
   flex-wrap: nowrap;
 }
 
-.ai-detail-loading {
-  padding: 14px;
-  margin: 12px 0 16px;
+.digest-pref-entry {
+  align-self: center;
+  margin: 0 0 16px;
+  padding: 6px 18px;
   font-size: 13px;
-  color: var(--color-text-muted);
-  text-align: center;
-  background: var(--color-card);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md, 10px);
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  background: var(--color-card, #fff);
+  border: 1px solid var(--hp-muted, #8a9199);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    border-color: var(--accent, #6d28d9);
+    color: var(--accent, #6d28d9);
+  }
 }
-
-
-
-
-
 
 .comment-panel__title {
   margin: 0;
