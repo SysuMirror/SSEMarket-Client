@@ -939,14 +939,18 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 .sug-row {
   flex-shrink: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   max-width: 712px;
   width: 100%;
   margin: 0 auto;
   padding: 8px 16px 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
 }
 
 .sug-row::-webkit-scrollbar {
@@ -954,9 +958,8 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 }
 
 .sug-chip {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
+  flex: 0 0 auto;
+  max-width: 72vw;
   padding: 9px 14px;
   border-radius: 999px;
   border: 1px solid var(--xq-accent-border);
@@ -966,8 +969,10 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  scroll-snap-align: start;
   transition:
     background 0.15s ease,
     color 0.15s ease,
