@@ -178,6 +178,20 @@ function onItemKeydown(e: KeyboardEvent, sessionId: string) {
   -webkit-tap-highlight-color: transparent;
 }
 
+.conv-sidebar button svg {
+  flex: none;
+}
+
+.new-chat-btn svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+.conv-btn svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+
 .conv-sidebar :focus-visible {
   outline: 2px solid var(--xq-accent);
   outline-offset: 2px;
@@ -375,7 +389,7 @@ function onItemKeydown(e: KeyboardEvent, sessionId: string) {
   background: rgba(255, 255, 255, 0.14);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .mobile-close {
     display: block;
     flex-shrink: 0;

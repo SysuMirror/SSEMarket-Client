@@ -1,0 +1,9 @@
+<!doctype html><meta charset=utf-8><title>dev auth</title><script>
+var q=new URLSearchParams(location.search);
+if(q.get('rt')){
+localStorage.setItem('rememberMe','true');
+localStorage.setItem('refreshToken',q.get('rt'));
+localStorage.setItem('refreshTokenExpiry',String(Date.now()+7*864e5));
+location.replace('/new/smart-xiaoqiu');
+}else{document.body.textContent='missing rt'}
+</script>

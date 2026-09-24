@@ -237,6 +237,15 @@ function timeLabel(iso: string) {
   -webkit-tap-highlight-color: transparent;
 }
 
+.memory-drawer button svg {
+  flex: none;
+}
+
+.close-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
 .memory-drawer :focus-visible {
   outline: 2px solid var(--xq-accent);
   outline-offset: 2px;

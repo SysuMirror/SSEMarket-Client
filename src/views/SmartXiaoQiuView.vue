@@ -671,6 +671,39 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 图标装甲：站点全局样式环境下 svg 曾被压缩到 4px 宽（来源不明的规则），
+   我方图标一律内联级 !important 锁死尺寸，flex: none 防挤压 */
+.smart-page button svg,
+.smart-page .jump-bottom svg {
+  flex: none;
+}
+
+.icon-menu svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.top-actions .ghost-btn svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+.ghost-btn:last-child svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.icon-btn svg,
+.send-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.jump-bottom svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
 .smart-page :deep(button:focus-visible),
 .smart-page :focus-visible,
 .smart-page :deep(input:focus-visible),
@@ -904,12 +937,12 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 .sug-row {
   flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   max-width: 712px;
   width: 100%;
   margin: 0 auto;
-  padding: 8px 16px 0;
-  overflow-x: auto;
+  padding: 8px 16px 4px;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
@@ -919,23 +952,24 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 }
 
 .sug-chip {
-  flex-shrink: 0;
-  max-width: 260px;
-  padding: 8px 14px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 9px 14px;
   border-radius: 999px;
   border: 1px solid var(--xq-accent-border);
   background: color-mix(in srgb, var(--xq-surface) 88%, transparent);
   color: var(--xq-text-secondary);
   font-size: 12.5px;
+  line-height: 1.4;
+  text-align: left;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   transition:
     background 0.15s ease,
     color 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.12s ease;
+    border-color 0.15s ease;
 }
 
 .sug-chip:hover {
@@ -1057,7 +1091,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   text-align: center;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 769px) {
   .side-desktop {
     display: block;
   }
@@ -1084,7 +1118,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .btn-text {
     display: none;
   }

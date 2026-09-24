@@ -268,6 +268,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .meta-time,
@@ -474,11 +475,21 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   font-size: 15px;
   line-height: 1.62;
   color: var(--xq-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 长 URL/代码/表格不撑破气泡，容器内横向滚动 */
+.assistant-bubble :deep(.markdown-body pre),
+.assistant-bubble :deep(.markdown-body table) {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .assistant-bubble :deep(.markdown-body a) {
   color: var(--xq-accent-deep);
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .assistant-bubble :deep(.markdown-body pre) {
@@ -575,6 +586,20 @@ function canRate(a: TimelineAssistant | undefined): boolean {
 .timeline button {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+
+.timeline button svg {
+  flex: none;
+}
+
+.step-icon svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.rate-btn svg {
+  width: 14px !important;
+  height: 14px !important;
 }
 
 .timeline :focus-visible {
