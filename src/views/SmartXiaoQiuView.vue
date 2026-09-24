@@ -736,9 +736,9 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 .side-mobile-mask {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 2600;   /* 高于站点 MobileHeader(2100)/BottomNavbar(2000) */
   display: flex;
-  background: rgba(15, 23, 42, 0.36);
+  background: rgba(15, 23, 42, 0.5);
 }
 
 .side-mobile-panel {

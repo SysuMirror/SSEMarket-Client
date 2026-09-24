@@ -215,10 +215,10 @@ function timeLabel(iso: string) {
 .drawer-mask {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 2600;   /* 高于站点 MobileHeader(2100)/BottomNavbar(2000)，抽屉必须盖住全屏 */
   display: flex;
   justify-content: flex-end;
-  background: rgba(15, 23, 42, 0.36);
+  background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(2px);
 }
 
@@ -437,6 +437,12 @@ function timeLabel(iso: string) {
 .lite-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(15, 23, 42, 0.14);
   border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+  .memory-drawer {
+    width: 100vw;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
