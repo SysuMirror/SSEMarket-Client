@@ -440,20 +440,22 @@ function onDraftUpdate(updated: TimelinePostDraft) {
         />
       </aside>
 
-      <div v-if="sidebarOpen" class="side-mobile-mask" @click="sidebarOpen = false">
-        <div class="side-mobile-panel" role="dialog" aria-label="历史对话" @click.stop>
-          <ConversationSidebar
-            :conversations="conversations"
-            :active-id="sessionId"
-            :loading="convLoading"
-            @select="switchTo"
-            @create="startNewChat"
-            @rename="onRename"
-            @remove="onRemove"
-            @close="sidebarOpen = false"
-          />
+      <Teleport to="body">
+        <div v-if="sidebarOpen" class="side-mobile-mask xq-teleport" @click="sidebarOpen = false">
+          <div class="side-mobile-panel" role="dialog" aria-label="历史对话" @click.stop>
+            <ConversationSidebar
+              :conversations="conversations"
+              :active-id="sessionId"
+              :loading="convLoading"
+              @select="switchTo"
+              @create="startNewChat"
+              @rename="onRename"
+              @remove="onRemove"
+              @close="sidebarOpen = false"
+            />
+          </div>
         </div>
-      </div>
+      </Teleport>
 
       <div class="chat-column">
         <header class="top-bar">

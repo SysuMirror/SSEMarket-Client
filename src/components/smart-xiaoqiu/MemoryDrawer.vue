@@ -128,7 +128,8 @@ function timeLabel(iso: string) {
 </script>
 
 <template>
-  <div class="drawer-mask" @click="emit('close')">
+  <Teleport to="body">
+    <div class="drawer-mask xq-teleport" @click="emit('close')">
     <div
       ref="drawerPanel"
       class="memory-drawer"
@@ -209,6 +210,7 @@ function timeLabel(iso: string) {
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <style scoped>
