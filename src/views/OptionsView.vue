@@ -15,6 +15,7 @@ import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsT
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/store/userStore'
 import { levelClassHandler, levelExpHandler, levelNameHandler } from '@/utils/level'
+import { defaultAvatarFor } from '@/utils/defaultAvatar'
 
 const router = useRouter()
 const isPC = inject('isPC', ref(false)) as Ref<boolean>
@@ -35,7 +36,7 @@ const allInfo = ref<AllInfo>({
   hideProfilePosts: false,
 })
 
-const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
+const defaultAvatar = defaultAvatarFor(userInfo.userID)
 const settingsAvatarSrc = ref(defaultAvatar)
 
 const isPushDisabled = ref(false)

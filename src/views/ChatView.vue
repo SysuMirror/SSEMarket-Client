@@ -17,6 +17,7 @@ import {
   contactProfileBlocked,
   recalledBubbleText,
 } from '@/utils/chatAnonymous'
+import { defaultAvatarFor } from '@/utils/defaultAvatar'
 
 export interface MessageCreation {
   senderUserID: number
@@ -39,7 +40,6 @@ const { userInfo } = useUserStore()
 const { on, off, contacts, chatHistory, sendChatMessage, recallMessage, selectContact: selectChatContact, addContact, current, isAnonymousMode, setAnonymousMode, leaveCurrentView } = useChat()
 
 const draft = ref('')
-const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
 type Contact = RelevantUser & Partial<{ ban: string, phone: string, punishnum: number, intro: string, unRead: number, emailpush: boolean }>
 
 const historyDiv = useTemplateRef<HTMLDivElement>('historyDiv')
@@ -205,7 +205,7 @@ function senderLabel(entry: ChatMessageItem) {
 
 function avatarForMessage(entry: ChatMessageItem) {
   if (messageShowsAnonymous(entry)) {
-    return { src: defaultAvatar, userId: 0, alt: ANONYMOUS_DISPLAY_NAME }
+    return { src: defaultAvatarFor(0), userId: 0, alt: ANONYMOUS_DISPLAY_NAME }
   }
   if (entry.senderUserID === userInfo.userID) {
     return { src: userInfo.avatarURL, userId: userInfo.userID, alt: userInfo.name }

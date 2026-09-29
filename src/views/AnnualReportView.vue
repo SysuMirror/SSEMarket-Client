@@ -4,8 +4,11 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAnnualReport } from '@/api/info/getAnnualReport'
 import { levelNameHandler } from '@/utils/level'
+import { useUserStore } from '@/store/userStore'
+import { defaultAvatarFor } from '@/utils/defaultAvatar'
 
 const router = useRouter()
+const { userInfo } = useUserStore()
 
 const loading = ref(true)
 const reportData = ref<AnnualReportData | null>(null)
@@ -157,32 +160,30 @@ function initAutoPlay() {
 }
 
 // Default avatar fallback
-const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
-
-const coverAvatarDisplay = ref(defaultAvatar)
+const coverAvatarDisplay = ref('')
 watch(
   () => reportData.value?.avatarUrl,
   (u) => {
-    coverAvatarDisplay.value = (u && u.trim()) ? u : defaultAvatar
+    coverAvatarDisplay.value = (u && u.trim()) ? u : defaultAvatarFor(userInfo.userID)
   },
   { immediate: true },
 )
 function onCoverAvatarError() {
-  if (coverAvatarDisplay.value !== defaultAvatar)
-    coverAvatarDisplay.value = defaultAvatar
+  if (coverAvatarDisplay.value !== defaultAvatarFor(userInfo.userID))
+    coverAvatarDisplay.value = defaultAvatarFor(userInfo.userID)
 }
 
-const partnerAvatarDisplay = ref(defaultAvatar)
+const partnerAvatarDisplay = ref('')
 watch(
   () => reportData.value?.maxSayUser?.avatarURL,
   (u) => {
-    partnerAvatarDisplay.value = (u && u.trim()) ? u : defaultAvatar
+    partnerAvatarDisplay.value = (u && u.trim()) ? u : defaultAvatarFor(reportData.value?.maxSayUser?.userID)
   },
   { immediate: true },
 )
 function onPartnerAvatarError() {
-  if (partnerAvatarDisplay.value !== defaultAvatar)
-    partnerAvatarDisplay.value = defaultAvatar
+  if (partnerAvatarDisplay.value !== defaultAvatarFor(reportData.value?.maxSayUser?.userID))
+    partnerAvatarDisplay.value = defaultAvatarFor(reportData.value?.maxSayUser?.userID)
 }
 
 const friendAvatarFallback = ref<Record<number, string>>({})
@@ -191,11 +192,11 @@ watch(reportData, () => {
 })
 
 function friendMiniDisplaySrc(user: ChatUser) {
-  return friendAvatarFallback.value[user.userID] || user.avatarURL || defaultAvatar
+  return friendAvatarFallback.value[user.userID] || user.avatarURL || defaultAvatarFor(user.userID)
 }
 
 function onFriendMiniAvatarError(userId: number) {
-  friendAvatarFallback.value = { ...friendAvatarFallback.value, [userId]: defaultAvatar }
+  friendAvatarFallback.value = { ...friendAvatarFallback.value, [userId]: defaultAvatarFor(userId) }
 }
 
 const daysJoined = computed(() => {

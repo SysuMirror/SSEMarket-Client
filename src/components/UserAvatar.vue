@@ -2,6 +2,7 @@
 import { computed, ref, useSlots, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { levelClassHandler, levelNameHandler } from '@/utils/level'
+import { defaultAvatarFor } from '@/utils/defaultAvatar'
 import UserIdentityIcon from './UserIdentityIcon.vue'
 
 const props = withDefaults(
@@ -24,14 +25,14 @@ const props = withDefaults(
 const slots = useSlots()
 const router = useRouter()
 const hasReplySlot = computed(() => typeof slots.reply === 'function')
-const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
-
-const displaySrc = ref(defaultAvatar)
+const displaySrc = ref('')
 
 const resolvedUserId = computed(() => {
   const n = Number(props.userId)
   return Number.isFinite(n) && n > 0 ? n : 0
 })
+
+const defaultAvatar = computed(() => defaultAvatarFor(resolvedUserId.value))
 
 const profileNavigable = computed(
   () => !props.noProfileLink && resolvedUserId.value > 0,
@@ -40,14 +41,14 @@ const profileNavigable = computed(
 watch(
   () => props.src,
   (s) => {
-    displaySrc.value = (s && s.trim()) ? s : defaultAvatar
+    displaySrc.value = (s && s.trim()) ? s : defaultAvatar.value
   },
   { immediate: true },
 )
 
 function onAvatarError() {
-  if (displaySrc.value !== defaultAvatar)
-    displaySrc.value = defaultAvatar
+  if (displaySrc.value !== defaultAvatar.value)
+    displaySrc.value = defaultAvatar.value
 }
 
 async function goToProfile() {

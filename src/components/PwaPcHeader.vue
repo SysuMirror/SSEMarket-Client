@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import ModeButton from '@/components/ModeButton.vue'
 import { useHeaderSearch } from '@/composables/useHeaderSearch'
 import { useUserStore } from '@/store/userStore'
+import { defaultAvatarFor } from '@/utils/defaultAvatar'
 
 const props = defineProps<{
   unreadNoticeNum: number
@@ -27,20 +28,20 @@ const {
   showRollingPlaceholder,
   toggleSearchMode,
 } = useHeaderSearch(sinfo)
-const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
-const headerAvatarSrc = ref(defaultAvatar)
+const defaultAvatar = computed(() => defaultAvatarFor(userInfo.userID))
+const headerAvatarSrc = ref('')
 
 watch(
   () => userInfo.avatarURL,
   (u) => {
-    headerAvatarSrc.value = (u && u.trim()) ? u : defaultAvatar
+    headerAvatarSrc.value = (u && u.trim()) ? u : defaultAvatar.value
   },
   { immediate: true },
 )
 
 function onHeaderAvatarError() {
-  if (headerAvatarSrc.value !== defaultAvatar)
-    headerAvatarSrc.value = defaultAvatar
+  if (headerAvatarSrc.value !== defaultAvatar.value)
+    headerAvatarSrc.value = defaultAvatar.value
 }
 
 const isMenuOpen = computed({

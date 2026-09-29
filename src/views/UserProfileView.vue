@@ -10,6 +10,7 @@ import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { useUserStore } from '@/store/userStore'
 import { levelClassHandler, levelExpHandler, levelNameHandler } from '@/utils/level'
+import { defaultAvatarFor } from '@/utils/defaultAvatar'
 import { setWindowScrollY } from '@/utils/windowScroll'
 
 const PAGE_SIZE = 15
@@ -26,7 +27,7 @@ const profileHasMore = ref(true)
 const profileLoading = ref(false)
 const profileTotal = ref(0)
 
-const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
+const defaultAvatar = computed(() => defaultAvatarFor(user.value?.userID))
 
 const showPostHistory = computed(() => {
   if (!user.value?.userID)
@@ -38,7 +39,7 @@ const showPostHistory = computed(() => {
 
 const avatarSrc = computed(() => {
   const u = user.value?.avatarURL?.trim()
-  return u || defaultAvatar
+  return u || defaultAvatar.value
 })
 
 const levelLabel = computed(() => {
@@ -157,8 +158,8 @@ function navigateChat() {
 
 function onAvatarError(e: Event) {
   const el = e.target as HTMLImageElement
-  if (el.src !== defaultAvatar)
-    el.src = defaultAvatar
+  if (el.src !== defaultAvatar.value)
+    el.src = defaultAvatar.value
 }
 </script>
 

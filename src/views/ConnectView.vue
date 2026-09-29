@@ -6,6 +6,7 @@ import { getSelfAllInfo } from '@/api/info/getInfo'
 import { authorizeOAuth2App, checkOAuth2App } from '@/api/oauth2/oauth2'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
+import { defaultAvatarFor } from '@/utils/defaultAvatar'
 
 const route = useRoute()
 const router = useRouter()
@@ -156,7 +157,7 @@ function cancelAuthorize() {
   window.location.href = ref
 }
 
-const defaultAvatar = `${import.meta.env.BASE_URL}default-avatar.svg`
+const defaultAvatar = defaultAvatarFor(userInfo.userID)
 const oauthUserAvatarSrc = ref(defaultAvatar)
 
 watch(
