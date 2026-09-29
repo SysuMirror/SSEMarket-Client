@@ -26,9 +26,9 @@
     "hls.js": "^1.7.3",
     "howler": "^2.2.4",
     "markdown-it": "^14.1.0",
-    "newsse": "file:",
     "pdfjs-dist": "2.16.105",
     "prismjs": "^1.30.0",
+    "tus-js-client": "^4.3.1",
     "vue": "^3.5.17",
     "vue-router": "^4.5.1"
   },
