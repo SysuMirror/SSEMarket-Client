@@ -15,7 +15,9 @@ import { OpsAgentRequestError, shouldRebootstrapAfterTaskError } from '@/api/ops
 import { submitMessageFeedback, fetchSuggestions } from '@/api/opsagent/suggestions'
 import { showMsg } from '@/components/MessageBox'
 import ConversationSidebar from '@/components/smart-xiaoqiu/ConversationSidebar.vue'
+import BanBanner from '@/components/smart-xiaoqiu/BanBanner.vue'
 import MemoryDrawer from '@/components/smart-xiaoqiu/MemoryDrawer.vue'
+import RpsGame from '@/components/smart-xiaoqiu/RpsGame.vue'
 import SmartXiaoQiuTimeline from '@/components/smart-xiaoqiu/SmartXiaoQiuTimeline.vue'
 import { useOpsAgentStream } from '@/composables/useOpsAgentStream'
 
@@ -35,6 +37,7 @@ const conversations = ref<ConversationSummary[]>([])
 const convLoading = ref(false)
 const sidebarOpen = ref(false)
 const memoryOpen = ref(false)
+const rpsOpen = ref(false)
 const suggestions = ref<Suggestion[]>([])
 const ratings = ref<Record<string, 1 | -1>>({})
 
@@ -493,6 +496,14 @@ function onDraftUpdate(updated: TimelinePostDraft) {
               </svg>
               <span class="btn-text">记忆</span>
             </button>
+            <button type="button" class="ghost-btn" aria-label="玩剪刀石头布，输了封号五分钟" @click="rpsOpen = true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="6" cy="6" r="2.6" stroke="currentColor" stroke-width="2" />
+                <circle cx="6" cy="18" r="2.6" stroke="currentColor" stroke-width="2" />
+                <path d="M8.2 7.6 19.5 17.6M8.2 16.4 19.5 6.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <span class="btn-text">猜拳</span>
+            </button>
             <button
               type="button"
               class="ghost-btn"
@@ -604,6 +615,8 @@ function onDraftUpdate(updated: TimelinePostDraft) {
     </div>
 
     <MemoryDrawer v-if="memoryOpen" @close="memoryOpen = false" />
+    <RpsGame v-if="rpsOpen" @close="rpsOpen = false" />
+    <BanBanner />
   </div>
 </template>
 

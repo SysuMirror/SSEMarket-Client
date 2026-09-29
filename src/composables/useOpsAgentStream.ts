@@ -471,7 +471,7 @@ export function useOpsAgentStream() {
       {
         kind: 'assistant',
         id: 'wel-1',
-        text: '你好，我是小秋，可以帮你检索论坛帖子、整理要点或回答与社区相关的问题。欢迎来找我聊天~',
+        text: '我是小秋，论坛的事都能搭把手——查帖子、翻知识库、发帖评论，说一声就办。',
         time: now,
         status: 'done',
       },
