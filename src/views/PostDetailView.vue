@@ -277,8 +277,9 @@ onMounted(async () => {
 }
 
 .digest-pref-entry {
-  align-self: center;
-  margin: 0 0 16px;
+  /* 右缘与帖卡片内容右缘对齐（卡片 w-15/16 居中 + BasicCard 14px 内边距），正对「展开全部」 */
+  align-self: flex-end;
+  margin: 0 calc(3.125% + 14px) 16px 0;
   padding: 6px 18px;
   font-size: 13px;
   font-weight: 500;
