@@ -171,6 +171,8 @@ button.btn-ghost:hover,
 .markdown-body img,
 .imgs img {
   max-width: 100%;
+  /* 桌面端防止竖版大图原尺寸直出霸屏：等比缩进宽高双上限，点开灯箱仍可看原图 */
+  max-height: min(75vh, 720px);
   width: auto;
   height: auto;
   object-fit: contain;
