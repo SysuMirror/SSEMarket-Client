@@ -75,7 +75,7 @@ function startParticles() {
   window.addEventListener('resize', resize)
   cleanupResize = () => window.removeEventListener('resize', resize)
 
-  // 主色读站点 --accent(亮 #2c3d56 / 暗 #5989b8),辅以 Lv8 渐变色相的低透明点缀
+  // 主色读站点 --accent(亮 #2c3d56 / 暗 #5989b8),粒子单色系
   const accentStr = getComputedStyle(document.body).getPropertyValue('--accent').trim()
   let ar = 44
   let ag = 61
@@ -85,22 +85,7 @@ function startParticles() {
     ag = Number.parseInt(accentStr.slice(3, 5), 16)
     ab = Number.parseInt(accentStr.slice(5, 7), 16)
   }
-  const palette: Array<{ c: [number, number, number], p: number }> = [
-    { c: [ar, ag, ab], p: 0.68 },
-    { c: [255, 122, 153], p: 0.12 },
-    { c: [154, 126, 248], p: 0.12 },
-    { c: [227, 118, 229], p: 0.08 },
-  ]
-  const pick = () => {
-    const r = Math.random()
-    let acc = 0
-    for (const item of palette) {
-      acc += item.p
-      if (r <= acc)
-        return item.c
-    }
-    return palette[0].c
-  }
+  const rgbBase = [ar, ag, ab] as [number, number, number]
 
   const N = 44
   const parts = Array.from({ length: N }, (_, i) => ({
@@ -113,7 +98,7 @@ function startParticles() {
     phase: Math.random() * Math.PI * 2,
     aBase: i < 8 ? 0.22 + Math.random() * 0.14 : 0.12 + Math.random() * 0.22,
     tw: 0.6 + Math.random() * 1.4,
-    c: pick(),
+    c: rgbBase,
     glow: i < 8,
   }))
 
@@ -257,33 +242,18 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Lv8 徽章:与等级体系 level-8 同款渐变,是弹窗里唯一的彩色元素 */
+/* Lv8 徽章:站点主色实底小牌,与主按钮同源 */
 .title-modal-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 26px;
-  padding: 0 10px;
+  height: 24px;
+  padding: 0 8px;
   border-radius: var(--radius-md);
-  background: linear-gradient(45deg, #ff7d7d, #ff5a99, #e376e5, #9a7ef8);
-  background-size: 300% 300%;
-  animation: title-badge-shift 5s ease infinite;
+  background: var(--accent);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-@keyframes title-badge-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
 }
 
 .title-modal-head {
@@ -370,10 +340,6 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .title-modal-mask,
   .title-modal-box {
-    animation: none;
-  }
-
-  .title-modal-badge {
     animation: none;
   }
 }
