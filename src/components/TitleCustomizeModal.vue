@@ -45,37 +45,157 @@ async function submit() {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onKeydown, true))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
+// ---- 背景粒子:站点藏青色系尘埃,缓速上漂 ----
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const reducedMotion = typeof window !== 'undefined'
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+let rafId = 0
+let cleanupResize: (() => void) | null = null
+
+function startParticles() {
+  const canvas = canvasRef.value
+  if (!canvas)
+    return
+  const ctx = canvas.getContext('2d')
+  if (!ctx)
+    return
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  let w = 0
+  let h = 0
+  const resize = () => {
+    w = canvas.clientWidth
+    h = canvas.clientHeight
+    canvas.width = Math.round(w * dpr)
+    canvas.height = Math.round(h * dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  }
+  resize()
+  window.addEventListener('resize', resize)
+  cleanupResize = () => window.removeEventListener('resize', resize)
+
+  // 主色读站点 --accent(亮 #2c3d56 / 暗 #5989b8),辅以 Lv8 渐变色相的低透明点缀
+  const accentStr = getComputedStyle(document.body).getPropertyValue('--accent').trim()
+  let ar = 44
+  let ag = 61
+  let ab = 86
+  if (/^#[0-9a-fA-F]{6}$/.test(accentStr)) {
+    ar = Number.parseInt(accentStr.slice(1, 3), 16)
+    ag = Number.parseInt(accentStr.slice(3, 5), 16)
+    ab = Number.parseInt(accentStr.slice(5, 7), 16)
+  }
+  const palette: Array<{ c: [number, number, number], p: number }> = [
+    { c: [ar, ag, ab], p: 0.68 },
+    { c: [255, 122, 153], p: 0.12 },
+    { c: [154, 126, 248], p: 0.12 },
+    { c: [227, 118, 229], p: 0.08 },
+  ]
+  const pick = () => {
+    const r = Math.random()
+    let acc = 0
+    for (const item of palette) {
+      acc += item.p
+      if (r <= acc)
+        return item.c
+    }
+    return palette[0].c
+  }
+
+  const N = 44
+  const parts = Array.from({ length: N }, (_, i) => ({
+    x: Math.random(),
+    y: Math.random(),
+    r: i < 8 ? 2.2 + Math.random() * 0.8 : 0.8 + Math.random() * 1.8,
+    vy: 0.14 + Math.random() * 0.34,
+    amp: 6 + Math.random() * 18,
+    freq: 0.3 + Math.random() * 0.6,
+    phase: Math.random() * Math.PI * 2,
+    aBase: i < 8 ? 0.22 + Math.random() * 0.14 : 0.12 + Math.random() * 0.22,
+    tw: 0.6 + Math.random() * 1.4,
+    c: pick(),
+    glow: i < 8,
+  }))
+
+  const t0 = performance.now()
+  const tick = (now: number) => {
+    const t = (now - t0) / 1000
+    ctx.clearRect(0, 0, w, h)
+    for (const p of parts) {
+      const y = ((p.y - t * p.vy * 0.06) % 1 + 1) % 1
+      const px = p.x * w + Math.sin(t * p.freq + p.phase) * p.amp
+      const py = y * h
+      const alpha = p.aBase * (0.55 + 0.45 * Math.sin(t * p.tw + p.phase))
+      const rgb = `${p.c[0]},${p.c[1]},${p.c[2]}`
+      if (p.glow) {
+        // 亮尘:外圈低透明光晕 + 内核
+        ctx.beginPath()
+        ctx.fillStyle = `rgba(${rgb},${(alpha * 0.22).toFixed(3)})`
+        ctx.arc(px, py, p.r * 2.6, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.beginPath()
+      ctx.fillStyle = `rgba(${rgb},${alpha.toFixed(3)})`
+      ctx.arc(px, py, p.r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    rafId = requestAnimationFrame(tick)
+  }
+  rafId = requestAnimationFrame(tick)
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown, true)
+  if (!reducedMotion)
+    startParticles()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown, true)
+  if (rafId)
+    cancelAnimationFrame(rafId)
+  if (cleanupResize)
+    cleanupResize()
+})
 </script>
 
 <template>
   <Teleport to="body">
     <div class="title-modal-mask">
-      <div class="title-modal-box" role="dialog" aria-modal="true" aria-label="自定义称号">
-        <div class="title-modal-glow" aria-hidden="true" />
-        <div class="title-modal-medal" aria-hidden="true">
-          <span>Lv8</span>
-        </div>
-        <h2 class="title-modal-head">
+      <canvas
+        v-if="!reducedMotion"
+        ref="canvasRef"
+        class="title-modal-particles"
+        aria-hidden="true"
+      />
+      <div
+        class="title-modal-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="title-modal-heading"
+      >
+        <span class="title-modal-badge" aria-hidden="true">Lv8</span>
+        <h2 id="title-modal-heading" class="title-modal-head">
           恭喜达成最高等级
         </h2>
         <p class="title-modal-meta">
-          集市感谢你留下的每一条足迹。<br>
-          取一个专属称号，让它代替用户名展示给所有人。
+          经验值已满 5000。取一个专属称号，它将代替用户名展示在你昵称上方。
         </p>
-        <div class="title-modal-field">
+        <label class="title-modal-field">
+          <span class="title-modal-field-label">称号</span>
           <input
             v-model="title"
             class="title-modal-input"
             type="text"
             maxlength="12"
-            placeholder="你的专属称号"
+            placeholder="1~12 个字符"
             autocomplete="off"
             :autofocus="isPC"
             @keydown.enter="submit"
           >
-          <span class="title-modal-count" :class="{ 'title-modal-count--full': len >= MAX_LEN }">{{ len }}<i>/</i>{{ MAX_LEN }}</span>
+        </label>
+        <div class="title-modal-count">
+          {{ len }}/{{ MAX_LEN }}
         </div>
         <button
           type="button"
@@ -94,15 +214,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
 .title-modal-mask {
   position: fixed;
   inset: 0;
-  background: rgba(10, 16, 30, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.5);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
-  animation: title-mask-in 0.28s ease both;
+  animation: title-mask-in 0.2s ease both;
 }
 
 @keyframes title-mask-in {
@@ -111,87 +229,52 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
   }
 }
 
+.title-modal-particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .title-modal-box {
   position: relative;
   width: 100%;
   max-width: 400px;
   box-sizing: border-box;
-  padding: 34px 30px 28px;
-  text-align: center;
-  border-radius: 20px;
-  border: 1px solid transparent;
-  background:
-    linear-gradient(var(--color-card, #fff), var(--color-card, #fff)) padding-box,
-    linear-gradient(135deg, #ff7d7d, #ff5a99, #e376e5, #9a7ef8, #ff7d7d) border-box;
-  background-clip: padding-box, border-box;
-  box-shadow:
-    0 24px 64px rgba(10, 16, 30, 0.35),
-    0 4px 16px rgba(154, 126, 248, 0.16);
-  animation: title-box-in 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
-  overflow: hidden;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  color: var(--color-text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  animation: title-box-in 0.24s ease-out both;
 }
 
 @keyframes title-box-in {
   from {
     opacity: 0;
-    transform: scale(0.92) translateY(14px);
+    transform: translateY(8px) scale(0.97);
   }
 }
 
-/* 顶部弥散光,营造"荣耀时刻"氛围 */
-.title-modal-glow {
-  position: absolute;
-  top: -70px;
-  left: 50%;
-  width: 340px;
-  height: 180px;
-  transform: translateX(-50%);
-  background: radial-gradient(
-    ellipse at center,
-    rgba(255, 122, 178, 0.22),
-    rgba(154, 126, 248, 0.14) 45%,
-    transparent 72%
-  );
-  pointer-events: none;
-}
-
-.title-modal-medal {
-  position: relative;
-  width: 68px;
-  height: 68px;
-  margin: 0 auto 14px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff7d7d, #ff5a99, #e376e5, #9a7ef8);
+/* Lv8 徽章:与等级体系 level-8 同款渐变,是弹窗里唯一的彩色元素 */
+.title-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(45deg, #ff7d7d, #ff5a99, #e376e5, #9a7ef8);
   background-size: 300% 300%;
-  animation:
-    medal-float 3.2s ease-in-out infinite,
-    change-color 6s ease infinite;
-  box-shadow:
-    0 10px 26px rgba(255, 90, 153, 0.42),
-    0 0 0 7px rgba(255, 122, 178, 0.14);
-}
-
-.title-modal-medal span {
+  animation: title-badge-shift 5s ease infinite;
   color: #fff;
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.5px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 
-@keyframes medal-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes change-color {
+@keyframes title-badge-shift {
   0% {
     background-position: 0% 50%;
   }
@@ -204,118 +287,94 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
 }
 
 .title-modal-head {
-  position: relative;
-  font-size: 21px;
-  font-weight: 800;
-  margin: 0 0 10px;
-  color: var(--chat-text, #1e293b);
-  letter-spacing: 0.5px;
+  font-size: 17px;
+  font-weight: 700;
+  margin: 14px 0 6px;
+  color: var(--color-text);
 }
 
 .title-modal-meta {
-  position: relative;
   font-size: 13px;
-  line-height: 1.8;
-  color: var(--chat-text-tips, #94a3b8);
-  margin: 0 0 22px;
+  line-height: 1.7;
+  margin: 0 0 18px;
+  color: var(--color-text-secondary);
 }
 
 .title-modal-field {
-  position: relative;
-  margin-bottom: 24px;
+  display: block;
+}
+
+.title-modal-field-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 
 .title-modal-input {
   width: 100%;
   box-sizing: border-box;
-  border: none;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-card);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
   outline: none;
-  padding: 8px 4px 12px;
-  font-size: 20px;
-  font-weight: 700;
-  text-align: center;
-  color: var(--chat-text, #1e293b);
-  background: linear-gradient(90deg, #ff7d7d, #ff5a99, #e376e5, #9a7ef8) bottom / 100% 2px no-repeat;
-  border-radius: 0;
-  caret-color: #ff5a99;
-  transition: filter 0.2s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .title-modal-input::placeholder {
-  color: var(--chat-text-tips, #94a3b8);
-  opacity: 0.55;
-  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
 .title-modal-input:focus {
-  filter: drop-shadow(0 1px 6px rgba(255, 90, 153, 0.35));
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .title-modal-count {
-  position: absolute;
-  right: 2px;
-  bottom: -18px;
+  text-align: right;
   font-size: 11px;
-  color: var(--chat-text-tips, #94a3b8);
-}
-
-.title-modal-count i {
-  font-style: normal;
-  opacity: 0.5;
-  margin: 0 1px;
-}
-
-.title-modal-count--full {
-  color: #ff5a99;
+  color: var(--color-text-muted);
+  margin: 6px 2px 14px;
 }
 
 .title-modal-btn {
   width: 100%;
-  padding: 12px 0;
-  border: 0;
-  border-radius: 12px;
-  background: linear-gradient(45deg, #ff7d7d, #ff5a99, #e376e5, #9a7ef8);
-  background-size: 300% 300%;
-  animation: change-color 6s ease infinite;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--accent);
   color: #fff;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(255, 90, 153, 0.35);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    opacity 0.15s ease;
+  transition: background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .title-modal-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(255, 90, 153, 0.45);
-}
-
-.title-modal-btn:active:not(:disabled) {
-  transform: translateY(0);
+  background: var(--accent-hover);
 }
 
 .title-modal-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
-@media (max-width: 480px) {
+@media (prefers-reduced-motion: reduce) {
+  .title-modal-mask,
   .title-modal-box {
-    padding: 28px 22px 22px;
-    border-radius: 16px;
+    animation: none;
   }
 
-  .title-modal-head {
-    font-size: 19px;
-  }
-
-  .title-modal-meta br {
-    display: none;
+  .title-modal-badge {
+    animation: none;
   }
 }
 </style>
