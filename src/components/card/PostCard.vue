@@ -237,6 +237,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
         :user-identity="post.UserIdentity"
         :user-name="post.UserName"
         :user-score="post.UserScore"
+        :user-title="post.UserTitle"
         :user-phone="post.UserTelephone"
       />
       <UserButton

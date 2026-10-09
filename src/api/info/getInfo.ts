@@ -75,6 +75,8 @@ export interface AllInfo {
   phone: string
   punishnum: number
   score: number
+  /** Lv8 用户自定义称号;空=未自定义 */
+  customTitle: string
   userID: number
   /** 为 true 时，其他用户在其个人主页看不到发帖列表 */
   hideProfilePosts?: boolean
@@ -96,6 +98,7 @@ export function normalizeAllInfo(raw: Partial<AllInfo> | Record<string, unknown>
     phone: String(src.phone ?? ''),
     punishnum: Number(src.punishnum ?? 0),
     score: Number(src.score ?? 0),
+    customTitle: String(src.customTitle ?? ''),
     userID: Number(src.userID ?? 0),
     hideProfilePosts: coerceApiBool(src.hideProfilePosts),
   }

@@ -14,6 +14,7 @@ export interface RatingPostItem {
   userID: number
   userName: string
   userScore: number
+  userTitle?: string
   userTelephone: string
   userAvatar: string
   userIdentity: string
@@ -40,6 +41,7 @@ export interface RatingCommentItem {
   author: string
   authorTelephone: string
   authorScore: number
+  authorTitle?: string
   authorAvatar: string
   authorIdentity: string
   commentTime: string

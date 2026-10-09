@@ -150,6 +150,7 @@ async function submitComment() {
           :user-identity="post.userIdentity"
           :user-name="post.userName"
           :user-score="post.userScore"
+          :user-title="post.userTitle"
         />
         <div class="rd-card__author-meta">
           <span class="rd-card__author-name">{{ post.userName || '用户' }}</span>

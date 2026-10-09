@@ -4,7 +4,7 @@ import type { AllInfo } from '@/api/info/getInfo'
 import { computed, inject, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getSelfAllInfo, isEmailNotificationBlocked, normalizeAllInfo } from '@/api/info/getInfo'
-import { updateEmailPush, updateUserInfo, uploadAvatar } from '@/api/info/updateInfo'
+import { setCustomTitle, updateEmailPush, updateUserInfo, uploadAvatar } from '@/api/info/updateInfo'
 import { changeEmail } from '@/api/LoginAndRegister/changeEmail'
 import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
 import { sendCode } from '@/api/LoginAndRegister/utils'
@@ -14,7 +14,7 @@ import { showMsg } from '@/components/MessageBox'
 import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsToggle } from '@/components/settings'
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/store/userStore'
-import { levelClassHandler, levelExpHandler, levelNameHandler } from '@/utils/level'
+import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
 
 const router = useRouter()
@@ -32,6 +32,7 @@ const allInfo = ref<AllInfo>({
   phone: '',
   punishnum: 0,
   score: 0,
+  customTitle: '',
   userID: 0,
   hideProfilePosts: false,
 })
@@ -79,7 +80,7 @@ const expPercent = computed(() => {
 
 const nextLevelLabel = computed(() => {
   const s = allInfo.value?.score ?? 0
-  return levelNameHandler(Number.parseInt(levelExpHandler(s), 10))
+  return titleNameHandler(Number.parseInt(levelExpHandler(s), 10), allInfo.value?.customTitle, allInfo.value?.name)
 })
 
 watch(
@@ -196,6 +197,34 @@ async function saveUserIntro() {
   }
   catch {
     // 错误已在 persist 内提示
+  }
+}
+
+const titleOpen = ref(false)
+const titleDraft = ref('')
+const canCustomizeTitle = computed(() => (allInfo.value?.score ?? 0) >= 5000)
+
+function onTitleOpenChange(open: boolean) {
+  if (open)
+    titleDraft.value = allInfo.value?.customTitle ?? ''
+}
+
+async function saveTitle() {
+  if (!allInfo.value)
+    return
+  const t = titleDraft.value.trim()
+  if (!t || [...t].length > 12) {
+    showMsg('称号需为 1~12 个字符')
+    return
+  }
+  const res = await setCustomTitle(t)
+  if (res?.code === 200) {
+    allInfo.value.customTitle = t
+    titleOpen.value = false
+    showMsg('称号已更新')
+  }
+  else {
+    showMsg(res?.msg || '保存失败')
   }
 }
 
@@ -441,7 +470,7 @@ onMounted(() => {
       :name="allInfo.name"
       :uid="allInfo.userID"
       :phone="allInfo.phone"
-      :level-label="levelNameHandler(allInfo.score || 0)"
+      :level-label="titleNameHandler(allInfo.score || 0, allInfo.customTitle, allInfo.name)"
       :level-class="levelClassHandler(allInfo.score || 0)"
       :exp-percent="expPercent"
       :score="allInfo.score ?? 0"
@@ -455,6 +484,24 @@ onMounted(() => {
     <!-- 分组 1: 账号资料 -->
     <SettingsGroup title="账号资料">
       <div ref="accountGroup" class="options-anchor" />
+      <SettingsExpander
+        v-if="canCustomizeTitle"
+        v-model:open="titleOpen"
+        label="称号"
+        :value="allInfo.customTitle"
+        @update:open="onTitleOpenChange"
+      >
+        <SettingsInput
+          v-model="titleDraft"
+          label="称号"
+          placeholder="1~12 个字符"
+          autocomplete="off"
+        />
+        <button type="button" class="options-form-btn options-form-btn--primary" @click="saveTitle">
+          保存
+        </button>
+      </SettingsExpander>
+
       <SettingsExpander
         v-model:open="userNameOpen"
         label="用户名"

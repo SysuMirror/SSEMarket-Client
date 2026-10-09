@@ -31,7 +31,7 @@ function levelNameHandler(userScore: number): string {
     return 'Lv7 大神'
   }
   if (userScore >= 5000) {
-    return '祖师爷'
+    return 'Lv8'
   }
   return 'lV? undefined'
 }
@@ -102,4 +102,21 @@ function levelExpHandler(userScore: number) {
   return '0' // 默认返回0
 }
 
-export { levelClassHandler, levelExpHandler, levelNameHandler }
+/**
+ * 满级(Lv8)称号:优先自定义称号,未自定义时显示用户名
+ */
+function titleNameHandler(userScore: number, customTitle: string | undefined, userName: string | undefined): string {
+  if (!userScore && userScore !== 0) {
+    return 'lV? undefined'
+  }
+  if (userScore < 5000) {
+    return levelNameHandler(userScore)
+  }
+  const t = (customTitle ?? '').trim()
+  if (t) {
+    return t
+  }
+  return (userName ?? '').trim() || 'Lv8'
+}
+
+export { levelClassHandler, levelExpHandler, levelNameHandler, titleNameHandler }

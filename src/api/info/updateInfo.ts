@@ -32,6 +32,24 @@ async function updateUserInfo(
   }
 }
 
+/** 设置满级自定义称号(独立端点,不触碰其他资料字段) */
+async function setCustomTitle(title: string) {
+  try {
+    const res = await requestFunc(`/auth/setCustomTitle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: { title },
+    }, true)
+    return await res!.json()
+  }
+  catch (e) {
+    console.error(e)
+    return null
+  }
+}
+
 async function uploadAvatar(photo: File) {
   const token = useUserStore().token.value
   if (!token) {
@@ -87,4 +105,4 @@ async function updateEmailPush(user_id: number) {
     console.error(e)
   }
 }
-export { updateEmailPush, updateUserInfo, uploadAvatar }
+export { setCustomTitle, updateEmailPush, updateUserInfo, uploadAvatar }

@@ -191,6 +191,7 @@ function toggleReply() {
           :user-identity="subComment.authorIdentity"
           :user-name="subComment.author"
           :user-score="subComment.authorScore"
+          :user-title="subComment.authorTitle"
         />
       </div>
       <time class="comment-row__time" :datetime="String(subComment.commentTime)">{{ formattedTime }}</time>

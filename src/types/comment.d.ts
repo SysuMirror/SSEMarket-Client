@@ -4,6 +4,7 @@ export interface Comment {
   Author: string
   AuthorTelephone: string
   AuthorScore: number
+  AuthorTitle?: string
   AuthorAvatar: string
   AuthorIdentity: string
   CommentTime: string
@@ -24,6 +25,7 @@ export interface SubComment {
   author: string
   authorID: number
   authorScore: number
+  authorTitle?: string
   authorTelephone: string
   authorAvatar: string
   authorIdentity: string

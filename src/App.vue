@@ -4,17 +4,36 @@ import {
   onUnmounted,
   ref,
 } from 'vue'
-import { getInfo } from './api/info/getInfo'
+import { getInfo, getSelfAllInfo } from './api/info/getInfo'
 import { userLogin } from './api/LoginAndRegister/login'
 import { useUserStore } from './store/userStore'
 
+import TitleCustomizeModal from '@/components/TitleCustomizeModal.vue'
 import NowPlayingOverlay from '@/components/music/NowPlayingOverlay.vue'
 import PlayerBar from '@/components/music/PlayerBar.vue'
 import PlaylistDrawer from '@/components/music/PlaylistDrawer.vue'
 
-const { setUserInfo, token, refreshToken, setToken, setRefreshToken } = useUserStore()
+const { setUserInfo, token, refreshToken, setToken, setRefreshToken, userInfo } = useUserStore()
 
 const isUserReady = ref(false)
+const showTitleModal = ref(false)
+
+// 满级且未自定义称号时,弹强制自定义弹窗
+async function checkCustomTitleModal() {
+  try {
+    if (!token.value || !userInfo.userID)
+      return
+    const info = await getSelfAllInfo(userInfo.userID)
+    if (info.score >= 5000 && !(info.customTitle || '').trim())
+      showTitleModal.value = true
+  }
+  catch {
+  }
+}
+
+function onTitleSaved() {
+  showTitleModal.value = false
+}
 
 /**
  * @description 离开页面时，如果localStorage.rememberMe不存在，删除token
@@ -72,6 +91,7 @@ onBeforeMount(async () => {
   }
   finally {
     isUserReady.value = true
+    void checkCustomTitleModal()
   }
 })
 
@@ -82,6 +102,7 @@ onUnmounted(() => {
 
 <template>
   <router-view v-if="isUserReady" />
+  <TitleCustomizeModal v-if="showTitleModal" @saved="onTitleSaved" />
   <!-- 全局音乐播放器：跨路由续播，挂在 router-view 之外 -->
   <PlayerBar />
   <NowPlayingOverlay />
