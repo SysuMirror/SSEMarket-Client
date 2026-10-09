@@ -9,6 +9,8 @@ export type HomeOrderBy
   | 'like_asc'
   | 'comment_desc'
   | 'comment_asc'
+  | 'browse_desc'
+  | 'browse_asc'
 
 export interface getPostsObject {
   limit: number

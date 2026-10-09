@@ -24,7 +24,7 @@ defineOptions({
   name: 'HomeView',
 })
 
-type SortField = 'time' | 'like' | 'comment'
+type SortField = 'time' | 'like' | 'comment' | 'browse'
 
 const route = useRoute()
 const router = useRouter()
@@ -60,6 +60,7 @@ const sortOptions: { field: SortField, label: string, icon: string }[] = [
   { field: 'time', label: '时间', icon: 'tabler:clock' },
   { field: 'like', label: '点赞', icon: 'tabler:heart' },
   { field: 'comment', label: '回复', icon: 'tabler:message' },
+  { field: 'browse', label: '浏览', icon: 'tabler:eye' },
 ]
 
 function toOrderBy(field: SortField, desc: boolean): HomeOrderBy {
@@ -68,12 +69,14 @@ function toOrderBy(field: SortField, desc: boolean): HomeOrderBy {
     return `time_${dir}` as HomeOrderBy
   if (field === 'like')
     return `like_${dir}` as HomeOrderBy
+  if (field === 'browse')
+    return `browse_${dir}` as HomeOrderBy
   return `comment_${dir}` as HomeOrderBy
 }
 
 function syncSortUiFromOrderBy(orderBy: string) {
   const [field, dir] = orderBy.split('_')
-  if (field === 'time' || field === 'like' || field === 'comment')
+  if (field === 'time' || field === 'like' || field === 'comment' || field === 'browse')
     sortField.value = field
   else
     sortField.value = 'time'
