@@ -6,7 +6,8 @@ import UnoCSS from 'unocss/vite'
 import { defineConfig } from 'vite'
 import dnsPrefetchPlugin from './plugins/vite-plugin-dns-prefetch'
 // https://vitejs.dev/config/
-const base = process.env.CF_PAGES ? '/' : '/new/'
+// VITE_BASE：测试环境按路径分流时用（例如 /zhangsan/）；不设就沿用主站的 /new/
+const base = process.env.VITE_BASE || (process.env.CF_PAGES ? '/' : '/new/')
 export default defineConfig({
   base,
   // dev-only：本地开发经代理直连生产后端（构建产物不受影响）。
