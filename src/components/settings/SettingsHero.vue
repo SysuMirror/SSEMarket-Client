@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import ExpRulesModal from './ExpRulesModal.vue'
+
+const showRules = ref(false)
+
 defineProps<{
   avatarSrc: string
   name: string
@@ -53,6 +58,19 @@ defineEmits<{
           <div class="settings-hero__level-row">
             <span class="settings-hero__level-badge" :class="levelClass">{{ levelLabel }}</span>
             <span class="settings-hero__exp-text">{{ score }} / {{ expTarget }} 经验</span>
+            <button
+              type="button"
+              class="settings-hero__help-btn"
+              aria-label="查看经验规则"
+              title="经验规则"
+              @click="showRules = true"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                <path d="M9.6 9.2a2.5 2.5 0 1 1 3.4 2.33c-.7.27-1 .83-1 1.57v.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <circle cx="12" cy="17" r="1.2" fill="currentColor" />
+              </svg>
+            </button>
             <span class="settings-hero__next-level">{{ nextLevelLabel }}</span>
           </div>
           <div
@@ -70,6 +88,7 @@ defineEmits<{
         编辑资料
       </button>
     </div>
+    <ExpRulesModal :open="showRules" @close="showRules = false" />
   </section>
 </template>
 
@@ -178,6 +197,22 @@ defineEmits<{
     font-size: 11px;
     color: var(--color-text-muted);
     font-variant-numeric: tabular-nums;
+  }
+
+  &__help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: var(--accent);
+    }
   }
 
   &__next-level {
