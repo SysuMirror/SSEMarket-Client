@@ -44,6 +44,8 @@ const loading = ref(true)
 const coverInput = ref<HTMLInputElement | null>(null)
 const coverBusy = ref(false)
 
+const chapterBusy = ref(false)
+
 /** 读者打赏 */
 const rewardOpen = ref(false)
 const rewardBusy = ref(false)
@@ -78,6 +80,19 @@ async function loadChapters() {
   const result = await getNovelChapters(novelID.value, chapterLimit, 0)
   chapters.value = result.chapters
   chapterTotal.value = result.total
+}
+
+/** 章节数不设上限，目录分页往下翻，别让前 50 章成为事实上的上限。 */
+async function loadMoreChapters() {
+  if (chapterBusy.value || chapters.value.length >= chapterTotal.value)
+    return
+  chapterBusy.value = true
+  const result = await getNovelChapters(novelID.value, chapterLimit, chapters.value.length)
+  chapters.value = chapters.value.length === 0
+    ? result.chapters
+    : [...chapters.value, ...result.chapters]
+  chapterTotal.value = result.total
+  chapterBusy.value = false
 }
 
 async function loadReviews() {
@@ -395,6 +410,16 @@ onMounted(async () => {
       <p v-else class="novel-book__empty">
         还没有章节
       </p>
+
+      <button
+        v-if="chapters.length > 0 && chapters.length < chapterTotal"
+        type="button"
+        class="novel-book__toc-more"
+        :disabled="chapterBusy"
+        @click="loadMoreChapters"
+      >
+        {{ chapterBusy ? '加载中…' : `显示更多章节（还有 ${chapterTotal - chapters.length} 章）` }}
+      </button>
     </section>
 
     <section class="novel-book__reviews">
@@ -722,6 +747,25 @@ onMounted(async () => {
   border-radius: var(--radius-lg, 8px);
   box-shadow: var(--color-card-shadow);
   overflow: hidden;
+}
+
+/* 章节数不设上限：目录往下翻 */
+.novel-book__toc-more {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px;
+  border: 1px dashed var(--color-border, rgba(71, 85, 105, 0.2));
+  border-radius: 9px;
+  background: transparent;
+  color: var(--accent, #2c3d56);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
 }
 
 .novel-book__toc-item {
