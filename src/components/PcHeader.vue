@@ -97,6 +97,15 @@ const {
         />
         打分
       </router-link>
+      <router-link to="/novel">
+        <div
+          class="icon" style="
+              background-image: url(https://img.icons8.com/ios-filled/100/open-book.png);
+              background-position: 0px 3px;
+            "
+        />
+        小说
+      </router-link>
       <router-link to="/smart-xiaoqiu" class="link-xiaoqiu">
         <div
           class="icon"

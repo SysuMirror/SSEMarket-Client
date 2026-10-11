@@ -56,6 +56,32 @@ const router = createRouter({
           redirect: '/rating',
         },
         {
+          path: 'novel',
+          name: 'Novel',
+          component: () => import('@/views/NovelView.vue'),
+        },
+        {
+          path: 'novel/book/:id',
+          name: 'NovelBook',
+          component: () => import('@/views/NovelBookView.vue'),
+          props: true,
+        },
+        {
+          path: 'novel/read/:chapterID',
+          name: 'NovelReader',
+          component: () => import('@/views/NovelReaderView.vue'),
+          props: true,
+        },
+        {
+          path: 'novel/write',
+          name: 'NovelWrite',
+          component: () => import('@/views/NovelWriteView.vue'),
+        },
+        {
+          path: 'partition/小说',
+          redirect: '/novel',
+        },
+        {
           path: 'resume',
           name: 'Resume',
           component: () => import('@/views/ResumeView.vue'),
