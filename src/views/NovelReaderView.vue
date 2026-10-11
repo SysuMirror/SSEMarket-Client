@@ -62,6 +62,13 @@ const panelLoading = ref(false)
 const draft = ref('')
 const draftBusy = ref(false)
 
+/** 选中正文后浮现的操作菜单（复制 / 发段评） */
+const selMenu = ref<{ paragraph: NovelParagraphItem | null, text: string, x: number, y: number } | null>(null)
+const LONG_PRESS_MS = 500
+const LONG_PRESS_SLOP = 12
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressStart: { x: number, y: number } | null = null
+
 /** 阅读进度 */
 const furthestIndex = ref(0)
 let observer: IntersectionObserver | null = null
@@ -168,6 +175,7 @@ async function loadChapter() {
 }
 
 async function openParagraph(p: NovelParagraphItem) {
+  hideSelMenu()
   activeParagraph.value = p
   panelLoading.value = true
   panelComments.value = []
@@ -189,6 +197,183 @@ async function openParagraph(p: NovelParagraphItem) {
 function closePanel() {
   activeParagraph.value = null
   draft.value = ''
+  hideSelMenu()
+  clearSelection()
+}
+
+// ---------------------------------------------------------------------------
+// 选中正文 → 复制 / 发段评（桌面拖选，移动端长按整段）
+// ---------------------------------------------------------------------------
+
+const SEL_MENU_W = 216
+
+/** 桌面端贴着选区浮出；移动端固定在底部导航上方，不跟选区跑。 */
+const selMenuStyle = computed<Record<string, string>>(() => {
+  const menu = selMenu.value
+  const style: Record<string, string> = {}
+  if (!menu || window.innerWidth < 769)
+    return style
+  style.left = `${menu.x}px`
+  style.top = `${menu.y}px`
+  return style
+})
+
+function clearSelection() {
+  window.getSelection()?.removeAllRanges()
+}
+
+function hideSelMenu() {
+  selMenu.value = null
+}
+
+/** 节点所在的段落元素；跨段选中按起点这一段算。 */
+function paragraphElFromNode(node: Node | null): HTMLElement | null {
+  const el = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node as HTMLElement | null
+  return el?.closest<HTMLElement>('.novel-reader__para[data-index]') ?? null
+}
+
+function captureSelection() {
+  const sel = window.getSelection()
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+    hideSelMenu()
+    return
+  }
+  const range = sel.getRangeAt(0)
+  const text = sel.toString().trim()
+  const el = paragraphElFromNode(range.startContainer)
+  const index = Number(el?.dataset.index)
+  const paragraph = Number.isFinite(index)
+    ? paragraphs.value.find(p => p.index === index) ?? null
+    : null
+  if (!text || !paragraph) {
+    hideSelMenu()
+    return
+  }
+  const rect = range.getBoundingClientRect()
+  const vw = window.innerWidth
+  selMenu.value = {
+    paragraph,
+    text,
+    x: Math.min(Math.max(8, rect.left), Math.max(8, vw - SEL_MENU_W - 8)),
+    y: Math.max(8, rect.top - 46),
+  }
+}
+
+function legacyCopy(text: string): boolean {
+  const ta = document.createElement('textarea')
+  ta.value = text
+  ta.setAttribute('readonly', '')
+  ta.style.position = 'fixed'
+  ta.style.top = '-1000px'
+  ta.style.opacity = '0'
+  document.body.appendChild(ta)
+  ta.select()
+  let ok = false
+  try {
+    ok = document.execCommand('copy')
+  }
+  catch {
+    ok = false
+  }
+  document.body.removeChild(ta)
+  return ok
+}
+
+async function copySelection() {
+  const text = selMenu.value?.text ?? ''
+  if (!text)
+    return
+  let ok = false
+  try {
+    await navigator.clipboard.writeText(text)
+    ok = true
+  }
+  catch {
+    // 非安全上下文 / 旧浏览器退回 execCommand
+    ok = legacyCopy(text)
+  }
+  hideSelMenu()
+  clearSelection()
+  showMsg(ok ? '已复制选中文字' : '复制失败，请手动复制')
+}
+
+function commentSelection() {
+  const paragraph = selMenu.value?.paragraph
+  hideSelMenu()
+  clearSelection()
+  if (paragraph)
+    void openParagraph(paragraph)
+}
+
+function selectParagraph(el: HTMLElement) {
+  const span = el.querySelector<HTMLElement>('.novel-reader__para-text')
+  if (!span)
+    return
+  const range = document.createRange()
+  range.selectNodeContents(span)
+  const sel = window.getSelection()
+  sel?.removeAllRanges()
+  sel?.addRange(range)
+  captureSelection()
+}
+
+function cancelLongPress() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+  longPressStart = null
+}
+
+function onBodyTouchStart(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (!touch)
+    return
+  longPressStart = { x: touch.clientX, y: touch.clientY }
+  const el = (e.target as HTMLElement).closest?.<HTMLElement>('.novel-reader__para[data-index]')
+  if (!el)
+    return
+  cancelLongPress()
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null
+    selectParagraph(el)
+  }, LONG_PRESS_MS)
+}
+
+function onBodyTouchMove(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (!touch || !longPressStart)
+    return
+  if (Math.abs(touch.clientX - longPressStart.x) > LONG_PRESS_SLOP
+    || Math.abs(touch.clientY - longPressStart.y) > LONG_PRESS_SLOP) {
+    cancelLongPress()
+  }
+}
+
+function onDocumentPointerDown(e: PointerEvent) {
+  if (!selMenu.value)
+    return
+  if ((e.target as HTMLElement).closest?.('.novel-reader__selmenu'))
+    return
+  hideSelMenu()
+}
+
+function onDocumentKeyDown(e: KeyboardEvent) {
+  if (e.key !== 'Escape')
+    return
+  if (selMenu.value) {
+    hideSelMenu()
+    clearSelection()
+    return
+  }
+  if (activeParagraph.value)
+    closePanel()
+}
+
+/** 菜单按选区坐标定位，滚动后坐标失效，所以一滚就收。 */
+function onScrollDismiss() {
+  if (selMenu.value)
+    hideSelMenu()
 }
 
 async function submitParagraphComment() {
@@ -249,9 +434,20 @@ watch(chapterID, () => {
   void loadChapter()
 })
 
-onMounted(loadChapter)
+onMounted(() => {
+  void loadChapter()
+  document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('keydown', onDocumentKeyDown)
+  window.addEventListener('scroll', onScrollDismiss, { passive: true })
+  window.addEventListener('resize', onScrollDismiss)
+})
 
 onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onDocumentKeyDown)
+  window.removeEventListener('scroll', onScrollDismiss)
+  window.removeEventListener('resize', onScrollDismiss)
+  cancelLongPress()
   if (progressTimer)
     clearTimeout(progressTimer)
   observer?.disconnect()
@@ -260,7 +456,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="detail" class="novel-zone novel-reader">
+  <div v-if="detail" class="novel-zone novel-reader" :class="{ 'novel-reader--panel-open': activeParagraph !== null }">
     <header class="novel-reader__bar">
       <RouterLink class="novel-reader__bar-btn" :to="novelBookPath(detail.novelID)">
         <Icon icon="tabler:chevron-left" width="18" height="18" aria-hidden="true" />
@@ -299,6 +495,11 @@ onUnmounted(() => {
       class="novel-reader__body"
       :class="{ 'novel-reader__body--wide': settings.wideLine }"
       :style="{ fontSize: `${fontPx}px` }"
+      @mouseup="captureSelection"
+      @touchstart.passive="onBodyTouchStart"
+      @touchmove.passive="onBodyTouchMove"
+      @touchend="cancelLongPress"
+      @touchcancel="cancelLongPress"
     >
       <h1 class="novel-reader__chapter-title">
         {{ detail.chapter.chapterNum }}. {{ detail.chapter.title }}
@@ -316,13 +517,13 @@ onUnmounted(() => {
         :key="p.index"
         class="novel-reader__para"
         :data-index="p.index"
-        @click="openParagraph(p)"
       >
-        <span class="novel-reader__para-text">{{ p.text }}</span><button
+        <span class="novel-reader__para-text">{{ p.text }}</span>
+        <button
+          v-if="p.commentNum > 0"
           type="button"
           class="novel-reader__bubble"
-          :class="{ 'novel-reader__bubble--on': p.commentNum > 0 }"
-          :title="p.commentNum > 0 ? `${p.commentNum} 条段评` : '评论这一段'"
+          :title="`${p.commentNum} 条段评`"
           @click.stop="openParagraph(p)"
         >
           <Icon icon="tabler:message-circle" width="13" height="13" aria-hidden="true" />
@@ -366,60 +567,83 @@ onUnmounted(() => {
       </p>
     </article>
 
-    <div v-if="activeParagraph" class="novel-reader__mask" @click="closePanel" />
-    <Transition name="novel-panel">
-      <section v-if="activeParagraph" class="novel-reader__panel" aria-label="段落评论">
-        <header class="novel-reader__panel-head">
-          <div class="novel-reader__panel-para">
-            <span class="novel-reader__panel-num">第 {{ activeParagraph.index + 1 }} 段</span>
-            <p class="novel-reader__panel-excerpt">
-              {{ novelParagraphExcerpt(activeParagraph.text, 60) }}
+    <!-- Teleport 到 body：.app-main 自带 z-index:1 会把面板的层级关在低层上下文里，
+         导致面板头部被站点头（z-index 2100）盖住。 -->
+    <Teleport to="body">
+      <div v-if="activeParagraph" class="novel-reader__mask" @click="closePanel" />
+      <Transition name="novel-panel">
+        <section v-if="activeParagraph" class="novel-reader__panel" aria-label="段落评论">
+          <span class="novel-reader__panel-grip" aria-hidden="true" />
+
+          <header class="novel-reader__panel-head">
+            <div class="novel-reader__panel-para">
+              <span class="novel-reader__panel-num">
+                第 {{ activeParagraph.index + 1 }} 段 · {{ panelComments.length }} 条
+              </span>
+              <p class="novel-reader__panel-excerpt">
+                {{ novelParagraphExcerpt(activeParagraph.text, 60) }}
+              </p>
+            </div>
+            <button type="button" class="novel-reader__panel-close" aria-label="关闭评论" @click="closePanel">
+              <Icon icon="tabler:x" width="16" height="16" aria-hidden="true" />
+              <span>关闭</span>
+            </button>
+          </header>
+
+          <div class="novel-reader__panel-list">
+            <p v-if="panelLoading" class="novel-reader__panel-empty">
+              加载中…
+            </p>
+            <ul v-else-if="panelComments.length > 0" class="novel-reader__panel-ul">
+              <NovelCommentCard
+                v-for="c in panelComments"
+                :key="c.commentID"
+                :comment="c"
+                :show-excerpt="false"
+                :deletable="c.authorID === userInfo.userID"
+                @like-change="onLiked(c)"
+                @deleted="activeParagraph!.commentNum -= 1; detail!.chapter.commentNum -= 1"
+              />
+            </ul>
+            <p v-else class="novel-reader__panel-empty">
+              这一段还没有评论
             </p>
           </div>
-          <button type="button" class="novel-reader__panel-close" aria-label="关闭" @click="closePanel">
-            <Icon icon="tabler:x" width="18" height="18" aria-hidden="true" />
-          </button>
-        </header>
 
-        <div class="novel-reader__panel-form">
-          <textarea
-            v-model="draft"
-            class="novel-reader__panel-input"
-            rows="3"
-            maxlength="500"
-            placeholder="对这一段说点什么（最多 500 字）"
-          />
-          <button
-            type="button"
-            class="novel-reader__panel-submit"
-            :disabled="draftBusy"
-            @click="submitParagraphComment"
-          >
-            {{ draftBusy ? '发送中…' : '发布段评' }}
-          </button>
-        </div>
-
-        <div class="novel-reader__panel-list">
-          <p v-if="panelLoading" class="novel-reader__panel-empty">
-            加载中…
-          </p>
-          <ul v-else-if="panelComments.length > 0" class="novel-reader__panel-ul">
-            <NovelCommentCard
-              v-for="c in panelComments"
-              :key="c.commentID"
-              :comment="c"
-              :show-excerpt="false"
-              :deletable="c.authorID === userInfo.userID"
-              @like-change="onLiked(c)"
-              @deleted="activeParagraph!.commentNum -= 1; detail!.chapter.commentNum -= 1"
+          <div class="novel-reader__panel-form">
+            <textarea
+              v-model="draft"
+              class="novel-reader__panel-input"
+              rows="2"
+              maxlength="500"
+              placeholder="对这一段说点什么（最多 500 字）"
             />
-          </ul>
-          <p v-else class="novel-reader__panel-empty">
-            这一段还没有评论
-          </p>
+            <button
+              type="button"
+              class="novel-reader__panel-submit"
+              :disabled="draftBusy"
+              @click="submitParagraphComment"
+            >
+              {{ draftBusy ? '发送中…' : '发布' }}
+            </button>
+          </div>
+        </section>
+      </Transition>
+
+      <Transition name="novel-selmenu">
+        <div v-if="selMenu" class="novel-reader__selmenu" :style="selMenuStyle" role="menu" aria-label="选中文字操作">
+          <button type="button" role="menuitem" @click="copySelection">
+            <Icon icon="tabler:copy" width="14" height="14" aria-hidden="true" />
+            <span>复制</span>
+          </button>
+          <span class="novel-reader__selmenu-sep" aria-hidden="true" />
+          <button type="button" role="menuitem" @click="commentSelection">
+            <Icon icon="tabler:message-circle" width="14" height="14" aria-hidden="true" />
+            <span>发段评</span>
+          </button>
         </div>
-      </section>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 
   <div v-else class="novel-reader__loading">
@@ -536,42 +760,41 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
+/* 正文只负责选中：拖选 / 长按出「复制 · 发段评」菜单，段落本身不再是按钮。 */
 .novel-reader__para {
   margin: 0 0 14px;
   text-indent: 2em;
   word-break: break-word;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.12s ease;
 
-  &:active {
-    background: var(--color-hover, rgba(44, 61, 86, 0.06));
+  ::selection {
+    background: var(--accent-soft, rgba(44, 61, 86, 0.18));
+    color: inherit;
   }
 }
 
-/* 段评气泡跟在段落末尾，绝对定位会在长段落上压住正文。 */
 .novel-reader__para-text {
   display: inline;
 }
 
+/* 只有已有段评的段落才挂气泡，空段评不占位、不干扰阅读。 */
 .novel-reader__bubble {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   margin-left: 6px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border: none;
   border-radius: 999px;
-  background: var(--color-hover, rgba(44, 61, 86, 0.06));
+  background: var(--accent-soft, rgba(44, 61, 86, 0.1));
   font-size: 11px;
-  color: var(--color-text-muted, #94a3b8);
+  font-weight: 700;
+  color: var(--accent, #2c3d56);
   cursor: pointer;
   vertical-align: 0.15em;
 
-  &--on {
-    background: var(--accent-soft, rgba(44, 61, 86, 0.08));
-    color: var(--accent, #2c3d56);
-    font-weight: 700;
+  &:hover {
+    background: var(--accent, #2c3d56);
+    color: #fff;
   }
 }
 
@@ -647,30 +870,45 @@ onUnmounted(() => {
   color: var(--color-text-muted, #94a3b8);
 }
 
+/* 遮罩从站点头下方开始，点头保持可点，不会被误当成“关闭”。 */
 .novel-reader__mask {
   position: fixed;
-  inset: 0;
+  top: var(--layout-header-h, 2.75rem);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 2200;
   background: rgba(15, 23, 42, 0.4);
 }
 
+/* 移动端：底部抽屉，留出正文可见区域；输入框固定在底部。 */
 .novel-reader__panel {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 2201;
-  max-height: min(72vh, 640px);
+  max-height: min(70vh, 560px);
   display: flex;
   flex-direction: column;
-  padding: 12px 12px calc(var(--layout-bottom-nav-h, 52px) + 12px);
+  padding: 6px 12px calc(var(--layout-bottom-nav-h, 52px) + 10px);
   box-sizing: border-box;
   background: var(--color-card, #fff);
   border-radius: 14px 14px 0 0;
   box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.16);
 }
 
+.novel-reader__panel-grip {
+  flex-shrink: 0;
+  width: 38px;
+  height: 4px;
+  margin: 2px auto 8px;
+  border-radius: 999px;
+  background: var(--color-border, rgba(71, 85, 105, 0.22));
+}
+
 .novel-reader__panel-head {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -700,21 +938,37 @@ onUnmounted(() => {
 
 .novel-reader__panel-close {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.18));
   border-radius: 8px;
-  background: transparent;
+  background: var(--color-bg, #f5f6f7);
+  font-size: 12px;
   color: var(--color-text-secondary, #475569);
   cursor: pointer;
+
+  &:hover {
+    background: var(--color-hover, rgba(44, 61, 86, 0.08));
+    color: var(--color-text, #1e293b);
+  }
 }
 
+/* 输入框钉在面板底部，评论列表在它上方滚动。 */
 .novel-reader__panel-form {
-  padding: 8px 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
 }
 
 .novel-reader__panel-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   box-sizing: border-box;
   border: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
   border-radius: 8px;
@@ -732,8 +986,9 @@ onUnmounted(() => {
 }
 
 .novel-reader__panel-submit {
-  margin-top: 6px;
-  padding: 7px 14px;
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 14px;
   border: none;
   border-radius: 8px;
   background: var(--accent, #2c3d56);
@@ -795,24 +1050,98 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* 桌面端：评论面板改为右侧抽屉，不遮挡正文；移动端保持底部抽屉。 */
+/* 选中正文后浮现的操作菜单：移动端固定在底部导航上方。 */
+.novel-reader__selmenu {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--layout-bottom-nav-h, 52px) + 12px);
+  z-index: 2300;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.3);
+  transform: translateX(-50%);
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:active {
+      background: rgba(255, 255, 255, 0.16);
+    }
+  }
+}
+
+.novel-reader__selmenu-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.novel-selmenu-enter-active,
+.novel-selmenu-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.novel-selmenu-enter-from,
+.novel-selmenu-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 6px);
+}
+
+/* 桌面端：抽屉贴在站点头下方，正文同步让位，互不遮挡。 */
 @media screen and (min-width: 769px) {
   .novel-reader__panel {
-    top: 0;
+    top: calc(var(--layout-header-h, 2.75rem) + 8px);
     right: 0;
     bottom: 0;
     left: auto;
-    width: 400px;
+    width: 380px;
     max-width: calc(100vw - 24px);
     max-height: none;
-    padding: 16px 16px 20px;
+    padding: 14px 16px 16px;
     border-radius: 14px 0 0 14px;
     box-shadow: -6px 0 24px rgba(15, 23, 42, 0.18);
+  }
+
+  .novel-reader__panel-grip {
+    display: none;
   }
 
   .novel-panel-enter-from,
   .novel-panel-leave-to {
     transform: translateX(24px);
+  }
+
+  .novel-reader__selmenu {
+    left: auto;
+    bottom: auto;
+  }
+
+  .novel-selmenu-enter-from,
+  .novel-selmenu-leave-to {
+    transform: translate(-50%, 6px);
+  }
+
+  /* 面板打开时正文列变窄，不被抽屉压住 */
+  .novel-reader--panel-open {
+    max-width: min(720px, calc(100vw - 420px));
+    margin-right: 400px;
+    margin-left: auto;
   }
 }
 </style>
