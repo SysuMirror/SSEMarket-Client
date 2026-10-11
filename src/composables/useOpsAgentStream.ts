@@ -1,3 +1,4 @@
+import type { Ref, ShallowRef } from 'vue'
 import { ref, shallowRef } from 'vue'
 import { opsagentBaseURL } from '@/api/opsagent/baseUrl'
 import { OpsAgentRequestError, parseOpsAgentJsonError } from '@/api/opsagent/errors'
@@ -142,19 +143,63 @@ export interface SendAgentOptions {
   onAfterUpdate?: () => void
 }
 
-export function useOpsAgentStream() {
-  const timeline = shallowRef<TimelineItem[]>([])
-  const globalError = ref('')
-  const isStreaming = ref(false)
-  let abortController: AbortController | null = null
+/**
+ * 共享流状态：同 shareKey 复用同一份（模块级），组件卸载不销毁。
+ * 背景：聊天页切路由即卸载组件，实例级状态随组件销毁——正在生成的回复在
+ * UI 上"中断"，切回只能重新 bootstrap，看不到仍在跑的流（还诱发重发双跑）。
+ * 共享模式下连 sessionId 一起保留：切回时按原会话续看，不重新拉最近会话。
+ * 不传 shareKey = 实例模式，行为与历史版本完全一致（PostDraftCard 等继续用）。
+ */
+interface SharedStreamState {
+  timeline: ShallowRef<TimelineItem[]>
+  globalError: Ref<string>
+  isStreaming: Ref<boolean>
+  sessionId: Ref<string>
+  holder: { abortController: AbortController | null }
+}
+
+const sharedStates = new Map<string, SharedStreamState>()
+
+export function useOpsAgentStream(shareKey?: string) {
+  let timeline: ShallowRef<TimelineItem[]>
+  let globalError: Ref<string>
+  let isStreaming: Ref<boolean>
+  let sessionId: Ref<string>
+  let holder: { abortController: AbortController | null }
+
+  if (shareKey) {
+    let st = sharedStates.get(shareKey)
+    if (!st) {
+      st = {
+        timeline: shallowRef<TimelineItem[]>([]),
+        globalError: ref(''),
+        isStreaming: ref(false),
+        sessionId: ref(''),
+        holder: { abortController: null },
+      }
+      sharedStates.set(shareKey, st)
+    }
+    timeline = st.timeline
+    globalError = st.globalError
+    isStreaming = st.isStreaming
+    sessionId = st.sessionId
+    holder = st.holder
+  }
+  else {
+    timeline = shallowRef<TimelineItem[]>([])
+    globalError = ref('')
+    isStreaming = ref(false)
+    sessionId = ref('')
+    holder = { abortController: null }
+  }
 
   function bump() {
     timeline.value = [...timeline.value]
   }
 
   function abort() {
-    abortController?.abort()
-    abortController = null
+    holder.abortController?.abort()
+    holder.abortController = null
   }
 
   function lastUserIndex(): number {
@@ -309,7 +354,7 @@ export function useOpsAgentStream() {
       return
     }
     isStreaming.value = true
-    abortController = new AbortController()
+    holder.abortController = new AbortController()
     let aborted = false
 
     const body: Record<string, unknown> = {
@@ -328,7 +373,7 @@ export function useOpsAgentStream() {
             ...opsagentAuthHeaders(),
           },
           body: JSON.stringify(body),
-          signal: abortController.signal,
+          signal: holder.abortController.signal,
         })
       }
       catch (e) {
@@ -445,7 +490,7 @@ export function useOpsAgentStream() {
         bump()
       }
       isStreaming.value = false
-      abortController = null
+      holder.abortController = null
       onAfterUpdate?.()
     }
   }
@@ -482,6 +527,7 @@ export function useOpsAgentStream() {
     timeline,
     globalError,
     isStreaming,
+    sessionId,
     sendAgentMessage,
     pushUserMessage,
     resetTimeline,
