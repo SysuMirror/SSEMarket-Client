@@ -48,7 +48,8 @@ export async function getNovelChapter(chapterID: number): Promise<NovelChapterDe
   const paragraphs = Array.isArray(data.paragraphs) ? data.paragraphs as Record<string, unknown>[] : []
   return {
     chapter: normalizeChapter(rawChapter),
-    novelID: num(data.novelID ?? rawChapter.novelID),
+    // 后端顶层 novelID 缺失时回退到章节自带的 novelID（0 也要回退，?? 不够）
+    novelID: num(data.novelID) || num(rawChapter.novelID),
     novelTitle: str(data.novelTitle ?? data.NovelTitle),
     authorName: str(data.authorName ?? data.AuthorName),
     paragraphs: paragraphs.map(p => ({

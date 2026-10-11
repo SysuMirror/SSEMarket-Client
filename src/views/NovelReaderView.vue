@@ -318,11 +318,11 @@ onUnmounted(() => {
         :data-index="p.index"
         @click="openParagraph(p)"
       >
-        <span class="novel-reader__para-text">{{ p.text }}</span>
-        <button
+        <span class="novel-reader__para-text">{{ p.text }}</span><button
           type="button"
           class="novel-reader__bubble"
           :class="{ 'novel-reader__bubble--on': p.commentNum > 0 }"
+          :title="p.commentNum > 0 ? `${p.commentNum} 条段评` : '评论这一段'"
           @click.stop="openParagraph(p)"
         >
           <Icon icon="tabler:message-circle" width="13" height="13" aria-hidden="true" />
@@ -403,16 +403,18 @@ onUnmounted(() => {
           <p v-if="panelLoading" class="novel-reader__panel-empty">
             加载中…
           </p>
-          <NovelCommentCard
-            v-for="c in panelComments"
-            :key="c.commentID"
-            :comment="c"
-            :show-excerpt="false"
-            :deletable="c.authorID === userInfo.userID"
-            @like-change="onLiked(c)"
-            @deleted="activeParagraph!.commentNum -= 1; detail!.chapter.commentNum -= 1"
-          />
-          <p v-if="!panelLoading && panelComments.length === 0" class="novel-reader__panel-empty">
+          <ul v-else-if="panelComments.length > 0" class="novel-reader__panel-ul">
+            <NovelCommentCard
+              v-for="c in panelComments"
+              :key="c.commentID"
+              :comment="c"
+              :show-excerpt="false"
+              :deletable="c.authorID === userInfo.userID"
+              @like-change="onLiked(c)"
+              @deleted="activeParagraph!.commentNum -= 1; detail!.chapter.commentNum -= 1"
+            />
+          </ul>
+          <p v-else class="novel-reader__panel-empty">
             这一段还没有评论
           </p>
         </div>
@@ -535,7 +537,6 @@ onUnmounted(() => {
 }
 
 .novel-reader__para {
-  position: relative;
   margin: 0 0 14px;
   text-indent: 2em;
   word-break: break-word;
@@ -548,25 +549,24 @@ onUnmounted(() => {
   }
 }
 
+/* 段评气泡跟在段落末尾，绝对定位会在长段落上压住正文。 */
 .novel-reader__para-text {
-  display: block;
-  padding-right: 44px;
+  display: inline;
 }
 
 .novel-reader__bubble {
-  position: absolute;
-  top: 0.25em;
-  right: 0;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px 6px;
+  margin-left: 6px;
+  padding: 1px 7px;
   border: none;
   border-radius: 999px;
-  background: transparent;
+  background: var(--color-hover, rgba(44, 61, 86, 0.06));
   font-size: 11px;
   color: var(--color-text-muted, #94a3b8);
   cursor: pointer;
+  vertical-align: 0.15em;
 
   &--on {
     background: var(--accent-soft, rgba(44, 61, 86, 0.08));
@@ -758,6 +758,15 @@ onUnmounted(() => {
   gap: 6px;
 }
 
+.novel-reader__panel-ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .novel-reader__panel-empty {
   padding: 16px;
   margin: 0;
@@ -786,19 +795,24 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+/* 桌面端：评论面板改为右侧抽屉，不遮挡正文；移动端保持底部抽屉。 */
 @media screen and (min-width: 769px) {
   .novel-reader__panel {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    width: 520px;
-    border-radius: 14px 14px 0 0;
-    padding-bottom: 16px;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: 400px;
+    max-width: calc(100vw - 24px);
+    max-height: none;
+    padding: 16px 16px 20px;
+    border-radius: 14px 0 0 14px;
+    box-shadow: -6px 0 24px rgba(15, 23, 42, 0.18);
   }
 
   .novel-panel-enter-from,
   .novel-panel-leave-to {
-    transform: translate(-50%, 16px);
+    transform: translateX(24px);
   }
 }
 </style>

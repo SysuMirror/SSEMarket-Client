@@ -10,9 +10,12 @@ import {
   getNovelComments,
   getNovelDetail,
   toggleShelf,
+  updateNovel,
+  uploadNovelCover,
 } from '@/api/novel'
 import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
+import NovelCover from '@/components/novel/NovelCover.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/store/userStore'
 import { novelReadPath, novelWritePath } from '@/utils/novelRoute'
@@ -35,6 +38,10 @@ const reviewBusy = ref(false)
 const introExpanded = ref(false)
 const shelfBusy = ref(false)
 const loading = ref(true)
+
+/** 作者换封面 */
+const coverInput = ref<HTMLInputElement | null>(null)
+const coverBusy = ref(false)
 
 const chapterLimit = 50
 const reviewLimit = 20
@@ -119,6 +126,41 @@ function onReviewLiked(c: NovelCommentItem) {
   c.likeNum += c.isLiked ? 1 : -1
 }
 
+function pickCover() {
+  coverInput.value?.click()
+}
+
+async function onCoverFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!novel.value || !file || coverBusy.value)
+    return
+  if (!file.type.startsWith('image/')) {
+    showMsg('请选择图片文件')
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showMsg('封面图片最大 5MB')
+    return
+  }
+  coverBusy.value = true
+  const url = await uploadNovelCover(file)
+  if (!url) {
+    coverBusy.value = false
+    showMsg('封面上传失败，请稍后重试')
+    return
+  }
+  const result = await updateNovel(novel.value.novelID, { coverURL: url })
+  coverBusy.value = false
+  if (!result.ok) {
+    showMsg(result.msg)
+    return
+  }
+  novel.value.coverURL = url
+  showMsg(result.msg)
+}
+
 async function onDeleteNovel() {
   if (!novel.value)
     return
@@ -146,11 +188,7 @@ onMounted(async () => {
 <template>
   <div v-if="novel" class="novel-zone novel-book">
     <header class="novel-book__head">
-      <img
-        class="novel-book__cover"
-        :src="novel.coverURL || `https://placehold.co/200x280/2c3d56/ffffff?text=${encodeURIComponent(novel.title.slice(0, 4))}`"
-        :alt="novel.title"
-      >
+      <NovelCover class="novel-book__cover" :title="novel.title" :cover-url="novel.coverURL" />
       <div class="novel-book__head-body">
         <h1 class="novel-book__title">
           {{ novel.title }}
@@ -222,10 +260,27 @@ onMounted(async () => {
         <Icon icon="tabler:pencil" width="16" height="16" aria-hidden="true" />
         发布新章
       </RouterLink>
+      <button
+        v-if="novel.isAuthor"
+        type="button"
+        class="novel-book__btn"
+        :disabled="coverBusy"
+        @click="pickCover"
+      >
+        <Icon icon="tabler:photo" width="16" height="16" aria-hidden="true" />
+        {{ coverBusy ? '上传中…' : '换封面' }}
+      </button>
       <button v-if="novel.isAuthor" type="button" class="novel-book__btn novel-book__btn--danger" @click="onDeleteNovel">
         <Icon icon="tabler:trash" width="16" height="16" aria-hidden="true" />
         删除
       </button>
+      <input
+        ref="coverInput"
+        type="file"
+        accept="image/*"
+        class="novel-book__cover-input"
+        @change="onCoverFile"
+      >
     </div>
 
     <section v-if="novel.intro" class="novel-book__intro-wrap">
@@ -286,15 +341,17 @@ onMounted(async () => {
         </button>
       </div>
 
-      <NovelCommentCard
-        v-for="c in reviews"
-        :key="c.commentID"
-        :comment="c"
-        :deletable="c.authorID === userInfo.userID"
-        @like-change="onReviewLiked(c)"
-        @deleted="reviewTotal -= 1; novel!.commentNum -= 1"
-      />
-      <p v-if="reviews.length === 0" class="novel-book__empty">
+      <ul v-if="reviews.length > 0" class="novel-book__review-list">
+        <NovelCommentCard
+          v-for="c in reviews"
+          :key="c.commentID"
+          :comment="c"
+          :deletable="c.authorID === userInfo.userID"
+          @like-change="onReviewLiked(c)"
+          @deleted="reviewTotal -= 1; novel!.commentNum -= 1"
+        />
+      </ul>
+      <p v-else class="novel-book__empty">
         还没有书评，来说两句
       </p>
     </section>
@@ -329,9 +386,12 @@ onMounted(async () => {
   flex: 0 0 auto;
   width: 84px;
   height: 118px;
-  object-fit: cover;
   border-radius: 5px;
   background: var(--color-bg, #f5f6f7);
+}
+
+.novel-book__cover-input {
+  display: none;
 }
 
 .novel-book__head-body {
@@ -581,6 +641,15 @@ onMounted(async () => {
     opacity: 0.55;
     cursor: default;
   }
+}
+
+.novel-book__review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px;
+  background: var(--color-card, #fff);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--color-card-shadow);
 }
 
 .novel-book__empty {

@@ -4,8 +4,11 @@ import type {
   NovelItem,
   NovelListQuery,
 } from './types'
+import { useUserStore } from '@/store/userStore'
 import { requestFunc } from '../req'
-import { novelPostJSON, num, str } from './request'
+import { novelPostJSON, novelPostRaw, num, str } from './request'
+
+const apiUrl = import.meta.env.VITE_API_BASE_URL
 
 export function normalizeNovelItem(raw: Record<string, unknown>): NovelItem {
   const latestAt = raw.latestChapterAt ?? raw.LatestChapterAt
@@ -114,6 +117,53 @@ export async function createNovel(body: {
   const data = await novelPostJSON('/auth/novel/create', body)
   const id = num(data?.novelID ?? data?.NovelID)
   return id > 0 ? id : null
+}
+
+/** 改书（作者）：只传要改的字段。成功返回 true，失败返回后端 msg。 */
+export async function updateNovel(
+  novelID: number,
+  patch: {
+    title?: string
+    coverURL?: string
+    category?: string
+    intro?: string
+    status?: string
+  },
+): Promise<{ ok: boolean, msg: string }> {
+  const body: Record<string, unknown> = { novelID }
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined)
+      body[key] = value
+  }
+  const res = await novelPostRaw('/auth/novel/update', body)
+  if (!res)
+    return { ok: false, msg: '保存失败，请稍后重试' }
+  if (!res.ok)
+    return { ok: false, msg: str(res.data.msg) || '保存失败' }
+  return { ok: true, msg: str(res.data.msg) || '已更新' }
+}
+
+/** 上传书籍封面，复用主站图床 /auth/uploadPhotos，返回图片 URL。 */
+export async function uploadNovelCover(file: File): Promise<string | null> {
+  const token = useUserStore().token.value
+  if (!token)
+    return null
+  const formData = new FormData()
+  formData.append('file', file, file.name)
+  try {
+    const res = await fetch(`${apiUrl}/auth/uploadPhotos`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+    if (!res.ok)
+      return null
+    const data = await res.json() as { fileURL?: string }
+    return data.fileURL || null
+  }
+  catch {
+    return null
+  }
 }
 
 export async function deleteNovel(novelID: number): Promise<boolean> {

@@ -3,6 +3,7 @@ import type { NovelItem } from '@/api/novel/types'
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import NovelCover from '@/components/novel/NovelCover.vue'
 import { novelBookPath, novelReadPath } from '@/utils/novelRoute'
 import { formatCount, formatNovelTime, formatWordCount } from '@/utils/novelText'
 
@@ -12,11 +13,6 @@ const { novel } = defineProps<{
   novel: NovelItem
 }>()
 
-const coverFallback = computed(() => {
-  const seed = encodeURIComponent(novel.title.slice(0, 4) || '书')
-  return `https://placehold.co/200x280/2c3d56/ffffff?text=${seed}`
-})
-
 const continueChapter = computed(() => novel.progressChapterID || novel.latestChapterID)
 const showProgress = computed(() => novel.progressPercent > 0 && novel.progressPercent < 100)
 </script>
@@ -24,7 +20,7 @@ const showProgress = computed(() => novel.progressPercent > 0 && novel.progressP
 <template>
   <article class="novel-card">
     <RouterLink class="novel-card__main" :to="novelBookPath(novel.novelID)">
-      <img class="novel-card__cover" :src="novel.coverURL || coverFallback" :alt="novel.title" loading="lazy">
+      <NovelCover class="novel-card__cover" :title="novel.title" :cover-url="novel.coverURL" />
       <div class="novel-card__body">
         <h3 class="novel-card__title">
           {{ novel.title }}
