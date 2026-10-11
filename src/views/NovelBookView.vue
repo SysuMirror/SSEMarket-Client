@@ -9,9 +9,10 @@ import {
   getNovelChapters,
   getNovelComments,
   getNovelDetail,
+  rewardNovelAuthor,
   toggleShelf,
   updateNovel,
-  uploadNovelCover,
+  uploadNovelImage,
 } from '@/api/novel'
 import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
@@ -42,6 +43,11 @@ const loading = ref(true)
 /** 作者换封面 */
 const coverInput = ref<HTMLInputElement | null>(null)
 const coverBusy = ref(false)
+
+/** 读者打赏 */
+const rewardOpen = ref(false)
+const rewardBusy = ref(false)
+const rewardPoints = ref(10)
 
 const chapterLimit = 50
 const reviewLimit = 20
@@ -126,6 +132,39 @@ function onReviewLiked(c: NovelCommentItem) {
   c.likeNum += c.isLiked ? 1 : -1
 }
 
+// ---------------------------------------------------------------------------
+// 打赏作者：扣自己等量经验，作者收到积分（同一本书每人每天最多一次）
+// ---------------------------------------------------------------------------
+
+const REWARD_PRESETS = [10, 50, 100]
+
+function pickReward(points: number) {
+  rewardPoints.value = points
+}
+
+async function onReward() {
+  if (!novel.value || rewardBusy.value)
+    return
+  const points = Math.floor(Number(rewardPoints.value))
+  if (!Number.isFinite(points) || points < 10 || points > 1000) {
+    showMsg('打赏积分要在 10 到 1000 之间')
+    return
+  }
+  rewardBusy.value = true
+  const result = await rewardNovelAuthor(novel.value.novelID, points)
+  rewardBusy.value = false
+  if (!result) {
+    showMsg('打赏失败，请稍后重试')
+    return
+  }
+  if (result.points <= 0) {
+    showMsg(result.msg)
+    return
+  }
+  rewardOpen.value = false
+  showMsg(`已打赏 ${result.points} 积分 · 扣 ${result.cost} 经验 · 剩余 ${result.experience} 经验`)
+}
+
 function pickCover() {
   coverInput.value?.click()
 }
@@ -145,7 +184,7 @@ async function onCoverFile(e: Event) {
     return
   }
   coverBusy.value = true
-  const url = await uploadNovelCover(file)
+  const url = await uploadNovelImage(file)
   if (!url) {
     coverBusy.value = false
     showMsg('封面上传失败，请稍后重试')
@@ -252,6 +291,16 @@ onMounted(async () => {
         <Icon :icon="novel.onShelf ? 'tabler:bookmark-filled' : 'tabler:bookmark'" width="16" height="16" aria-hidden="true" />
         {{ novel.onShelf ? '已在书架' : '加入书架' }}
       </button>
+      <button
+        v-if="!novel.isAuthor"
+        type="button"
+        class="novel-book__btn"
+        :class="{ 'novel-book__btn--on': rewardOpen }"
+        @click="rewardOpen = !rewardOpen"
+      >
+        <Icon icon="tabler:coin" width="16" height="16" aria-hidden="true" />
+        打赏作者
+      </button>
       <RouterLink
         v-if="novel.isAuthor"
         class="novel-book__btn"
@@ -282,6 +331,37 @@ onMounted(async () => {
         @change="onCoverFile"
       >
     </div>
+
+    <Transition name="novel-book-reward">
+      <div v-if="rewardOpen && !novel.isAuthor" class="novel-book__reward">
+        <span class="novel-book__reward-label">
+          打赏扣自己等量经验，作者收到积分；同一本书每人每天最多一次（10–1000 积分）
+        </span>
+        <div class="novel-book__reward-row">
+          <button
+            v-for="p in REWARD_PRESETS"
+            :key="p"
+            type="button"
+            class="novel-book__reward-chip"
+            :class="{ 'novel-book__reward-chip--on': rewardPoints === p }"
+            @click="pickReward(p)"
+          >
+            {{ p }}
+          </button>
+          <input
+            v-model.number="rewardPoints"
+            class="novel-book__reward-input"
+            type="number"
+            min="10"
+            max="1000"
+            step="10"
+          >
+          <button type="button" class="novel-book__reward-submit" :disabled="rewardBusy" @click="onReward">
+            {{ rewardBusy ? '打赏中…' : '确认打赏' }}
+          </button>
+        </div>
+      </div>
+    </Transition>
 
     <section v-if="novel.intro" class="novel-book__intro-wrap">
       <h2 class="novel-book__section">
@@ -500,6 +580,95 @@ onMounted(async () => {
     opacity: 0.55;
     cursor: default;
   }
+}
+
+/* ---------------- 打赏面板 ---------------- */
+
+.novel-book__reward {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+  border-radius: 10px;
+  background: var(--accent-soft, rgba(44, 61, 86, 0.06));
+}
+
+.novel-book__reward-label {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.novel-book__reward-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.novel-book__reward-chip {
+  min-width: 44px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
+  border-radius: 8px;
+  background: var(--color-card, #fff);
+  color: var(--color-text-secondary, #475569);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &--on {
+    border-color: var(--accent, #2c3d56);
+    background: var(--accent, #2c3d56);
+    color: #fff;
+  }
+}
+
+.novel-book__reward-input {
+  width: 92px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
+  border-radius: 8px;
+  background: var(--color-card, #fff);
+  font-size: 12px;
+  color: var(--color-text, #1e293b);
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent, #2c3d56);
+  }
+}
+
+.novel-book__reward-submit {
+  margin-left: auto;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent, #2c3d56);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+.novel-book-reward-enter-active,
+.novel-book-reward-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.novel-book-reward-enter-from,
+.novel-book-reward-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 .novel-book__section {

@@ -143,8 +143,11 @@ export async function updateNovel(
   return { ok: true, msg: str(res.data.msg) || '已更新' }
 }
 
-/** 上传书籍封面，复用主站图床 /auth/uploadPhotos，返回图片 URL。 */
-export async function uploadNovelCover(file: File): Promise<string | null> {
+/**
+ * 上传图片（书籍封面 / 正文配图），复用主站图床 /auth/uploadPhotos，返回图片 URL。
+ * 正文配图插入时会写成 `![](url)` 独立一段，所以这里只负责拿 URL。
+ */
+export async function uploadNovelImage(file: File): Promise<string | null> {
   const token = useUserStore().token.value
   if (!token)
     return null

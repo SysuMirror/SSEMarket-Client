@@ -3,7 +3,9 @@ import { test } from 'node:test'
 import {
   formatCount,
   formatWordCount,
+  novelContentWordCount,
   novelParagraphExcerpt,
+  novelParagraphImage,
   novelWordCount,
   splitNovelParagraphs,
 } from './novelText.js'
@@ -56,6 +58,41 @@ test('word count ignores all whitespace', () => {
   assert.equal(novelWordCount('你好 世界\n'), 4)
   assert.equal(novelWordCount('  \t\n  '), 0)
   assert.equal(novelWordCount('abc def'), 6)
+})
+
+// 与后端 domain.NovelParagraphImage 对齐：整段只有图片本身才算图片段落。
+test('detects image paragraphs (markdown or bare image link)', () => {
+  assert.equal(novelParagraphImage('![封面](https://cdn.example/a.png)'), 'https://cdn.example/a.png')
+  assert.equal(novelParagraphImage('![](https://cdn.example/a.jpg)'), 'https://cdn.example/a.jpg')
+  assert.equal(novelParagraphImage('![x](https://cdn.example/a.webp "标题")'), 'https://cdn.example/a.webp')
+  assert.equal(novelParagraphImage('https://cdn.example/dir/photo.PNG'), 'https://cdn.example/dir/photo.PNG')
+  assert.equal(novelParagraphImage('https://cdn.example/a.png?x-oss-process=resize'), 'https://cdn.example/a.png?x-oss-process=resize')
+  assert.equal(novelParagraphImage('//cdn.example/a.gif'), '//cdn.example/a.gif')
+  // Markdown 写法允许无扩展名的图床链接（作者已明确「这是一张图」）
+  assert.equal(novelParagraphImage('![配图](https://image.example/i/1728abc)'), 'https://image.example/i/1728abc')
+  // 不是图片段落的情况
+  assert.equal(novelParagraphImage('他看着窗外的雨'), '')
+  assert.equal(novelParagraphImage('看图 https://cdn.example/a.png'), '')
+  assert.equal(novelParagraphImage('![附件](https://cdn.example/a.pdf)'), '')
+  assert.equal(novelParagraphImage('![录像](https://cdn.example/a.mp4)'), '')
+  assert.equal(novelParagraphImage('https://image.example/i/1728abc'), '')
+  assert.equal(novelParagraphImage('![缺括号](https://cdn.example/a.png'), '')
+  assert.equal(novelParagraphImage('   '), '')
+})
+
+test('an image with blank lines around it is its own paragraph', () => {
+  const parts = splitNovelParagraphs('正文一\n\n![](https://cdn.example/a.png)\n\n正文二')
+  assert.deepEqual(parts, ['正文一', '![](https://cdn.example/a.png)', '正文二'])
+  assert.equal(novelParagraphImage(parts[1]), 'https://cdn.example/a.png')
+})
+
+test('content word count skips image paragraphs', () => {
+  assert.equal(novelContentWordCount('abcd\n\n![](https://cdn.example/aaaaaaaaaaaaaaaaaaaa.png)\n\nefgh'), 8)
+  assert.equal(novelContentWordCount('你好 世界'), 4)
+})
+
+test('image paragraph excerpt is a placeholder', () => {
+  assert.equal(novelParagraphExcerpt('![](https://cdn.example/a.png)'), '[图片]')
 })
 
 test('formats word counts like the reading apps', () => {

@@ -3,11 +3,11 @@ import type { NovelItem } from '@/api/novel/types'
 import { Icon } from '@iconify/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { createNovel, createNovelChapter, getMyNovels, getNovelDetail, uploadNovelCover } from '@/api/novel'
+import { createNovel, createNovelChapter, getMyNovels, getNovelDetail, uploadNovelImage } from '@/api/novel'
 import { showMsg } from '@/components/MessageBox'
 import NovelCover from '@/components/novel/NovelCover.vue'
 import { novelBookPath, novelReadPath } from '@/utils/novelRoute'
-import { formatWordCount, novelWordCount, splitNovelParagraphs } from '@/utils/novelText'
+import { formatWordCount, novelContentWordCount, novelParagraphImage, splitNovelParagraphs } from '@/utils/novelText'
 
 defineOptions({ name: 'NovelWriteView' })
 
@@ -15,6 +15,8 @@ const route = useRoute()
 
 const CONTENT_MAX = 50000
 const DRAFT_PREFIX = 'novel-write-draft:v1:'
+/** 正文配图大小上限（图床 /auth/uploadPhotos 侧没有显式限制，这里自己拦） */
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024
 
 interface DraftState {
   title: string
@@ -44,13 +46,25 @@ const contentEl = ref<HTMLTextAreaElement | null>(null)
 const draftSavedAt = ref(0)
 const published = ref<{ chapterID: number, chapterNum: number, novelID: number } | null>(null)
 
+/** 正文配图 */
+const imageInput = ref<HTMLInputElement | null>(null)
+const imageBusy = ref(false)
+const previewMode = ref(false)
+
 const selectedNovel = computed(() =>
   myNovels.value.find(n => n.novelID === selectedNovelID.value) ?? null,
 )
 
-/** 分段 / 字数口径与后端完全一致：换行即分段，空白不计字数。 */
+/** 分段 / 字数口径与后端完全一致：换行即分段，空白不计字数，图片段落不计字数。 */
 const previewParagraphs = computed(() => splitNovelParagraphs(chapterContent.value))
-const previewWords = computed(() => novelWordCount(chapterContent.value))
+const previewWords = computed(() => novelContentWordCount(chapterContent.value))
+/** 预览渲染：图片段落识别口径与后端 domain.NovelParagraphImage 一致。 */
+const previewRender = computed(() => previewParagraphs.value.map((text, index) => ({
+  index,
+  text,
+  imageURL: novelParagraphImage(text),
+})))
+const previewImageCount = computed(() => previewRender.value.filter(p => p.imageURL !== '').length)
 const overLimit = computed(() => previewWords.value > CONTENT_MAX)
 const progressPct = computed(() => Math.min(100, Math.round((previewWords.value / CONTENT_MAX) * 100)))
 const draftLabel = computed(() => {
@@ -198,7 +212,7 @@ async function onCoverFile(e: Event) {
     return
   }
   coverBusy.value = true
-  const url = await uploadNovelCover(file)
+  const url = await uploadNovelImage(file)
   coverBusy.value = false
   if (!url) {
     showMsg('封面上传失败，请稍后重试')
@@ -210,6 +224,70 @@ async function onCoverFile(e: Event) {
 
 function removeCover() {
   coverURL.value = ''
+}
+
+// ---------------------------------------------------------------------------
+// 正文配图：上传后在光标处插入「独占一段」的图片
+// ---------------------------------------------------------------------------
+
+/**
+ * 图片默认成单独一段：前后各补一个空行（正文里就是上下两个换行符），
+ * 分段规则丢弃空白行，所以这一行天然就是一个独立段落，阅读页会整段渲染成图片。
+ * 想挪位置就把 `![](url)` 这一行整体剪切到别处，或删掉重写。
+ */
+function insertImageParagraph(url: string) {
+  const marker = `![](${url})`
+  const text = chapterContent.value
+  const el = contentEl.value
+  const at = el ? el.selectionStart : text.length
+  // \s 已覆盖全角空格 U+3000，与后端 TrimSpace 口径一致
+  const head = text.slice(0, at).replace(/\s+$/, '')
+  const tail = text.slice(at).replace(/^\s+/, '')
+  const next = head ? `${head}\n\n${marker}\n\n${tail}` : `${marker}\n\n${tail}`
+  chapterContent.value = next
+  // 光标停在图片段之后，方便接着写下一段
+  const caret = (head ? head.length + 2 : 0) + marker.length + 2
+  void nextTick(() => {
+    const box = contentEl.value
+    if (!box)
+      return
+    box.focus()
+    box.setSelectionRange(caret, caret)
+    autoGrow()
+  })
+  showMsg('图片已插入为独立一段，可把这一行剪切到别处调整位置')
+}
+
+function pickImage() {
+  if (previewMode.value) {
+    showMsg('先切回「继续编辑」再插图')
+    return
+  }
+  imageInput.value?.click()
+}
+
+async function onImageFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || imageBusy.value)
+    return
+  if (!file.type.startsWith('image/')) {
+    showMsg('请选择图片文件')
+    return
+  }
+  if (file.size > IMAGE_MAX_BYTES) {
+    showMsg(`正文图片最大 ${Math.floor(IMAGE_MAX_BYTES / 1024 / 1024)}MB`)
+    return
+  }
+  imageBusy.value = true
+  const url = await uploadNovelImage(file)
+  imageBusy.value = false
+  if (!url) {
+    showMsg('图片上传失败，请稍后重试')
+    return
+  }
+  insertImageParagraph(url)
 }
 
 // ---------------------------------------------------------------------------
@@ -445,9 +523,34 @@ onUnmounted(() => {
       <div class="novel-write__field">
         <span class="novel-write__field-label novel-write__field-label--row">
           <span>正文（必填，最多 5 万字）</span>
-          <em>{{ previewParagraphs.length }}段 · {{ formatWordCount(previewWords) }}</em>
+          <em>
+            {{ previewParagraphs.length }}段 · {{ formatWordCount(previewWords) }}
+            <template v-if="previewImageCount > 0"> · {{ previewImageCount }}图</template>
+          </em>
         </span>
+
+        <div class="novel-write__tools">
+          <button
+            type="button"
+            class="novel-write__tool"
+            :disabled="imageBusy || previewMode"
+            title="上传一张图片，插入为独立一段"
+            @click="pickImage"
+          >
+            <Icon icon="tabler:photo" width="14" height="14" aria-hidden="true" />
+            {{ imageBusy ? '上传中…' : '插入图片' }}
+          </button>
+          <button type="button" class="novel-write__tool" @click="previewMode = !previewMode">
+            <Icon :icon="previewMode ? 'tabler:pencil' : 'tabler:eye'" width="14" height="14" aria-hidden="true" />
+            {{ previewMode ? '继续编辑' : '预览' }}
+          </button>
+          <span class="novel-write__tools-hint">
+            {{ previewMode ? '预览按阅读页口径渲染，图片独占一段' : '图片默认独占一段，可剪切那一行挪位置' }}
+          </span>
+        </div>
+
         <textarea
+          v-if="!previewMode"
           ref="contentEl"
           v-model="chapterContent"
           class="novel-write__content"
@@ -456,11 +559,36 @@ onUnmounted(() => {
           placeholder="第一段&#10;第二段&#10;&#10;（换行即分段，与阅读页 / 段评编号一致）"
           @input="autoGrow"
         />
+        <div v-else class="novel-write__preview">
+          <p
+            v-for="p in previewRender"
+            :key="p.index"
+            class="novel-write__preview-para"
+            :class="{ 'novel-write__preview-para--image': p.imageURL !== '' }"
+          >
+            <img
+              v-if="p.imageURL"
+              class="novel-write__preview-img"
+              :src="p.imageURL"
+              :alt="`第 ${p.index + 1} 段配图`"
+              loading="lazy"
+            >
+            <template v-else>
+              {{ p.text }}
+            </template>
+          </p>
+          <p v-if="previewRender.length === 0" class="novel-write__preview-empty">
+            还没有正文，切回「继续编辑」写点东西
+          </p>
+        </div>
+        <input ref="imageInput" type="file" accept="image/*" class="novel-write__file" @change="onImageFile">
+
         <div class="novel-write__meter" :class="{ 'novel-write__meter--over': overLimit }">
           <span class="novel-write__meter-bar" :style="{ width: `${progressPct}%` }" />
         </div>
         <p class="novel-write__hint">
           换行即分段：每一行正文就是一个段落，段评按这个编号；空行只用于视觉分组，不产生段落。
+          图片写成 <code>![](图片地址)</code> 单独一行，不计入字数。
           <template v-if="overLimit">
             <strong class="novel-write__over">
               已超出 {{ previewWords - CONTENT_MAX }} 字，请删减后再发布。
@@ -778,6 +906,88 @@ onUnmounted(() => {
   min-height: 260px;
 }
 
+/* ---------------- 正文工具条（插图 / 预览） ---------------- */
+
+.novel-write__tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.novel-write__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 11px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+  border-radius: 8px;
+  background: var(--color-bg, #f5f6f7);
+  color: var(--accent, #2c3d56);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--accent, #2c3d56);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+.novel-write__tools-hint {
+  flex: 1;
+  min-width: 120px;
+  font-size: 11px;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+/* ---------------- 渲染式预览（与阅读页口径一致） ---------------- */
+
+.novel-write__preview {
+  min-height: 260px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+  border-radius: 8px;
+  background: var(--color-card, #fff);
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--color-text, #1e293b);
+  overflow-x: hidden;
+}
+
+.novel-write__preview-para {
+  margin: 0 0 12px;
+  text-indent: 2em;
+  word-break: break-word;
+}
+
+.novel-write__preview-para--image {
+  margin: 16px 0 18px;
+  text-indent: 0;
+  text-align: center;
+}
+
+.novel-write__preview-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 10px;
+  background: var(--color-bg, #f5f6f7);
+}
+
+.novel-write__preview-empty {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted, #94a3b8);
+}
+
 .novel-write__meter {
   height: 4px;
   border-radius: 999px;
@@ -806,6 +1016,14 @@ onUnmounted(() => {
   font-size: 11px;
   line-height: 1.6;
   color: var(--color-text-muted, #94a3b8);
+
+  code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--color-bg, #f5f6f7);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px;
+  }
 }
 
 .novel-write__over {

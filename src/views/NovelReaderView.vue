@@ -14,7 +14,7 @@ import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
 import { useUserStore } from '@/store/userStore'
 import { novelBookPath } from '@/utils/novelRoute'
-import { formatNovelTime, formatWordCount, novelParagraphExcerpt } from '@/utils/novelText'
+import { formatNovelTime, formatWordCount, novelParagraphExcerpt, novelParagraphImage } from '@/utils/novelText'
 import { setTitle } from '@/utils/title'
 import { setWindowScrollY } from '@/utils/windowScroll'
 
@@ -27,6 +27,10 @@ const { userInfo } = useUserStore()
 const SETTINGS_KEY = 'novel-reader-settings'
 const FONT_SIZES = [15, 17, 19, 21]
 const PROGRESS_REPORT_MS = 12000
+/** 阅读心跳间隔：每 15 秒上报一次本次实际阅读秒数，后端满 1 小时结算经验。 */
+const READ_HEARTBEAT_MS = 15000
+/** 与后端 domain.NovelReadHeartbeatMaxSeconds 一致：单次心跳最多计入的秒数。 */
+const READ_HEARTBEAT_MAX_SECONDS = 120
 
 interface ReaderSettings {
   fontIndex: number
@@ -69,14 +73,32 @@ const LONG_PRESS_SLOP = 12
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
 let longPressStart: { x: number, y: number } | null = null
 
+/** 正文配图：点开放大查看 */
+const lightboxURL = ref('')
+
 /** 阅读进度 */
 const furthestIndex = ref(0)
 let observer: IntersectionObserver | null = null
 let progressTimer: ReturnType<typeof setTimeout> | null = null
 let lastReportedPercent = -1
+/** 阅读时长心跳：累计「还没上报的秒数」，后端按满 1 小时结算经验 */
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+let lastTickAt = 0
+let pendingReadSeconds = 0
+let reportingProgress = false
 
 const chapterID = computed(() => Number(route.params.chapterID) || 0)
-const paragraphs = computed(() => detail.value?.paragraphs ?? [])
+
+/**
+ * 段落列表。后端已带 imageURL 就直接用；没带（旧数据 / 旧服务）时按正文自己判定，
+ * 口径与后端 domain.NovelParagraphImage 一致，保证图片段落仍能正确渲染成单独一段。
+ */
+const paragraphs = computed<NovelParagraphItem[]>(() =>
+  (detail.value?.paragraphs ?? []).map(p => ({
+    ...p,
+    imageURL: p.imageURL || novelParagraphImage(p.text),
+  })),
+)
 const fontPx = computed(() => FONT_SIZES[settings.value.fontIndex])
 
 const progressPercent = computed(() => {
@@ -114,19 +136,58 @@ function scheduleProgress() {
   }, PROGRESS_REPORT_MS)
 }
 
+/** 累计「还没上报的阅读秒数」：页面在后台就不计，单次最多计 120 秒。 */
+function accumulateReadSeconds() {
+  const now = Date.now()
+  const elapsed = Math.round((now - lastTickAt) / 1000)
+  lastTickAt = now
+  if (elapsed <= 0 || document.hidden)
+    return
+  pendingReadSeconds += Math.min(elapsed, READ_HEARTBEAT_MAX_SECONDS)
+}
+
+function startReadHeartbeat() {
+  lastTickAt = Date.now()
+  if (heartbeatTimer)
+    clearInterval(heartbeatTimer)
+  heartbeatTimer = setInterval(() => {
+    accumulateReadSeconds()
+    void flushProgress()
+  }, READ_HEARTBEAT_MS)
+}
+
+/** 停心跳前先把最后一段零头结算进 pendingReadSeconds。 */
+function stopReadHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+  accumulateReadSeconds()
+}
+
 async function flushProgress() {
-  if (!detail.value || furthestIndex.value <= 0)
+  if (!detail.value || reportingProgress)
     return
+  const readSeconds = pendingReadSeconds
   const percent = progressPercent.value
-  if (percent === lastReportedPercent)
+  const percentChanged = furthestIndex.value > 0 && percent !== lastReportedPercent
+  if (readSeconds <= 0 && !percentChanged)
     return
-  lastReportedPercent = percent
-  await reportNovelProgress({
+  reportingProgress = true
+  const ok = await reportNovelProgress({
     novelID: detail.value.novelID,
     chapterID: detail.value.chapter.chapterID,
     paragraphIndex: furthestIndex.value,
     percent,
+    readSeconds,
   })
+  reportingProgress = false
+  // 上报成功才清零；失败就留到下次心跳一起补报
+  if (!ok)
+    return
+  pendingReadSeconds = 0
+  if (percentChanged)
+    lastReportedPercent = percent
 }
 
 async function observeParagraphs() {
@@ -154,8 +215,15 @@ async function observeParagraphs() {
 }
 
 async function loadChapter() {
+  // 换章前先把上一章累计的阅读秒数结算掉，别记到新章头上
+  if (detail.value) {
+    accumulateReadSeconds()
+    await flushProgress()
+  }
+  pendingReadSeconds = 0
   loading.value = true
   activeParagraph.value = null
+  lightboxURL.value = ''
   furthestIndex.value = 0
   lastReportedPercent = -1
 
@@ -366,8 +434,28 @@ function onDocumentKeyDown(e: KeyboardEvent) {
     clearSelection()
     return
   }
+  if (lightboxURL.value) {
+    lightboxURL.value = ''
+    return
+  }
   if (activeParagraph.value)
     closePanel()
+}
+
+function openLightbox(url: string) {
+  if (!url)
+    return
+  lightboxURL.value = url
+}
+
+/** 页面切到后台：先结算已读秒数；切回前台不把后台停留时间算成阅读。 */
+function onVisibilityChange() {
+  if (document.hidden) {
+    accumulateReadSeconds()
+    void flushProgress()
+    return
+  }
+  lastTickAt = Date.now()
 }
 
 /** 菜单按选区坐标定位，滚动后坐标失效，所以一滚就收。 */
@@ -436,8 +524,10 @@ watch(chapterID, () => {
 
 onMounted(() => {
   void loadChapter()
+  startReadHeartbeat()
   document.addEventListener('pointerdown', onDocumentPointerDown)
   document.addEventListener('keydown', onDocumentKeyDown)
+  document.addEventListener('visibilitychange', onVisibilityChange)
   window.addEventListener('scroll', onScrollDismiss, { passive: true })
   window.addEventListener('resize', onScrollDismiss)
 })
@@ -445,11 +535,13 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
   document.removeEventListener('keydown', onDocumentKeyDown)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   window.removeEventListener('scroll', onScrollDismiss)
   window.removeEventListener('resize', onScrollDismiss)
   cancelLongPress()
   if (progressTimer)
     clearTimeout(progressTimer)
+  stopReadHeartbeat()
   observer?.disconnect()
   void flushProgress()
 })
@@ -516,9 +608,20 @@ onUnmounted(() => {
         v-for="p in paragraphs"
         :key="p.index"
         class="novel-reader__para"
+        :class="{ 'novel-reader__para--image': p.imageURL !== '' }"
         :data-index="p.index"
       >
-        <span class="novel-reader__para-text">{{ p.text }}</span>
+        <!-- 图片段落：单独一段居中，点开看大图 -->
+        <img
+          v-if="p.imageURL"
+          class="novel-reader__para-img"
+          :src="p.imageURL"
+          :alt="`第 ${p.index + 1} 段配图`"
+          loading="lazy"
+          decoding="async"
+          @click.stop="openLightbox(p.imageURL)"
+        >
+        <span v-else class="novel-reader__para-text">{{ p.text }}</span>
         <button
           v-if="p.commentNum > 0"
           type="button"
@@ -641,6 +744,13 @@ onUnmounted(() => {
             <Icon icon="tabler:message-circle" width="14" height="14" aria-hidden="true" />
             <span>发段评</span>
           </button>
+        </div>
+      </Transition>
+
+      <Transition name="novel-lightbox">
+        <div v-if="lightboxURL" class="novel-reader__lightbox" @click="lightboxURL = ''">
+          <img class="novel-reader__lightbox-img" :src="lightboxURL" alt="正文配图">
+          <span class="novel-reader__lightbox-tip">点击任意处关闭 · Esc</span>
         </div>
       </Transition>
     </Teleport>
@@ -774,6 +884,30 @@ onUnmounted(() => {
 
 .novel-reader__para-text {
   display: inline;
+}
+
+/* 图片段落：整段就是一张图，不缩进、居中、上下留白（正文里就是「上下各一个空行」）。 */
+.novel-reader__para--image {
+  margin: 18px 0 20px;
+  text-indent: 0;
+  text-align: center;
+}
+
+.novel-reader__para-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 10px;
+  background: var(--color-bg, #f5f6f7);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.14);
+  cursor: zoom-in;
+}
+
+/* 图片段落的段评气泡换到图片下方一行，别压在图上 */
+.novel-reader__para--image .novel-reader__bubble {
+  margin-top: 8px;
+  margin-left: 0;
 }
 
 /* 只有已有段评的段落才挂气泡，空段评不占位、不干扰阅读。 */
@@ -1101,6 +1235,44 @@ onUnmounted(() => {
 .novel-selmenu-leave-to {
   opacity: 0;
   transform: translate(-50%, 6px);
+}
+
+/* 正文配图的大图预览：同样 Teleport 到 body，层级高于站点头与选中菜单。 */
+.novel-reader__lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 14px;
+  background: rgba(15, 23, 42, 0.86);
+  cursor: zoom-out;
+}
+
+.novel-reader__lightbox-img {
+  max-width: min(100%, 900px);
+  max-height: calc(100vh - 92px);
+  height: auto;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.novel-reader__lightbox-tip {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.novel-lightbox-enter-active,
+.novel-lightbox-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.novel-lightbox-enter-from,
+.novel-lightbox-leave-to {
+  opacity: 0;
 }
 
 /* 桌面端：抽屉贴在站点头下方，正文同步让位，互不遮挡。 */

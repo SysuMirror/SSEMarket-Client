@@ -124,6 +124,10 @@ watch(() => route.query.tab, () => {
           <Icon icon="tabler:compass" width="15" height="15" aria-hidden="true" />
           <span class="novel-page__btn-text">发现</span>
         </button>
+        <RouterLink to="/novel/points" class="novel-page__btn novel-page__btn--ghost">
+          <Icon icon="tabler:coin" width="15" height="15" aria-hidden="true" />
+          <span class="novel-page__btn-text">积分</span>
+        </RouterLink>
         <RouterLink :to="novelWritePath()" class="novel-page__btn novel-page__btn--primary">
           <Icon icon="tabler:pencil" width="15" height="15" aria-hidden="true" />
           <span class="novel-page__btn-text">写书</span>

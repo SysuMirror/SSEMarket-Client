@@ -78,6 +78,11 @@ const router = createRouter({
           component: () => import('@/views/NovelWriteView.vue'),
         },
         {
+          path: 'novel/points',
+          name: 'NovelPoints',
+          component: () => import('@/views/NovelPointsView.vue'),
+        },
+        {
           path: 'partition/小说',
           redirect: '/novel',
         },

@@ -52,6 +52,8 @@ export interface NovelChapterItem {
 export interface NovelParagraphItem {
   index: number
   text: string
+  /** 非空表示这一段是图片（正文里单独一行的图片），前端按图片渲染。 */
+  imageURL: string
   commentNum: number
 }
 
@@ -108,4 +110,53 @@ export interface NovelCommentQuery {
   paragraphIndex?: number
   limit?: number
   offset?: number
+}
+
+// ---------------------------------------------------------------------------
+// 积分 / 经验体系（后端 domain/novel_points.go 口径）
+// ---------------------------------------------------------------------------
+
+/** 流水事件：currency 为 exp（经验）或 point（积分，amount 以「分」计）。 */
+export interface NovelPointsEvent {
+  event: string
+  label: string
+  currency: string
+  amount: number
+}
+
+export interface NovelPointsSummary {
+  experience: number
+  /** 作者积分，以「分」计（1 积分 = 10 分） */
+  pointsFen: number
+  /** 换算成「积分」的展示值 */
+  pointsScore: number
+  todayExp: number
+  checkInDay: string
+  checkInStreak: number
+  byEvent: NovelPointsEvent[]
+}
+
+export interface NovelLedgerItem {
+  ledgerID: number
+  novelID: number
+  event: string
+  label: string
+  currency: string
+  amount: number
+  settledValue: number
+  createdAt: string
+}
+
+export interface NovelCheckInResult {
+  amount: number
+  streak: number
+  day: string
+  already: boolean
+}
+
+export interface NovelRewardResult {
+  points: number
+  cost: number
+  experience: number
+  msg: string
 }

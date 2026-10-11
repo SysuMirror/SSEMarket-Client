@@ -55,6 +55,7 @@ export async function getNovelChapter(chapterID: number): Promise<NovelChapterDe
     paragraphs: paragraphs.map(p => ({
       index: num(p.index ?? p.Index),
       text: str(p.text ?? p.Text),
+      imageURL: str(p.imageURL ?? p.ImageURL),
       commentNum: num(p.commentNum ?? p.CommentNum),
     })),
     authorNote: str(data.authorNote ?? data.AuthorNote),
@@ -81,12 +82,16 @@ export async function deleteNovelChapter(chapterID: number): Promise<boolean> {
   return await novelPostJSON('/auth/novel/chapter/delete', { chapterID }) != null
 }
 
-/** 上报阅读进度（段落序号 + 百分比），后端按「只前进不倒退」合并。 */
+/**
+ * 上报阅读进度（段落序号 + 百分比），后端按「只前进不倒退」合并。
+ * readSeconds 是这次心跳实际阅读的秒数，后端累计满 1 小时结算经验（有心跳上限，防灌）。
+ */
 export async function reportNovelProgress(body: {
   novelID: number
   chapterID: number
   paragraphIndex: number
   percent: number
+  readSeconds?: number
 }): Promise<boolean> {
   return await novelPostJSON('/auth/novel/progress/report', body) != null
 }
