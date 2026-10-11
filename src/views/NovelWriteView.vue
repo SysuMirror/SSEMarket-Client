@@ -761,7 +761,9 @@ onUnmounted(() => {
 
 .novel-write-published-enter-active,
 .novel-write-published-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .novel-write-published-enter-from,
