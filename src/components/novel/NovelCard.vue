@@ -76,6 +76,7 @@ const isSelf = computed(() => novel.authorID > 0 && novel.authorID === userInfo.
         :my-coins="novel.myCoins"
         :coin-num="novel.coinNum"
         :self="isSelf"
+        target-label="小说"
         variant="muted"
       />
     </div>

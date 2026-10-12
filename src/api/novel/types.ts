@@ -38,6 +38,8 @@ export interface NovelItem {
 }
 
 export interface NovelDetail extends NovelItem {
+  /** 评分分布：下标 0 = 5 星人数，依次到下标 4 = 1 星人数 */
+  ratingBars: [number, number, number, number, number]
   authorAvatar: string
   authorScore: number
   authorIdentity: string
@@ -117,6 +119,10 @@ export interface NovelCommentQuery {
   targetType?: NovelTargetType
   chapterID?: number
   paragraphIndex?: number
+  /** 按评论内容模糊搜索（空串不过滤） */
+  keyword?: string
+  /** 排序：latest 最新（默认）/ likes 点赞最多 */
+  order?: 'latest' | 'likes'
   limit?: number
   offset?: number
 }

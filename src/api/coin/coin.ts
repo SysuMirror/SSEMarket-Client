@@ -1,5 +1,5 @@
-import { requestFunc } from '../req'
 import { num, str } from '../novel/request'
+import { requestFunc } from '../req'
 
 /**
  * 站内币体系（与小说的经验/积分完全独立，各记各的流水）。
@@ -87,6 +87,46 @@ export async function throwCoin(
   catch (e) {
     console.error(e)
     return { ok: false, msg: '投币失败，请稍后重试', result: null }
+  }
+}
+
+/**
+ * 取消投币：撤回我在该内容上投着的全部币（退币 + 回退经验）。
+ * result.coins 是退回的币数，result.total 是取消后我还投着的币
+ * （帖子可能剩历史投票折算的，小说恒为 0）。
+ */
+export async function cancelCoin(
+  targetType: CoinTargetType,
+  targetID: number,
+): Promise<{ ok: boolean, msg: string, result: CoinThrowResult | null }> {
+  try {
+    const res = await requestFunc('/auth/coin/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { targetType, targetID },
+    }, true)
+    if (!res)
+      return { ok: false, msg: '取消失败，请稍后重试', result: null }
+    const json = await res.json()
+    if (json.code !== 200)
+      return { ok: false, msg: json.msg || '取消失败', result: null }
+    const d = json.data ?? {}
+    return {
+      ok: true,
+      msg: json.msg || '已取消投币',
+      result: {
+        coins: num(d.coins),
+        total: num(d.total),
+        exp: num(d.exp),
+        coinsLeft: num(d.coinsLeft),
+        targetType: str(d.targetType),
+        targetID: num(d.targetID),
+      },
+    }
+  }
+  catch (e) {
+    console.error(e)
+    return { ok: false, msg: '取消失败，请稍后重试', result: null }
   }
 }
 

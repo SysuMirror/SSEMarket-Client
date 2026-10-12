@@ -1,11 +1,12 @@
 <script lang="ts" setup>
-import type { NovelChapterDetail, NovelCommentItem, NovelParagraphItem } from '@/api/novel/types'
+import type { NovelChapterDetail, NovelChapterItem, NovelCommentItem, NovelParagraphItem } from '@/api/novel/types'
 import { Icon } from '@iconify/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   createNovelComment,
   getNovelChapter,
+  getNovelChapters,
   getNovelComments,
   reportNovelProgress,
   toggleShelf,
@@ -25,32 +26,46 @@ const router = useRouter()
 const { userInfo } = useUserStore()
 
 const SETTINGS_KEY = 'novel-reader-settings'
-const FONT_SIZES = [15, 17, 19, 21]
+const FONT_SIZES = [15, 17, 19, 21, 23]
 const PROGRESS_REPORT_MS = 12000
 /** 阅读心跳间隔：每 15 秒上报一次本次实际阅读秒数，后端满 1 小时结算经验。 */
 const READ_HEARTBEAT_MS = 15000
 /** 与后端 domain.NovelReadHeartbeatMaxSeconds 一致：单次心跳最多计入的秒数。 */
 const READ_HEARTBEAT_MAX_SECONDS = 120
 
+/** 阅读主题：默认 / 护眼 / 夜间 */
+type ReaderTheme = 'light' | 'sepia' | 'dark'
+const READER_THEMES: { key: ReaderTheme, label: string }[] = [
+  { key: 'light', label: '默认' },
+  { key: 'sepia', label: '护眼' },
+  { key: 'dark', label: '夜间' },
+]
+
 interface ReaderSettings {
   fontIndex: number
   wideLine: boolean
+  theme: ReaderTheme
+}
+
+function normalizeTheme(v: unknown): ReaderTheme {
+  return v === 'sepia' || v === 'dark' ? v : 'light'
 }
 
 function loadSettings(): ReaderSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (!raw)
-      return { fontIndex: 1, wideLine: false }
+      return { fontIndex: 1, wideLine: false, theme: 'light' }
     const parsed = JSON.parse(raw) as Partial<ReaderSettings>
     const fontIndex = Number(parsed.fontIndex)
     return {
       fontIndex: Number.isFinite(fontIndex) && fontIndex >= 0 && fontIndex < FONT_SIZES.length ? fontIndex : 1,
       wideLine: Boolean(parsed.wideLine),
+      theme: normalizeTheme(parsed.theme),
     }
   }
   catch {
-    return { fontIndex: 1, wideLine: false }
+    return { fontIndex: 1, wideLine: false, theme: 'light' }
   }
 }
 
@@ -117,14 +132,74 @@ function saveSettings() {
   }
 }
 
-function cycleFontSize() {
-  settings.value.fontIndex = (settings.value.fontIndex + 1) % FONT_SIZES.length
+/** 主题类名：根节点和 Teleport 出去的面板都挂上，CSS 变量随主题走 */
+const themeClass = computed(() => `novel-reader--${settings.value.theme}`)
+
+function setTheme(theme: ReaderTheme) {
+  settings.value.theme = theme
   saveSettings()
 }
 
-function toggleLineHeight() {
-  settings.value.wideLine = !settings.value.wideLine
+function shiftFontSize(delta: 1 | -1) {
+  const next = settings.value.fontIndex + delta
+  if (next < 0 || next >= FONT_SIZES.length)
+    return
+  settings.value.fontIndex = next
   saveSettings()
+}
+
+function setWideLine(wide: boolean) {
+  settings.value.wideLine = wide
+  saveSettings()
+}
+
+// ---------------------------------------------------------------------------
+// 阅读设置面板 / 目录抽屉
+// ---------------------------------------------------------------------------
+
+const settingsOpen = ref(false)
+const tocOpen = ref(false)
+const tocChapters = ref<NovelChapterItem[]>([])
+const tocTotal = ref(0)
+const tocBusy = ref(false)
+const tocLoaded = ref(false)
+const TOC_PAGE_SIZE = 50
+
+async function loadTocPage() {
+  if (!detail.value || tocBusy.value)
+    return
+  if (tocLoaded.value && tocChapters.value.length >= tocTotal.value)
+    return
+  tocBusy.value = true
+  try {
+    const result = await getNovelChapters(detail.value.novelID, TOC_PAGE_SIZE, tocChapters.value.length)
+    const seen = new Set(tocChapters.value.map(c => c.chapterID))
+    for (const c of result.chapters) {
+      if (!seen.has(c.chapterID))
+        tocChapters.value.push(c)
+    }
+    tocTotal.value = result.total
+    tocLoaded.value = true
+  }
+  finally {
+    tocBusy.value = false
+  }
+}
+
+async function openToc() {
+  tocOpen.value = true
+  settingsOpen.value = false
+  await loadTocPage()
+}
+
+function openSettings() {
+  settingsOpen.value = !settingsOpen.value
+  tocOpen.value = false
+}
+
+async function jumpToChapter(target: number) {
+  tocOpen.value = false
+  await goToChapter(target)
 }
 
 function scheduleProgress() {
@@ -438,8 +513,25 @@ function onDocumentKeyDown(e: KeyboardEvent) {
     lightboxURL.value = ''
     return
   }
+  if (settingsOpen.value) {
+    settingsOpen.value = false
+    return
+  }
+  if (tocOpen.value) {
+    tocOpen.value = false
+    return
+  }
   if (activeParagraph.value)
     closePanel()
+}
+
+/** 段评删除：从面板列表里移除这一条，再减计数 */
+function onPanelCommentDeleted(commentID: number) {
+  panelComments.value = panelComments.value.filter(c => c.commentID !== commentID)
+  if (activeParagraph.value)
+    activeParagraph.value.commentNum = Math.max(activeParagraph.value.commentNum - 1, 0)
+  if (detail.value)
+    detail.value.chapter.commentNum = Math.max(detail.value.chapter.commentNum - 1, 0)
 }
 
 function openLightbox(url: string) {
@@ -548,7 +640,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="detail" class="novel-zone novel-reader" :class="{ 'novel-reader--panel-open': activeParagraph !== null }">
+  <div v-if="detail" class="novel-zone novel-reader" :class="[themeClass, { 'novel-reader--panel-open': activeParagraph !== null }]">
     <header class="novel-reader__bar">
       <RouterLink class="novel-reader__bar-btn" :to="novelBookPath(detail.novelID)">
         <Icon icon="tabler:chevron-left" width="18" height="18" aria-hidden="true" />
@@ -558,17 +650,17 @@ onUnmounted(() => {
         <span class="novel-reader__bar-chapter">{{ detail.chapter.chapterNum }}. {{ detail.chapter.title }}</span>
       </div>
       <div class="novel-reader__bar-actions">
-        <button type="button" class="novel-reader__bar-btn" title="字号" @click="cycleFontSize">
-          <Icon icon="tabler:typography" width="18" height="18" aria-hidden="true" />
+        <button type="button" class="novel-reader__bar-btn" title="目录" @click="openToc">
+          <Icon icon="tabler:list" width="18" height="18" aria-hidden="true" />
         </button>
         <button
           type="button"
           class="novel-reader__bar-btn"
-          :class="{ 'novel-reader__bar-btn--on': settings.wideLine }"
-          title="行距"
-          @click="toggleLineHeight"
+          :class="{ 'novel-reader__bar-btn--on': settingsOpen }"
+          title="阅读设置"
+          @click="openSettings"
         >
-          <Icon icon="tabler:line-height" width="18" height="18" aria-hidden="true" />
+          <Icon icon="tabler:settings" width="18" height="18" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -675,7 +767,7 @@ onUnmounted(() => {
     <Teleport to="body">
       <div v-if="activeParagraph" class="novel-reader__mask" @click="closePanel" />
       <Transition name="novel-panel">
-        <section v-if="activeParagraph" class="novel-reader__panel" aria-label="段落评论">
+        <section v-if="activeParagraph" class="novel-reader__panel" :class="themeClass" aria-label="段落评论">
           <span class="novel-reader__panel-grip" aria-hidden="true" />
 
           <header class="novel-reader__panel-head">
@@ -705,7 +797,7 @@ onUnmounted(() => {
                 :show-excerpt="false"
                 :deletable="c.authorID === userInfo.userID"
                 @like-change="onLiked(c)"
-                @deleted="activeParagraph!.commentNum -= 1; detail!.chapter.commentNum -= 1"
+                @deleted="onPanelCommentDeleted"
               />
             </ul>
             <p v-else class="novel-reader__panel-empty">
@@ -752,6 +844,113 @@ onUnmounted(() => {
           <img class="novel-reader__lightbox-img" :src="lightboxURL" alt="正文配图">
           <span class="novel-reader__lightbox-tip">点击任意处关闭 · Esc</span>
         </div>
+      </Transition>
+
+      <!-- 阅读设置：移动端底部面板 / 桌面居中小卡（主题 / 字号 / 行距） -->
+      <div v-if="settingsOpen" class="novel-reader__sheet-mask" @click="settingsOpen = false" />
+      <Transition name="novel-sheet">
+        <section v-if="settingsOpen" class="novel-reader__sheet" :class="themeClass" aria-label="阅读设置">
+          <span class="novel-reader__sheet-grip" aria-hidden="true" />
+          <div class="novel-reader__sheet-row">
+            <span class="novel-reader__sheet-label">主题</span>
+            <div class="novel-reader__sheet-themes">
+              <button
+                v-for="t in READER_THEMES"
+                :key="t.key"
+                type="button"
+                class="novel-reader__theme-dot"
+                :class="[`novel-reader__theme-dot--${t.key}`, { 'novel-reader__theme-dot--on': settings.theme === t.key }]"
+                :aria-pressed="settings.theme === t.key"
+                @click="setTheme(t.key)"
+              >
+                {{ t.label }}
+              </button>
+            </div>
+          </div>
+          <div class="novel-reader__sheet-row">
+            <span class="novel-reader__sheet-label">字号</span>
+            <div class="novel-reader__sheet-controls">
+              <button
+                type="button"
+                class="novel-reader__sheet-btn"
+                :disabled="settings.fontIndex <= 0"
+                aria-label="减小字号"
+                @click="shiftFontSize(-1)"
+              >
+                A-
+              </button>
+              <span class="novel-reader__sheet-value">{{ fontPx }}px</span>
+              <button
+                type="button"
+                class="novel-reader__sheet-btn"
+                :disabled="settings.fontIndex >= FONT_SIZES.length - 1"
+                aria-label="增大字号"
+                @click="shiftFontSize(1)"
+              >
+                A+
+              </button>
+            </div>
+          </div>
+          <div class="novel-reader__sheet-row">
+            <span class="novel-reader__sheet-label">行距</span>
+            <div class="novel-reader__sheet-controls">
+              <button
+                type="button"
+                class="novel-reader__sheet-btn novel-reader__sheet-btn--opt"
+                :class="{ 'novel-reader__sheet-btn--on': !settings.wideLine }"
+                @click="setWideLine(false)"
+              >
+                标准
+              </button>
+              <button
+                type="button"
+                class="novel-reader__sheet-btn novel-reader__sheet-btn--opt"
+                :class="{ 'novel-reader__sheet-btn--on': settings.wideLine }"
+                @click="setWideLine(true)"
+              >
+                宽松
+              </button>
+            </div>
+          </div>
+        </section>
+      </Transition>
+
+      <!-- 目录抽屉：章节分页加载，当前章高亮 -->
+      <div v-if="tocOpen" class="novel-reader__sheet-mask" @click="tocOpen = false" />
+      <Transition name="novel-toc">
+        <section v-if="tocOpen" class="novel-reader__toc" :class="themeClass" aria-label="目录">
+          <header class="novel-reader__toc-head">
+            <span class="novel-reader__toc-title">目录 {{ tocTotal ? `(${tocTotal}章)` : '' }}</span>
+            <button type="button" class="novel-reader__toc-close" aria-label="关闭目录" @click="tocOpen = false">
+              <Icon icon="tabler:x" width="16" height="16" aria-hidden="true" />
+            </button>
+          </header>
+          <ul class="novel-reader__toc-list">
+            <li v-for="c in tocChapters" :key="c.chapterID">
+              <button
+                type="button"
+                class="novel-reader__toc-item"
+                :class="{ 'novel-reader__toc-item--current': c.chapterID === chapterID }"
+                @click="jumpToChapter(c.chapterID)"
+              >
+                <span class="novel-reader__toc-num">{{ c.chapterNum }}</span>
+                <span class="novel-reader__toc-name">{{ c.title }}</span>
+              </button>
+            </li>
+          </ul>
+          <p v-if="tocLoaded && tocChapters.length === 0" class="novel-reader__toc-empty">
+            还没有章节
+          </p>
+          <button
+            v-if="tocChapters.length > 0 && tocChapters.length < tocTotal"
+            type="button"
+            class="novel-reader__toc-more"
+            :disabled="tocBusy"
+            @click="loadTocPage"
+          >
+            {{ tocBusy ? '加载中…' : `加载更多（还有 ${tocTotal - tocChapters.length} 章）` }}
+          </button>
+        </section>
       </Transition>
     </Teleport>
   </div>
@@ -1275,6 +1474,337 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+/* ---------------------------------------------------------------------------
+   阅读主题：根节点与 Teleport 出去的面板共用这几个类，
+   覆盖 CSS 变量后，正文、顶栏、段评面板、设置面板、目录一起换肤。
+   --------------------------------------------------------------------------- */
+.novel-reader {
+  background: var(--color-bg, #f5f6f7);
+}
+
+/* Teleport 出去的段评面板 / 设置面板 / 目录也挂 themeClass，同一选择器直接命中 */
+.novel-reader--sepia {
+  --color-card: #f7f0df;
+  --color-bg: #f2e9d5;
+  --color-text: #4a3b2a;
+  --color-text-secondary: #6b5a44;
+  --color-text-muted: #9a8768;
+  --color-border: rgb(91 70 54 / 18%);
+  --color-hover: rgb(91 70 54 / 8%);
+  --accent: #9c6d2e;
+  --accent-soft: rgb(156 109 46 / 12%);
+}
+
+.novel-reader--dark {
+  --color-card: #242830;
+  --color-bg: #191c21;
+  --color-text: #d4d8de;
+  --color-text-secondary: #a7aeb9;
+  --color-text-muted: #767e8a;
+  --color-border: rgb(255 255 255 / 10%);
+  --color-hover: rgb(255 255 255 / 7%);
+  --accent: #82aaff;
+  --accent-soft: rgb(130 170 255 / 16%);
+}
+
+/* 夜间模式下图片压一点亮度，白底图不刺眼 */
+.novel-reader--dark .novel-reader__para-img {
+  filter: brightness(0.86);
+}
+
+/* ---------------------------------------------------------------------------
+   阅读设置面板：移动端底部抽屉，桌面居中小卡
+   --------------------------------------------------------------------------- */
+.novel-reader__sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 2250;
+  background: rgb(15 23 42 / 40%);
+}
+
+.novel-reader__sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2251;
+  padding: 6px 16px calc(var(--layout-bottom-nav-h, 52px) + 12px);
+  box-sizing: border-box;
+  background: var(--color-card, #fff);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -4px 20px rgb(15 23 42 / 16%);
+}
+
+.novel-reader__sheet-grip {
+  display: block;
+  width: 38px;
+  height: 4px;
+  margin: 4px auto 10px;
+  border-radius: 999px;
+  background: var(--color-border, rgb(71 85 105 / 22%));
+}
+
+.novel-reader__sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+
+  & + & {
+    border-top: 1px solid var(--color-border, rgb(71 85 105 / 12%));
+  }
+}
+
+.novel-reader__sheet-label {
+  flex-shrink: 0;
+  width: 34px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #475569);
+}
+
+.novel-reader__sheet-themes {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.novel-reader__theme-dot {
+  min-width: 58px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--color-border, rgb(71 85 105 / 20%));
+  border-radius: 999px;
+  background: var(--color-bg, #f5f6f7);
+  color: var(--color-text-secondary, #475569);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.14s ease,
+    color 0.14s ease;
+
+  &--light {
+    background: #ffffff;
+  }
+
+  &--sepia {
+    background: #f2e9d5;
+  }
+
+  &--dark {
+    background: #242830;
+    color: #d4d8de;
+  }
+
+  &--on {
+    border-color: var(--accent, #2c3d56);
+    color: var(--accent, #2c3d56);
+    box-shadow: 0 0 0 1px var(--accent, #2c3d56) inset;
+
+    &.novel-reader__theme-dot--dark {
+      color: #d4d8de;
+    }
+  }
+}
+
+.novel-reader__sheet-controls {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.novel-reader__sheet-value {
+  min-width: 42px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text, #1e293b);
+  font-variant-numeric: tabular-nums;
+}
+
+.novel-reader__sheet-btn {
+  min-width: 44px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border, rgb(71 85 105 / 18%));
+  border-radius: 8px;
+  background: var(--color-bg, #f5f6f7);
+  color: var(--color-text, #1e293b);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &--on {
+    border-color: var(--accent, #2c3d56);
+    color: var(--accent, #2c3d56);
+    background: var(--accent-soft, rgb(44 61 86 / 8%));
+  }
+}
+
+.novel-sheet-enter-active,
+.novel-sheet-leave-active {
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.novel-sheet-enter-from,
+.novel-sheet-leave-to {
+  transform: translateY(24px);
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   目录抽屉：左侧滑出
+   --------------------------------------------------------------------------- */
+.novel-reader__toc {
+  position: fixed;
+  top: var(--layout-header-h, 2.75rem);
+  left: 0;
+  bottom: 0;
+  z-index: 2251;
+  width: min(320px, 86vw);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--color-card, #fff);
+  box-shadow: 4px 0 24px rgb(15 23 42 / 18%);
+}
+
+.novel-reader__toc-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border, rgb(71 85 105 / 12%));
+}
+
+.novel-reader__toc-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text, #1e293b);
+}
+
+.novel-reader__toc-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary, #475569);
+  cursor: pointer;
+
+  &:active {
+    background: var(--color-hover, rgb(44 61 86 / 8%));
+  }
+}
+
+.novel-reader__toc-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+.novel-reader__toc-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  background: transparent;
+  color: var(--color-text, #1e293b);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:active {
+    background: var(--color-hover, rgb(44 61 86 / 6%));
+  }
+
+  &--current {
+    background: var(--accent-soft, rgb(44 61 86 / 8%));
+    color: var(--accent, #2c3d56);
+    font-weight: 700;
+  }
+}
+
+.novel-reader__toc-num {
+  flex-shrink: 0;
+  min-width: 26px;
+  font-size: 11px;
+  color: var(--color-text-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+.novel-reader__toc-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.novel-reader__toc-empty {
+  padding: 20px;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.novel-reader__toc-more {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-top: 1px solid var(--color-border, rgb(71 85 105 / 12%));
+  background: var(--color-card, #fff);
+  color: var(--accent, #2c3d56);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+.novel-toc-enter-active,
+.novel-toc-leave-active {
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.novel-toc-enter-from,
+.novel-toc-leave-to {
+  transform: translateX(-24px);
+  opacity: 0;
+}
+
 /* 桌面端：抽屉贴在站点头下方，正文同步让位，互不遮挡。 */
 @media screen and (min-width: 769px) {
   .novel-reader__panel {
@@ -1287,7 +1817,7 @@ onUnmounted(() => {
     max-height: none;
     padding: 14px 16px 16px;
     border-radius: 14px 0 0 14px;
-    box-shadow: -6px 0 24px rgba(15, 23, 42, 0.18);
+    box-shadow: -6px 0 24px rgb(15 23 42 / 18%);
   }
 
   .novel-reader__panel-grip {
@@ -1314,6 +1844,28 @@ onUnmounted(() => {
     max-width: min(720px, calc(100vw - 420px));
     margin-right: 400px;
     margin-left: auto;
+  }
+
+  /* 设置面板：桌面居中小卡 */
+  .novel-reader__sheet {
+    top: 50%;
+    right: auto;
+    left: 50%;
+    bottom: auto;
+    width: 380px;
+    padding: 4px 20px 16px;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgb(15 23 42 / 20%);
+    transform: translate(-50%, -50%);
+  }
+
+  .novel-reader__sheet-grip {
+    display: none;
+  }
+
+  .novel-sheet-enter-from,
+  .novel-sheet-leave-to {
+    transform: translate(-50%, -50%) scale(0.96);
   }
 }
 </style>

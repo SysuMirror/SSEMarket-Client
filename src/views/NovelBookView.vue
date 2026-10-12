@@ -55,6 +55,12 @@ const ratingHover = ref(0)
 const chapterLimit = 50
 const reviewLimit = 20
 
+/** 书评排序 / 搜索 / 分页 */
+const reviewOrder = ref<'latest' | 'likes'>('latest')
+const reviewKeywordInput = ref('')
+const reviewKeyword = ref('')
+const reviewBusyMore = ref(false)
+
 const novelID = computed(() => Number(route.params.id) || 0)
 
 const firstChapter = computed(() => chapters.value[0]?.chapterID ?? 0)
@@ -100,11 +106,67 @@ async function loadReviews() {
   const result = await getNovelComments({
     novelID: novelID.value,
     targetType: 'book',
+    keyword: reviewKeyword.value,
+    order: reviewOrder.value,
     limit: reviewLimit,
     offset: 0,
   })
   reviews.value = result.comments
   reviewTotal.value = result.total
+}
+
+/** 书评分页：往后追加，按 commentID 去重防翻页间隙的数据变动造成重复 */
+async function loadMoreReviews() {
+  if (reviewBusyMore.value || reviews.value.length >= reviewTotal.value)
+    return
+  reviewBusyMore.value = true
+  try {
+    const result = await getNovelComments({
+      novelID: novelID.value,
+      targetType: 'book',
+      keyword: reviewKeyword.value,
+      order: reviewOrder.value,
+      limit: reviewLimit,
+      offset: reviews.value.length,
+    })
+    const seen = new Set(reviews.value.map(c => c.commentID))
+    for (const c of result.comments) {
+      if (!seen.has(c.commentID))
+        reviews.value.push(c)
+    }
+    reviewTotal.value = result.total
+  }
+  finally {
+    reviewBusyMore.value = false
+  }
+}
+
+function setReviewOrder(order: 'latest' | 'likes') {
+  if (reviewOrder.value === order)
+    return
+  reviewOrder.value = order
+  void loadReviews()
+}
+
+function searchReviews() {
+  reviewKeyword.value = reviewKeywordInput.value.trim()
+  void loadReviews()
+}
+
+function clearReviewSearch() {
+  reviewKeywordInput.value = ''
+  if (reviewKeyword.value) {
+    reviewKeyword.value = ''
+    void loadReviews()
+  }
+}
+
+/** 删除书评：从列表里移除这一条，再减计数 */
+function onReviewDeleted(commentID: number) {
+  reviews.value = reviews.value.filter(c => c.commentID !== commentID)
+  reviewTotal.value = Math.max(reviewTotal.value - 1, 0)
+  if (novel.value)
+    novel.value.commentNum = Math.max(novel.value.commentNum - 1, 0)
 }
 
 async function onToggleShelf() {
@@ -138,9 +200,9 @@ async function submitReview() {
     return
   }
   reviewDraft.value = ''
-  reviews.value.unshift(result.comment)
-  reviewTotal.value += 1
+  // 重新拉列表而不是本地 unshift：排序/搜索态下新评论的位置与总数由后端说了算
   novel.value.commentNum += 1
+  void loadReviews()
 }
 
 function onReviewLiked(c: NovelCommentItem) {
@@ -179,6 +241,13 @@ async function onRate(score: number) {
 
 function pickCover() {
   coverInput.value?.click()
+}
+
+/** 分布条宽度：占全部评分人数的百分比（0–100，做个 4% 的最低可见宽度） */
+function ratingBarPercent(n: number): number {
+  if (novel.value == null || novel.value.ratingCount <= 0 || n <= 0)
+    return 0
+  return Math.max((n / novel.value.ratingCount) * 100, 4)
 }
 
 async function onCoverFile(e: Event) {
@@ -290,6 +359,40 @@ onMounted(async () => {
       </div>
     </header>
 
+    <!-- 评分概览：均分 + 星级 + 各星级人数分布条 -->
+    <section v-if="novel.ratingCount > 0" class="novel-book__rating-summary">
+      <div class="novel-book__rating-score">
+        <b>{{ novel.ratingAvg.toFixed(1) }}</b>
+        <span class="novel-book__rating-stars" aria-hidden="true">
+          <Icon
+            v-for="s in 5"
+            :key="s"
+            icon="tabler:star-filled"
+            width="13"
+            height="13"
+            :class="{ 'novel-book__rating-star-off': s > Math.round(novel.ratingAvg) }"
+          />
+        </span>
+        <span class="novel-book__rating-count">{{ novel.ratingCount }}人评</span>
+      </div>
+      <div class="novel-book__rating-bars">
+        <div
+          v-for="(n, i) in novel.ratingBars"
+          :key="i"
+          class="novel-book__rating-bar-row"
+        >
+          <span class="novel-book__rating-bar-label">{{ 5 - i }}星</span>
+          <span class="novel-book__rating-bar-track">
+            <span
+              class="novel-book__rating-bar-fill"
+              :style="{ width: `${ratingBarPercent(n)}%` }"
+            />
+          </span>
+          <span class="novel-book__rating-bar-n">{{ n }}</span>
+        </div>
+      </div>
+    </section>
+
     <div class="novel-book__actions">
       <RouterLink
         v-if="entryChapter > 0"
@@ -315,6 +418,7 @@ onMounted(async () => {
         :target-i-d="novel.novelID"
         :my-coins="novel.myCoins"
         :coin-num="novel.coinNum"
+        target-label="小说"
         variant="prominent"
         class="novel-book__coin"
       />
@@ -436,6 +540,48 @@ onMounted(async () => {
         <span class="novel-book__section-n">{{ reviewTotal }}</span>
       </h2>
 
+      <!-- 排序 + 搜索 -->
+      <div class="novel-book__review-tools">
+        <div class="novel-book__review-sort" role="tablist" aria-label="书评排序">
+          <button
+            type="button"
+            :class="{ 'novel-book__review-sort-on': reviewOrder === 'latest' }"
+            @click="setReviewOrder('latest')"
+          >
+            最新
+          </button>
+          <button
+            type="button"
+            :class="{ 'novel-book__review-sort-on': reviewOrder === 'likes' }"
+            @click="setReviewOrder('likes')"
+          >
+            最多点赞
+          </button>
+        </div>
+        <div class="novel-book__review-search">
+          <Icon icon="tabler:search" width="14" height="14" aria-hidden="true" />
+          <input
+            v-model="reviewKeywordInput"
+            type="search"
+            placeholder="搜索书评内容"
+            aria-label="搜索书评"
+            @keyup.enter="searchReviews"
+          >
+          <button
+            v-if="reviewKeyword"
+            type="button"
+            class="novel-book__review-search-clear"
+            aria-label="清除搜索"
+            @click="clearReviewSearch"
+          >
+            <Icon icon="tabler:x" width="13" height="13" aria-hidden="true" />
+          </button>
+          <button type="button" class="novel-book__review-search-go" @click="searchReviews">
+            搜索
+          </button>
+        </div>
+      </div>
+
       <div class="novel-book__review-form">
         <textarea
           v-model="reviewDraft"
@@ -461,12 +607,22 @@ onMounted(async () => {
           :comment="c"
           :deletable="c.authorID === userInfo.userID"
           @like-change="onReviewLiked(c)"
-          @deleted="reviewTotal -= 1; novel!.commentNum -= 1"
+          @deleted="onReviewDeleted"
         />
       </ul>
       <p v-else class="novel-book__empty">
-        还没有书评，来说两句
+        {{ reviewKeyword ? `没有找到包含「${reviewKeyword}」的书评` : '还没有书评，来说两句' }}
       </p>
+
+      <button
+        v-if="reviews.length > 0 && reviews.length < reviewTotal"
+        type="button"
+        class="novel-book__toc-more"
+        :disabled="reviewBusyMore"
+        @click="loadMoreReviews"
+      >
+        {{ reviewBusyMore ? '加载中…' : `加载更多书评（还有 ${reviewTotal - reviews.length} 条）` }}
+      </button>
     </section>
   </div>
 
@@ -651,7 +807,9 @@ onMounted(async () => {
   background: transparent;
   color: var(--color-border, rgba(71, 85, 105, 0.3));
   cursor: pointer;
-  transition: color 0.1s ease, transform 0.1s ease;
+  transition:
+    color 0.1s ease,
+    transform 0.1s ease;
 
   &--on {
     color: #f59e0b;
@@ -870,5 +1028,189 @@ onMounted(async () => {
   text-align: center;
   font-size: 13px;
   color: var(--color-text-muted, #94a3b8);
+}
+
+/* ---------------------------------------------------------------------------
+   评分概览：左边均分 + 星 + 人数，右边 5→1 星分布条
+   --------------------------------------------------------------------------- */
+.novel-book__rating-summary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 14px;
+  margin-top: 12px;
+  background: var(--color-card, #fff);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--color-card-shadow);
+}
+
+.novel-book__rating-score {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  b {
+    font-size: 30px;
+    line-height: 1.1;
+    color: #b45309;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.novel-book__rating-stars {
+  display: inline-flex;
+  gap: 1px;
+  color: #f59e0b;
+}
+
+.novel-book__rating-star-off {
+  color: var(--color-border, rgba(71, 85, 105, 0.25));
+}
+
+.novel-book__rating-count {
+  font-size: 11px;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.novel-book__rating-bars {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.novel-book__rating-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-text-secondary, #475569);
+}
+
+.novel-book__rating-bar-label {
+  flex-shrink: 0;
+  width: 22px;
+  text-align: right;
+}
+
+.novel-book__rating-bar-track {
+  flex: 1;
+  height: 7px;
+  overflow: hidden;
+  background: var(--color-bg, #eef1f4);
+  border-radius: 999px;
+}
+
+.novel-book__rating-bar-fill {
+  display: block;
+  height: 100%;
+  background: #f59e0b;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.novel-book__rating-bar-n {
+  flex-shrink: 0;
+  min-width: 20px;
+  color: var(--color-text-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   书评工具栏：排序 pills + 搜索框
+   --------------------------------------------------------------------------- */
+.novel-book__review-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.novel-book__review-sort {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--color-card, #fff);
+  border-radius: 999px;
+  box-shadow: var(--color-card-shadow);
+
+  button {
+    padding: 4px 12px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-secondary, #475569);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+}
+
+.novel-book__review-sort-on {
+  background: var(--accent, #2c3d56) !important;
+  color: #fff !important;
+}
+
+.novel-book__review-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 0 1 240px;
+  padding: 5px 6px 5px 10px;
+  background: var(--color-card, #fff);
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.14));
+  border-radius: 999px;
+  color: var(--color-text-muted, #94a3b8);
+
+  &:focus-within {
+    border-color: var(--accent, #2c3d56);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--color-text, #1e293b);
+
+    &::-webkit-search-cancel-button {
+      display: none;
+    }
+  }
+}
+
+.novel-book__review-search-clear {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg, #eef1f4);
+  color: var(--color-text-secondary, #475569);
+  cursor: pointer;
+}
+
+.novel-book__review-search-go {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent, #2c3d56);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
 }
 </style>

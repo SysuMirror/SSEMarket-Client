@@ -36,6 +36,7 @@ export function normalizeNovelComment(raw: Record<string, unknown>): NovelCommen
  * 评论列表：
  * targetType=paragraph 时按 chapterID + paragraphIndex 取段评；
  * targetType=chapter 取整章评论；不传 targetType 取整本书评论（书评 + 章评 + 段评）。
+ * keyword 按内容模糊搜索；order=latest 最新（默认）/ likes 点赞最多。
  */
 export async function getNovelComments(query: NovelCommentQuery): Promise<{ comments: NovelCommentItem[], total: number }> {
   const data = await novelPostJSON('/auth/novel/comment/list', {
@@ -43,6 +44,8 @@ export async function getNovelComments(query: NovelCommentQuery): Promise<{ comm
     targetType: query.targetType ?? '',
     chapterID: query.chapterID ?? 0,
     paragraphIndex: query.paragraphIndex ?? 0,
+    keyword: query.keyword ?? '',
+    order: query.order ?? 'latest',
     limit: query.limit ?? 50,
     offset: query.offset ?? 0,
   })

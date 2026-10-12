@@ -101,8 +101,14 @@ export async function getNovelDetail(novelID: number): Promise<NovelDetail | nul
   if (!data)
     return null
   const item = normalizeNovelItem(data)
+  // 评分分布：下标 0 = 5 星；后端缺字段（旧缓存/旧版本）时按全 0 展示
+  const rawBars = Array.isArray(data.ratingBars) ? data.ratingBars as unknown[] : []
+  const bars = [0, 0, 0, 0, 0] as [number, number, number, number, number]
+  for (let i = 0; i < 5; i++)
+    bars[i] = num(rawBars[i])
   return {
     ...item,
+    ratingBars: bars,
     authorAvatar: str(data.authorAvatar ?? data.AuthorAvatar),
     authorScore: num(data.authorScore ?? data.AuthorScore),
     authorIdentity: str(data.authorIdentity ?? data.AuthorIdentity),
