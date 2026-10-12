@@ -167,6 +167,10 @@ async function onRate(score: number) {
   novel.value.ratingCount = result.ratingCount
   novel.value.ratingAvg = result.ratingAvg
   ratingOpen.value = false
+  // 评分会自动附带一条书评（星级 + 当时阅读时长）：刷新评论区让它立刻可见
+  if (result.commentCreated)
+    novel.value.commentNum += 1
+  void loadReviews()
   if (result.coins > 0)
     showMsg(`已评 ${result.score} 星 · 作者 +${result.coins} 币`)
   else
@@ -358,7 +362,8 @@ onMounted(async () => {
     <Transition name="novel-book-reward">
       <div v-if="ratingOpen && !novel.isAuthor" class="novel-book__reward">
         <span class="novel-book__reward-label">
-          1–5 星，每人每本一条、可以改；作者首次收到你的评分时 +1 币，评分不花你的币也不给经验
+          1–5 星，每人每本一条、可以改；作者首次收到你的评分时 +1 币，评分不花你的币也不给经验；
+          评分会自动附一条书评（星级 + 当时在这本书的阅读时长），在评论区可见
         </span>
         <div class="novel-book__reward-row novel-book__rating-row">
           <button

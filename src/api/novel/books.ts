@@ -119,6 +119,8 @@ export interface NovelRatingResult {
   ratingCount: number
   ratingAvg: number
   coins: number
+  /** 本次评分是否新建了自动书评（改分只刷新旧书评） */
+  commentCreated: boolean
   msg: string
 }
 
@@ -140,6 +142,7 @@ export async function rateNovel(novelID: number, score: number): Promise<NovelRa
       ratingCount: 0,
       ratingAvg: 0,
       coins: 0,
+      commentCreated: false,
       msg: str(d.msg) || '评分失败，请稍后重试',
     }
   }
@@ -151,6 +154,7 @@ export async function rateNovel(novelID: number, score: number): Promise<NovelRa
     ratingCount: num(d.ratingCount),
     ratingAvg: num(d.ratingAvg),
     coins: num(d.coins),
+    commentCreated: Boolean(d.commentCreated),
     msg: str(d.msg) || '已评分',
   }
 }

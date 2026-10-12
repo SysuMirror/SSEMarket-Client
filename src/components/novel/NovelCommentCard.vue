@@ -53,7 +53,7 @@ async function onDelete() {
 </script>
 
 <template>
-  <li class="novel-cmt" :class="{ 'novel-cmt--mine': canDelete }">
+  <li class="novel-cmt" :class="{ 'novel-cmt--mine': canDelete, 'novel-cmt--rating': comment.isRating }">
     <UserAvatar
       :src="comment.authorAvatar"
       :user-id="comment.authorID"
@@ -68,6 +68,7 @@ async function onDelete() {
         <span class="novel-cmt__name">{{ comment.author || '匿名' }}</span>
         <time class="novel-cmt__time" :datetime="comment.commentTime">{{ formatNovelTime(comment.commentTime) }}</time>
         <span v-if="showExcerpt" class="novel-cmt__tag">{{ targetLabel }}</span>
+        <span v-if="comment.isRating" class="novel-cmt__tag novel-cmt__tag--rating">评分</span>
       </div>
       <p v-if="showExcerpt && comment.paragraphExcerpt" class="novel-cmt__excerpt">
         {{ comment.paragraphExcerpt }}
@@ -137,6 +138,19 @@ async function onDelete() {
   font-weight: 600;
   color: var(--accent, #2c3d56);
   background: var(--accent-soft, rgba(44, 61, 86, 0.08));
+}
+
+/* 评分自动附带的书评：琥珀色区分于普通评论 */
+.novel-cmt__tag--rating {
+  color: #b45309;
+  background: rgba(180, 83, 9, 0.1);
+}
+
+.novel-cmt--rating {
+  .novel-cmt__content {
+    color: #92400e;
+    font-weight: 600;
+  }
 }
 
 .novel-cmt__excerpt {

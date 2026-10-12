@@ -98,6 +98,8 @@ export interface NovelCommentItem {
   authorIdentity: string
   commentTime: string
   content: string
+  /** true = 评分自动附带的书评（星级 + 评分时阅读时长），特殊渲染 */
+  isRating: boolean
   likeNum: number
   isLiked: boolean
 }

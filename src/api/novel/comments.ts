@@ -26,6 +26,7 @@ export function normalizeNovelComment(raw: Record<string, unknown>): NovelCommen
     authorIdentity: str(raw.authorIdentity ?? raw.AuthorIdentity),
     commentTime: str(raw.commentTime ?? raw.CommentTime),
     content: str(raw.content ?? raw.Content),
+    isRating: Boolean(raw.isRating ?? raw.IsRating),
     likeNum: num(raw.likeNum ?? raw.LikeNum),
     isLiked: Boolean(raw.isLiked ?? raw.IsLiked),
   }
