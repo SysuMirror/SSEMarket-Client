@@ -161,20 +161,14 @@ export async function getCoinLedger(limit = 20, offset = 0): Promise<{ items: Co
 }
 
 /**
- * 每日进入网页 +1 币：进站点时上报一次即可。
- * 本地按日期短路（避免每次路由跳转都发请求），后端幂等键也含日期，双保险。
+ * 每日进入网页 +1 币：登录状态下每次进站点都上报一次。
+ *
+ * 「今天有没有领过」完全由后端记录（coin_ledger 的幂等键 = 用户 + 事件 + 日期），
+ * 前端不做任何本地缓存判断 —— 之前用 localStorage 记日期，同一浏览器切换账号后
+ * 新账号会被旧记录短路，领不到当天的币。已登录的调用方（App.vue）只在挂载 /
+ * 登录成功时各调一次，请求量很小；后端对重复上报返回 granted=0。
  */
-const VISIT_REPORT_KEY = 'coinVisitDay'
-
 export async function reportDailyVisit(): Promise<{ granted: number, coins: number } | null> {
-  const day = new Date().toISOString().slice(0, 10)
-  try {
-    if (localStorage.getItem(VISIT_REPORT_KEY) === day)
-      return null
-  }
-  catch {
-    // localStorage 不可用就每次进站点报一次，后端幂等兜底
-  }
   try {
     const res = await requestFunc('/auth/coin/visit', {
       method: 'POST',
@@ -186,12 +180,6 @@ export async function reportDailyVisit(): Promise<{ granted: number, coins: numb
     const json = await res.json()
     if (json.code !== 200)
       return null
-    try {
-      localStorage.setItem(VISIT_REPORT_KEY, day)
-    }
-    catch {
-      // ignore
-    }
     return { granted: num(json.data?.granted), coins: num(json.data?.coins) }
   }
   catch (e) {

@@ -26,7 +26,8 @@ function handleBeforeUnload() {
 
 /**
  * 每日进入网页 +1 币：登录态就绪后上报一次。
- * 本地按日期短路 + 后端按日期幂等，刷新 / 多标签页都不会重复发币。
+ * 「今天领没领」只由后端记录（coin_ledger 幂等键含用户+日期），
+ * 前端不缓存判断 —— 切换账号后新账号照常能领当天的币。
  */
 function reportVisitIfLoggedIn() {
   if (token.value && userInfo.userID > 0)
