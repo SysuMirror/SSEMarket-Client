@@ -2,7 +2,7 @@
 import type { CoinTargetType } from '@/api/coin/coin'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { cancelCoin, getCoinSummary, throwCoin } from '@/api/coin/coin'
-import coinBar from '@/assets/coin-dialog-bar.png'
+import coinPet from '@/assets/coin-dialog-pet.png'
 import coinIcon from '@/assets/coin-icon.png'
 import coinMascot1 from '@/assets/coin-mascot-1.png'
 import coinMascot2 from '@/assets/coin-mascot-2.png'
@@ -142,107 +142,107 @@ async function submitCancel() {
 <template>
   <Teleport to="body">
     <div class="coin-dlg-mask" @click.self="emit('close')">
-      <div
-        ref="boxRef"
-        class="coin-dlg"
-        role="dialog"
-        aria-modal="true"
-        aria-label="投币"
-        tabindex="-1"
-      >
-        <!-- 卡片顶部的装饰带（小人趴栏杆 + 两端花）：整条按固定宽高比贴，
-             弹窗宽度封顶在 360px，装饰端不会被拉变形。
-             素材中段几乎空白、栏杆本身很淡，所以不做 border-image 九宫格切片
-             （切片会把栏杆拉散）；正式的可拉伸框素材到位后再换。 -->
+      <div class="coin-dlg-wrap">
+        <!-- 趴在卡片上沿的小人：素材底边就是「趴着的 desperate 手臂 + 栏杆」，
+             用负 margin 把底边压进卡片上沿 ~12px，读起来就是小人扒着弹窗边缘。
+             素材已抠掉原图的棋盘格底（透明 PNG），亮暗两种卡片上都贴合。 -->
         <img
-        class="coin-dlg__bar"
-        style="transform: translateY(5%);"
-        :src="coinBar"
-        alt=""
-        aria-hidden="true"
-        draggable="false"
+          class="coin-dlg__pet"
+          :src="coinPet"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
         >
-        <button
-          type="button"
-          class="coin-dlg__close"
-          aria-label="关闭"
-          @click="emit('close')"
+        <div
+          ref="boxRef"
+          class="coin-dlg"
+          role="dialog"
+          aria-modal="true"
+          aria-label="投币"
+          tabindex="-1"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path
-              d="M5.7 5.7a1 1 0 0 1 1.4 0L12 10.6l4.9-4.9a1 1 0 1 1 1.4 1.4L13.4 12l4.9 4.9a1 1 0 1 1-1.4 1.4L12 13.4l-4.9 4.9a1 1 0 1 1-1.4-1.4L10.6 12 5.7 7.1a1 1 0 0 1 0-1.4z"
-              fill="currentColor"
-            />
-          </svg>
-        </button>
-
-        <h3 class="coin-dlg__title">
-          <template v-if="my > 0">
-            已投 <span class="coin-dlg__num">{{ my }}</span> 枚币
-          </template>
-          <template v-else>
-            给这条{{ targetName }}投上 <span class="coin-dlg__num">{{ selected }}</span> 枚币
-          </template>
-        </h3>
-
-        <!-- 选币卡片：1 枚 / 2 枚（B 站式，立绘手里举的币数对应档位）。
-             已投 1 枚时只剩「再投 1 枚」一个选项：2 币卡禁用，1 币卡保持可点。 -->
-        <div v-if="canThrow" class="coin-dlg__cards">
           <button
-            type="button"
-            class="coin-dlg__card"
-            :class="{ 'coin-dlg__card--selected': selected === 1 }"
-            :aria-pressed="selected === 1"
-            @click="selected = 1"
+              type="button"
+              class="coin-dlg__close"
+            aria-label="关闭"
+            @click="emit('close')"
           >
-            <span class="coin-dlg__card-label">1 币</span>
-            <img class="coin-dlg__mascot" :src="coinMascot1" alt="投 1 枚币" draggable="false">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M5.7 5.7a1 1 0 0 1 1.4 0L12 10.6l4.9-4.9a1 1 0 1 1 1.4 1.4L13.4 12l4.9 4.9a1 1 0 1 1-1.4 1.4L12 13.4l-4.9 4.9a1 1 0 1 1-1.4-1.4L10.6 12 5.7 7.1a1 1 0 0 1 0-1.4z"
+                fill="currentColor"
+              />
+            </svg>
           </button>
+
+          <h3 class="coin-dlg__title">
+            <template v-if="my > 0">
+              已投 <span class="coin-dlg__num">{{ my }}</span> 枚币
+            </template>
+            <template v-else>
+              给这条{{ targetName }}投上 <span class="coin-dlg__num">{{ selected }}</span> 枚币
+            </template>
+          </h3>
+
+          <!-- 选币卡片：1 枚 / 2 枚（B 站式，立绘手里举的币数对应档位）。
+               已投 1 枚时只剩「再投 1 枚」一个选项：2 币卡禁用，1 币卡保持可点。 -->
+          <div v-if="canThrow" class="coin-dlg__cards">
+            <button
+              type="button"
+              class="coin-dlg__card"
+              :class="{ 'coin-dlg__card--selected': selected === 1 }"
+              :aria-pressed="selected === 1"
+              @click="selected = 1"
+            >
+              <span class="coin-dlg__card-label">1 币</span>
+              <img class="coin-dlg__mascot" :src="coinMascot1" alt="投 1 枚币" draggable="false">
+            </button>
+            <button
+              type="button"
+              class="coin-dlg__card"
+              :class="{ 'coin-dlg__card--selected': selected === 2 }"
+              :disabled="my === 1"
+              :aria-pressed="selected === 2"
+              @click="selected = 2"
+            >
+              <span class="coin-dlg__card-label">2 币</span>
+              <img class="coin-dlg__mascot" :src="coinMascot2" alt="投 2 枚币" draggable="false">
+            </button>
+          </div>
+          <p v-if="my === 1" class="coin-dlg__hint">
+            已投 1 枚，只能再投 1 枚
+          </p>
+
+          <!-- 已投着币：给一个明确可见的取消入口（退币 + 回退经验） -->
           <button
+            v-if="my > 0"
             type="button"
-            class="coin-dlg__card"
-            :class="{ 'coin-dlg__card--selected': selected === 2 }"
-            :disabled="my === 1"
-            :aria-pressed="selected === 2"
-            @click="selected = 2"
+            class="coin-dlg__cancel"
+            :disabled="submitting"
+            @click="submitCancel"
           >
-            <span class="coin-dlg__card-label">2 币</span>
-            <img class="coin-dlg__mascot" :src="coinMascot2" alt="投 2 枚币" draggable="false">
+            取消投币（退回 {{ my }} 币）
           </button>
+
+          <div class="coin-dlg__foot">
+            <span class="coin-dlg__balance">
+              <img class="coin-dlg__balance-coin" :src="coinIcon" alt="" aria-hidden="true">
+              我的余额：<b>{{ balance === null ? '…' : balance }}</b> 币
+            </span>
+            <button
+              v-if="canThrow"
+              type="button"
+              class="coin-dlg__submit"
+              :disabled="submitting || !canAfford"
+              @click="submitThrow"
+            >
+              {{ submitting ? '投币中…' : '确定' }}
+            </button>
+          </div>
+          <p class="coin-dlg__exp">
+            每投 1 枚 +10 主页经验 · 每人对每个内容最多投 2 枚
+          </p>
         </div>
-        <p v-if="my === 1" class="coin-dlg__hint">
-          已投 1 枚，只能再投 1 枚
-        </p>
-
-        <!-- 已投着币：给一个明确可见的取消入口（退币 + 回退经验） -->
-        <button
-          v-if="my > 0"
-          type="button"
-          class="coin-dlg__cancel"
-          :disabled="submitting"
-          @click="submitCancel"
-        >
-          取消投币（退回 {{ my }} 币）
-        </button>
-
-        <div class="coin-dlg__foot">
-          <span class="coin-dlg__balance">
-            <img class="coin-dlg__balance-coin" :src="coinIcon" alt="" aria-hidden="true">
-            我的余额：<b>{{ balance === null ? '…' : balance }}</b> 币
-          </span>
-          <button
-            v-if="canThrow"
-            type="button"
-            class="coin-dlg__submit"
-            :disabled="submitting || !canAfford"
-            @click="submitThrow"
-          >
-            {{ submitting ? '投币中…' : '确定' }}
-          </button>
-        </div>
-        <p class="coin-dlg__exp">
-          每投 1 枚 +10 主页经验 · 每人对每个内容最多投 2 枚
-        </p>
       </div>
     </div>
   </Teleport>
@@ -263,14 +263,21 @@ async function submitCancel() {
   animation: coin-dlg-fade 0.16s ease;
 }
 
+/* 宽度载体：卡片和趴着的小人都在这层上对齐 */
+.coin-dlg-wrap {
+  width: min(360px, calc(100vw - 32px));
+  min-width: 0;
+}
+
 .coin-dlg {
   position: relative;
-  width: min(360px, calc(100vw - 32px));
+  z-index: 0;
+  width: 100%;
   /* 矮屏 / 横屏手机：内容超高时面板内部滚动，余额与「确定」不会被顶出屏幕 */
   max-height: calc(100vh - 24px);
   overflow-y: auto;
   box-sizing: border-box;
-  padding: 14px 18px 12px;
+  padding: 16px 18px 12px;
   text-align: center;
   background: var(--color-card, #fff);
   border-radius: 12px;
@@ -279,21 +286,22 @@ async function submitCancel() {
   animation: coin-dlg-pop 0.18s ease;
 }
 
-/* 装饰带通铺到卡片左右边缘（用负 margin 抵消卡片的横向 padding） */
-.coin-dlg__bar {
+/* 趴在卡片上沿的小人：底边（扒着的手臂）用负 margin 压进卡片 ~12px。
+   素材是抠掉棋盘格底的透明 PNG，亮暗两种卡片上都贴合；
+   z-index 抬到卡片之上，手臂才读作「扒在边框前面」而不是被卡片盖掉。 */
+.coin-dlg__pet {
+  position: relative;
+  z-index: 1;
   display: block;
-  width: calc(100% + 36px);
+  width: 78%;
+  max-width: 280px;
   height: auto;
-  margin: -14px -18px 8px;
+  margin: 0 auto -12px;
+  pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
-  pointer-events: none;
   -webkit-user-drag: none;
-}
-
-/* 素材是浅粉彩 + 近白底，压在暗色卡片上会是一块亮斑：暗色模式不贴装饰 */
-body.dark-mode .coin-dlg__bar {
-  display: none;
+  filter: drop-shadow(0 3px 10px rgb(15 23 42 / 10%));
 }
 
 .coin-dlg__close {
@@ -504,19 +512,23 @@ body.dark-mode .coin-dlg__bar {
     align-items: flex-end;
   }
 
+  /* 宽度封顶：底部面板再宽，小人也不会被跟着拉宽变形 */
+  .coin-dlg-wrap {
+    width: 100%;
+    max-width: 380px;
+  }
+
   .coin-dlg {
     width: 100%;
-    /* 宽度封顶：底部面板再宽，装饰带也不会被跟着拉宽变形 */
-    max-width: 380px;
     /* 底部面板贴住屏幕下沿，安全区内缩一点，别让 home 条压住内容 */
     padding: 14px 16px calc(12px + env(safe-area-inset-bottom));
     border-radius: 14px 14px 0 0;
     animation: coin-dlg-slide-up 0.2s ease;
   }
 
-  .coin-dlg__bar {
-    width: calc(100% + 32px);
-    margin: -14px -16px 8px;
+  .coin-dlg__pet {
+    width: 64%;
+    margin-bottom: -10px;
   }
 
   /* 立绘缩一号：一屏里标题、两张卡、取消入口、余额+确定全都看得见 */

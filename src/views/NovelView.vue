@@ -390,20 +390,35 @@ watch(() => route.query.tab, () => {
   }
 }
 
+/* 番茄式封面网格：手机 3 列，桌面 4 列；空态 / 加载更多占满整行 */
 .novel-feed {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 10px;
+}
+
+.novel-feed__empty,
+.novel-feed__more {
+  grid-column: 1 / -1;
 }
 
 .novel-feed__empty {
-  text-align: center;
   padding: 24px;
   font-size: 13px;
   color: var(--color-text-muted, #94a3b8);
+  text-align: center;
+}
+
+@media screen and (min-width: 769px) {
+  .novel-feed {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px 14px;
+  }
 }
 
 .novel-feed__more {
+  justify-self: center;
+  min-width: 220px;
   padding: 8px;
   border: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
   border-radius: 8px;

@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import type { NovelItem } from '@/api/novel/types'
-import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import CoinThrowButton from '@/components/CoinThrowButton.vue'
 import NovelCover from '@/components/novel/NovelCover.vue'
-import { useUserStore } from '@/store/userStore'
-import { novelBookPath, novelReadPath } from '@/utils/novelRoute'
-import { formatCount, formatNovelTime, formatWordCount } from '@/utils/novelText'
+import { formatCount, formatWordCount } from '@/utils/novelText'
+import { novelBookPath } from '@/utils/novelRoute'
 
 defineOptions({ name: 'NovelCard' })
 
@@ -15,197 +12,144 @@ const { novel } = defineProps<{
   novel: NovelItem
 }>()
 
-const { userInfo } = useUserStore()
-const continueChapter = computed(() => novel.progressChapterID || novel.latestChapterID)
 const showProgress = computed(() => novel.progressPercent > 0 && novel.progressPercent < 100)
-const isSelf = computed(() => novel.authorID > 0 && novel.authorID === userInfo.userID)
+const isCompleted = computed(() => novel.status === 'completed')
 </script>
 
 <template>
+  <!-- 番茄小说式竖版封面卡：封面(带连载/完结角标) + 书名(两行) + 进度/作者 + 数据行。
+       整卡链到书详情页（继续阅读 / 投币都在详情页，列表卡保持干净）。 -->
   <article class="novel-card">
     <RouterLink class="novel-card__main" :to="novelBookPath(novel.novelID)">
-      <NovelCover class="novel-card__cover" :title="novel.title" :cover-url="novel.coverURL" />
-      <div class="novel-card__body">
-        <h3 class="novel-card__title">
-          {{ novel.title }}
-        </h3>
-        <p class="novel-card__meta">
-          <span>{{ novel.authorName || '佚名' }}</span>
-          <span v-if="novel.category" class="novel-card__dot">·</span>
-          <span v-if="novel.category">{{ novel.category }}</span>
-          <span class="novel-card__dot">·</span>
-          <span>{{ novel.status === 'completed' ? '完结' : '连载' }}</span>
-        </p>
-        <p class="novel-card__intro">
-          {{ novel.intro || '暂无简介' }}
-        </p>
-        <p class="novel-card__stats">
-          <span>{{ novel.chapterNum }}章</span>
-          <span class="novel-card__dot">·</span>
-          <span>{{ formatWordCount(novel.wordNum) }}</span>
-          <span class="novel-card__dot">·</span>
-          <span>{{ formatCount(novel.readNum) }}人在读</span>
-          <span class="novel-card__dot">·</span>
-          <span>{{ formatCount(novel.coinNum) }}币</span>
-          <template v-if="novel.ratingCount > 0">
-            <span class="novel-card__dot">·</span>
-            <span>{{ novel.ratingAvg.toFixed(1) }}分</span>
-          </template>
-          <template v-if="novel.latestChapterAt">
-            <span class="novel-card__dot">·</span>
-            <span>{{ formatNovelTime(novel.latestChapterAt) }}更新</span>
-          </template>
-        </p>
-        <p v-if="showProgress" class="novel-card__progress">
-          读到 {{ novel.progressChapterNum }}章 · {{ novel.progressPercent.toFixed(0) }}%
-        </p>
-      </div>
-    </RouterLink>
-    <div class="novel-card__side">
-      <RouterLink
-        v-if="continueChapter > 0"
-        class="novel-card__read"
-        :to="novelReadPath(continueChapter)"
+      <span class="novel-card__coverbox">
+        <NovelCover class="novel-card__cover" :title="novel.title" :cover-url="novel.coverURL" />
+        <span
+          class="novel-card__status"
+          :class="{ 'novel-card__status--done': isCompleted }"
+        >
+          {{ isCompleted ? '完结' : '连载' }}
+        </span>
+      </span>
+      <span class="novel-card__title">{{ novel.title }}</span>
+      <span
+        class="novel-card__sub"
+        :class="{ 'novel-card__sub--progress': showProgress }"
       >
-        <Icon :icon="showProgress ? 'tabler:player-play' : 'tabler:book'" width="15" height="15" aria-hidden="true" />
-        <span>{{ showProgress ? '继续阅读' : '开始阅读' }}</span>
-      </RouterLink>
-      <CoinThrowButton
-        target-type="novel"
-        :target-i-d="novel.novelID"
-        :my-coins="novel.myCoins"
-        :coin-num="novel.coinNum"
-        :self="isSelf"
-        target-label="小说"
-        variant="muted"
-      />
-    </div>
+        {{
+          showProgress
+            ? `读到 ${novel.progressChapterNum}章 · ${novel.progressPercent.toFixed(0)}%`
+            : (novel.authorName || '佚名')
+        }}
+      </span>
+      <span class="novel-card__meta">
+        {{ novel.chapterNum }}章 · {{ formatWordCount(novel.wordNum) }} · {{ formatCount(novel.readNum) }}人在读
+      </span>
+    </RouterLink>
   </article>
 </template>
 
 <style scoped lang="scss">
 .novel-card {
-  display: flex;
-  align-items: stretch;
-  background: var(--color-card, #fff);
-  border-radius: var(--radius-lg, 8px);
-  box-shadow: var(--color-card-shadow);
-  overflow: hidden;
-  transition: box-shadow 0.15s ease;
-
-  &:hover {
-    box-shadow: var(--color-card-hover-shadow);
-  }
+  position: relative;
+  min-width: 0;
 }
 
 .novel-card__main {
-  flex: 1;
-  min-width: 0;
   display: flex;
-  gap: 10px;
-  padding: 10px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
   color: inherit;
   text-decoration: none;
 }
 
-.novel-card__cover {
-  flex: 0 0 auto;
-  width: 56px;
-  height: 78px;
-  object-fit: cover;
-  border-radius: 4px;
+.novel-card__coverbox {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
   background: var(--color-bg, #f5f6f7);
+  box-shadow: var(--color-card-shadow);
 }
 
-.novel-card__body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.novel-card__cover {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 7;
+  border-radius: 8px;
+  transition: transform 0.18s ease;
+}
+
+@media (hover: hover) {
+  .novel-card__main:hover .novel-card__cover {
+    transform: scale(1.04);
+  }
+}
+
+.novel-card__status {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #fff;
+  background: rgb(15 23 42 / 42%);
+  border-bottom-left-radius: 8px;
+  backdrop-filter: blur(2px);
+}
+
+.novel-card__status--done {
+  background: rgb(16 185 129 / 62%);
 }
 
 .novel-card__title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-text, #1e293b);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.novel-card__meta {
-  margin: 0;
-  font-size: 12px;
-  color: var(--color-text-secondary, #475569);
-}
-
-.novel-card__intro {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--color-text-muted, #94a3b8);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.novel-card__stats,
-.novel-card__progress {
-  margin: 0;
-  font-size: 11px;
-  color: var(--color-text-muted, #94a3b8);
-}
-
-.novel-card__progress {
-  color: var(--accent, #2c3d56);
+  min-height: 2.6em;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text, #1e293b);
+  word-break: break-all;
 }
 
-.novel-card__dot {
-  margin: 0 3px;
-  opacity: 0.6;
-}
-
-.novel-card__side {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 8px 8px 0;
-}
-
-.novel-card__read {
-  flex: 0 0 auto;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 0 12px;
+.novel-card__sub {
+  overflow: hidden;
   font-size: 11px;
-  font-weight: 600;
-  color: var(--accent, #2c3d56);
-  background: var(--accent-soft, rgba(44, 61, 86, 0.08));
-  text-decoration: none;
+  color: var(--color-text-secondary, #475569);
+  text-overflow: ellipsis;
   white-space: nowrap;
 
-  &:active {
-    opacity: 0.7;
+  &--progress {
+    font-weight: 600;
+    color: var(--accent, #2c3d56);
   }
 }
 
-@media screen and (max-width: 360px) {
-  .novel-card__read span {
-    display: none;
+.novel-card__meta {
+  overflow: hidden;
+  font-size: 10.5px;
+  color: var(--color-text-muted, #94a3b8);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media screen and (min-width: 769px) {
+  .novel-card__title {
+    font-size: 13.5px;
   }
 
-  .novel-card__read {
-    padding: 0 10px;
+  .novel-card__sub {
+    font-size: 11.5px;
+  }
+
+  .novel-card__meta {
+    font-size: 11px;
   }
 }
 </style>
