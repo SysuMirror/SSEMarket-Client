@@ -448,6 +448,7 @@ onMounted(() => {
       :score="allInfo.score ?? 0"
       :exp-target="expTarget"
       :next-level-label="nextLevelLabel"
+      :coins="allInfo.coins"
       @upload-avatar="onUploadAvatar"
       @avatar-error="onAvatarError"
       @edit-profile="onEditProfile"

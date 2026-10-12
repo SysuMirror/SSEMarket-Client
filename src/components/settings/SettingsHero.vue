@@ -10,6 +10,8 @@ defineProps<{
   score: number
   expTarget: number
   nextLevelLabel: string
+  /** 站内币余额；undefined = 后端没给（不显示） */
+  coins?: number
 }>()
 defineEmits<{
   uploadAvatar: [event: Event]
@@ -53,6 +55,7 @@ defineEmits<{
           <div class="settings-hero__level-row">
             <span class="settings-hero__level-badge" :class="levelClass">{{ levelLabel }}</span>
             <span class="settings-hero__exp-text">{{ score }} / {{ expTarget }} 经验</span>
+            <span v-if="coins !== undefined" class="settings-hero__coins">{{ coins }} 币</span>
             <span class="settings-hero__next-level">{{ nextLevelLabel }}</span>
           </div>
           <div
@@ -183,6 +186,18 @@ defineEmits<{
   &__next-level {
     font-size: 11px;
     color: var(--color-text-muted);
+  }
+
+  &__coins {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 600;
+    color: #b45309;
+    background: rgba(180, 83, 9, 0.1);
+    font-variant-numeric: tabular-nums;
   }
 
   &__progress {
