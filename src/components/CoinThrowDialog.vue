@@ -172,16 +172,13 @@ async function submitCancel() {
           </template>
         </h3>
 
-        <!-- 选币卡片：1 枚 / 2 枚（B 站式，立绘手里举的币数对应档位） -->
+        <!-- 选币卡片：1 枚 / 2 枚（B 站式，立绘手里举的币数对应档位）。
+             已投 1 枚时只剩「再投 1 枚」一个选项：2 币卡禁用，1 币卡保持可点。 -->
         <div v-if="canThrow" class="coin-dlg__cards">
           <button
             type="button"
             class="coin-dlg__card"
-            :class="{
-              'coin-dlg__card--selected': selected === 1,
-              'coin-dlg__card--dim': my === 1,
-            }"
-            :disabled="my === 1"
+            :class="{ 'coin-dlg__card--selected': selected === 1 }"
             :aria-pressed="selected === 1"
             @click="selected = 1"
           >
@@ -239,11 +236,13 @@ async function submitCancel() {
 </template>
 
 <style scoped lang="scss">
-/* 桌面：居中弹窗（B 站 PC 式）；移动端：底部面板（B 站 App 式） */
+/* 桌面：居中弹窗（B 站 PC 式）；移动端：底部面板（B 站 App 式）。
+   层级卡在底栏（1000）之上、全局 toast（1005）之下——
+   投币失败的提示必须浮在弹窗上面，不能被 mask 盖住。 */
 .coin-dlg-mask {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 1002;
   display: flex;
   align-items: center;
   justify-content: center;
