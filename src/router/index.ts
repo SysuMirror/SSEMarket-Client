@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
 import { setTitle } from '@/utils/title'
 
@@ -334,7 +335,8 @@ router.beforeEach((to, from, next) => {
     const end = new Date('2026-02-27T23:59:59').getTime()
 
     if (now < start || now > end) {
-      alert('不在活动时间内')
+      // 路由守卫里不弹阻塞框，走全局提示条
+      showMsg('不在活动时间内', 'warning')
       next('/')
       return
     }

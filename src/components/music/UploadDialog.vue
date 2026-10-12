@@ -341,20 +341,21 @@ $accent: #ec4141;
 }
 
 .dialog {
-  width: min(560px, 100%);
+  width: min(520px, 100%);
   max-height: 88vh;
   overflow-y: auto;
   background: var(--color-bg);
-  border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  /* 与投币弹窗 / 确认框同一套：圆角 12、阴影 0 12px 40px */
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 18%);
 }
 
 .dialog-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  font-size: 16px;
+  padding: 14px 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text);
   border-bottom: 1px solid var(--color-border);
@@ -613,6 +614,14 @@ $accent: #ec4141;
 
   .dialog {
     transform: translateY(12px) scale(0.98);
+  }
+}
+
+@media screen and (prefers-reduced-motion: reduce) {
+  .dialog-mask,
+  .dialog {
+    animation: none;
+    transition: none !important;
   }
 }
 </style>

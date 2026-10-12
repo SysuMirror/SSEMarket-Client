@@ -3,6 +3,7 @@ import type { AnnualReportData, ChatUser } from '@/api/info/getAnnualReport'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAnnualReport } from '@/api/info/getAnnualReport'
+import { showMsg } from '@/components/MessageBox'
 import { levelNameHandler } from '@/utils/level'
 import { useUserStore } from '@/store/userStore'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
@@ -537,7 +538,7 @@ async function exportReport() {
   }
   catch (error) {
     console.error('导出失败:', error)
-    alert('导出失败，请稍后重试')
+    showMsg('导出失败，请稍后重试', 'error')
   }
 }
 

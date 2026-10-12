@@ -15,6 +15,7 @@ import {
   uploadNovelImage,
 } from '@/api/novel'
 import CoinThrowButton from '@/components/CoinThrowButton.vue'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
 import NovelCover from '@/components/novel/NovelCover.vue'
@@ -284,7 +285,12 @@ async function onCoverFile(e: Event) {
 async function onDeleteNovel() {
   if (!novel.value)
     return
-  if (!window.confirm(`确定删除《${novel.value.title}》？所有章节与评论都会一并删除。`))
+  if (!await confirmDialog({
+    title: '删除小说',
+    message: `确定删除《${novel.value.title}》？所有章节与评论都会一并删除。`,
+    confirmText: '删除',
+    danger: true,
+  }))
     return
   const ok = await deleteNovel(novel.value.novelID)
   if (!ok) {

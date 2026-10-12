@@ -8,6 +8,7 @@ import { downloadResume } from '@/api/resume/downloadResume'
 import { getResumeDetail } from '@/api/resume/getResumeDetail'
 import { isResumeImageExt, isWeChatBrowser } from '@/api/resume/previewResume'
 import { updateResume } from '@/api/resume/updateResume'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import ResumeImagePreview from '@/components/ResumeImagePreview.vue'
 import ResumePdfPreview from '@/components/ResumePdfPreview.vue'
@@ -134,7 +135,7 @@ function startPreview() {
 async function handleDownload() {
   if (!resume.value || isDownloading.value)
     return
-  if (!window.confirm('确定要下载这份简历吗？'))
+  if (!await confirmDialog({ message: '确定要下载这份简历吗？', confirmText: '下载' }))
     return
   isDownloading.value = true
   try {
@@ -167,7 +168,7 @@ async function handleDownload() {
 async function handleDelete() {
   if (!resume.value || !isOwner.value || isDeleting.value)
     return
-  if (!window.confirm('确定删除这份简历吗？'))
+  if (!await confirmDialog({ message: '确定删除这份简历吗？', confirmText: '删除', danger: true }))
     return
   isDeleting.value = true
   try {

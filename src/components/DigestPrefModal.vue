@@ -85,24 +85,27 @@ async function onSave() {
   align-items: center;
   justify-content: center;
   padding: 16px;
+  animation: dpref-fade 0.16s ease;
 }
 .dpref-box {
   background: var(--color-card, #fff);
   color: var(--chat-text, #1e293b);
-  border-radius: 14px;
-  max-width: 460px;
+  /* 与投币弹窗 / 确认框同一套：圆角 12、留白 16–18 */
+  border-radius: 12px;
+  max-width: 420px;
   width: 100%;
-  padding: 22px 24px;
+  padding: 16px 18px;
   box-sizing: border-box;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  animation: dpref-pop 0.18s ease;
 }
 .dpref-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .dpref-x {
   width: 28px;
@@ -123,7 +126,7 @@ async function onSave() {
 .dpref-meta {
   color: var(--chat-text-tips, #94a3b8);
   font-size: 12px;
-  margin: 0 0 14px;
+  margin: 0 0 12px;
 }
 .dpref-opt {
   display: flex;
@@ -220,8 +223,25 @@ body.dark-mode .dpref-save:focus-visible {
   color: var(--chat-text-tips, #94a3b8);
   font-size: 12px;
   line-height: 1.6;
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   padding-top: 12px;
   border-top: 1px solid var(--chat-border, rgba(71, 85, 105, 0.12));
+}
+@keyframes dpref-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dpref-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media screen and (prefers-reduced-motion: reduce) {
+  .dpref-mask,
+  .dpref-box {
+    animation: none;
+  }
 }
 </style>

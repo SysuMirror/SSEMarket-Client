@@ -3,6 +3,7 @@ import type { NovelCommentItem } from '@/api/novel/types'
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
 import { deleteNovelComment, likeNovelComment } from '@/api/novel'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/store/userStore'
@@ -41,7 +42,7 @@ async function onLike() {
 }
 
 async function onDelete() {
-  if (!window.confirm('删除这条评论？'))
+  if (!await confirmDialog({ message: '删除这条评论？', confirmText: '删除', danger: true }))
     return
   const ok = await deleteNovelComment(comment.commentID)
   if (!ok) {

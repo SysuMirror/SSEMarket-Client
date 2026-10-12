@@ -10,7 +10,7 @@ import { userRegister } from '@/api/LoginAndRegister/register'
 import { sendCode } from '@/api/LoginAndRegister/utils'
 import FormContainer from '@/components/FormContainer.vue'
 
-import { showMsg } from '@/components/MessageBox.jsx'
+import { showMsg } from '@/components/MessageBox'
 import { useFormExam } from '@/composables/FormExam'
 import { useUserStore } from '@/store/userStore'
 

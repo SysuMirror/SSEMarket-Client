@@ -2,6 +2,7 @@
 import type { CoinTargetType } from '@/api/coin/coin'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { cancelCoin, getCoinSummary, throwCoin } from '@/api/coin/coin'
+import coinBar from '@/assets/coin-dialog-bar.png'
 import coinIcon from '@/assets/coin-icon.png'
 import coinMascot1 from '@/assets/coin-mascot-1.png'
 import coinMascot2 from '@/assets/coin-mascot-2.png'
@@ -73,11 +74,11 @@ async function submitThrow() {
   if (submitting.value)
     return
   if (!canThrow.value) {
-    showMsg('每人对每个内容最多投 2 币')
+    showMsg('每人对每个内容最多投 2 币', 'warning')
     return
   }
   if (!canAfford.value) {
-    showMsg('币不够，先去赚点币吧')
+    showMsg('币不够，先去赚点币吧', 'warning')
     return
   }
   submitting.value = true
@@ -88,16 +89,16 @@ async function submitThrow() {
       const delta = selected.value
       my.value = result.total
       emit('changed', result.total, delta, result.coinsLeft)
-      showMsg(`已投 ${delta} 币 · +${result.exp} 主页经验`)
+      showMsg(`已投 ${delta} 币 · +${result.exp} 主页经验`, 'success')
       emit('close')
     }
     else {
-      showMsg(msg)
+      showMsg(msg, 'error')
     }
   }
   catch (e) {
     console.error(e)
-    showMsg('投币失败')
+    showMsg('投币失败', 'error')
   }
   finally {
     submitting.value = false
@@ -115,11 +116,11 @@ async function submitCancel() {
       const refunded = result.coins
       my.value = result.total
       emit('changed', result.total, -refunded, result.coinsLeft)
-      showMsg(`已取消投币 · 退回 ${refunded} 币`)
+      showMsg(`已取消投币 · 退回 ${refunded} 币`, 'success')
       emit('close')
     }
     else {
-      showMsg(msg)
+      showMsg(msg, 'error')
       // 后端说没有投着的币了（别处已取消）：把本地状态对齐，避免卡死在旧状态
       if (msg.includes('还没有投过币')) {
         my.value = 0
@@ -130,7 +131,7 @@ async function submitCancel() {
   }
   catch (e) {
     console.error(e)
-    showMsg('取消失败')
+    showMsg('取消失败', 'error')
   }
   finally {
     submitting.value = false
@@ -149,6 +150,17 @@ async function submitCancel() {
         aria-label="投币"
         tabindex="-1"
       >
+        <!-- 卡片顶部的装饰带（小人趴栏杆 + 两端花）：整条按固定宽高比贴，
+             弹窗宽度封顶在 360px，装饰端不会被拉变形。
+             素材中段几乎空白、栏杆本身很淡，所以不做 border-image 九宫格切片
+             （切片会把栏杆拉散）；正式的可拉伸框素材到位后再换。 -->
+        <img
+          class="coin-dlg__bar"
+          :src="coinBar"
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+        >
         <button
           type="button"
           class="coin-dlg__close"
@@ -252,12 +264,12 @@ async function submitCancel() {
 
 .coin-dlg {
   position: relative;
-  width: min(400px, calc(100vw - 32px));
+  width: min(360px, calc(100vw - 32px));
   /* 矮屏 / 横屏手机：内容超高时面板内部滚动，余额与「确定」不会被顶出屏幕 */
   max-height: calc(100vh - 24px);
   overflow-y: auto;
   box-sizing: border-box;
-  padding: 22px 24px 14px;
+  padding: 14px 18px 12px;
   text-align: center;
   background: var(--color-card, #fff);
   border-radius: 12px;
@@ -266,15 +278,32 @@ async function submitCancel() {
   animation: coin-dlg-pop 0.18s ease;
 }
 
+/* 装饰带通铺到卡片左右边缘（用负 margin 抵消卡片的横向 padding） */
+.coin-dlg__bar {
+  display: block;
+  width: calc(100% + 36px);
+  height: auto;
+  margin: -14px -18px 8px;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* 素材是浅粉彩 + 近白底，压在暗色卡片上会是一块亮斑：暗色模式不贴装饰 */
+body.dark-mode .coin-dlg__bar {
+  display: none;
+}
+
 .coin-dlg__close {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   color: var(--color-text-tertiary, #94a3b8);
   cursor: pointer;
@@ -289,15 +318,15 @@ async function submitCancel() {
 }
 
 .coin-dlg__title {
-  margin: 0 0 16px;
-  font-size: 16px;
+  margin: 0 0 12px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text, #1f2937);
 }
 
 .coin-dlg__num {
   padding: 0 2px;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--chat-accent, #3b82f6);
   vertical-align: -1px;
@@ -305,7 +334,7 @@ async function submitCancel() {
 
 .coin-dlg__cards {
   display: flex;
-  gap: 14px;
+  gap: 10px;
   justify-content: center;
 }
 
@@ -316,7 +345,7 @@ async function submitCancel() {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 10px 8px 6px;
+  padding: 8px 8px 6px;
   cursor: pointer;
   background: var(--color-bg, #f8fafc);
   border: 1.5px solid var(--chat-border, #e2e8f0);
@@ -351,24 +380,24 @@ async function submitCancel() {
 }
 
 .coin-dlg__mascot {
-  width: 104px;
+  width: 80px;
   height: auto;
   user-select: none;
   pointer-events: none;
 }
 
 .coin-dlg__hint {
-  margin: 10px 0 0;
-  font-size: 12px;
+  margin: 8px 0 0;
+  font-size: 11.5px;
   color: var(--color-text-tertiary, #94a3b8);
 }
 
 .coin-dlg__cancel {
   display: block;
   width: 100%;
-  margin-top: 12px;
-  padding: 9px 0;
-  font-size: 13px;
+  margin-top: 10px;
+  padding: 8px 0;
+  font-size: 12.5px;
   font-weight: 600;
   font-family: inherit;
   color: #dc2626;
@@ -396,8 +425,8 @@ async function submitCancel() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .coin-dlg__balance {
@@ -418,9 +447,9 @@ async function submitCancel() {
 }
 
 .coin-dlg__submit {
-  min-width: 96px;
-  padding: 8px 20px;
-  font-size: 14px;
+  min-width: 88px;
+  padding: 7px 18px;
+  font-size: 13px;
   font-weight: 600;
   font-family: inherit;
   color: #fff;
@@ -444,8 +473,8 @@ async function submitCancel() {
 }
 
 .coin-dlg__exp {
-  margin: 10px 0 0;
-  font-size: 12px;
+  margin: 8px 0 0;
+  font-size: 11.5px;
   color: var(--color-text-tertiary, #94a3b8);
 }
 
@@ -476,21 +505,27 @@ async function submitCancel() {
 
   .coin-dlg {
     width: 100%;
-    max-width: none;
+    /* 宽度封顶：底部面板再宽，装饰带也不会被跟着拉宽变形 */
+    max-width: 380px;
     /* 底部面板贴住屏幕下沿，安全区内缩一点，别让 home 条压住内容 */
-    padding: 18px 16px calc(14px + env(safe-area-inset-bottom));
+    padding: 14px 16px calc(12px + env(safe-area-inset-bottom));
     border-radius: 14px 14px 0 0;
     animation: coin-dlg-slide-up 0.2s ease;
   }
 
+  .coin-dlg__bar {
+    width: calc(100% + 32px);
+    margin: -14px -16px 8px;
+  }
+
   /* 立绘缩一号：一屏里标题、两张卡、取消入口、余额+确定全都看得见 */
   .coin-dlg__mascot {
-    width: 78px;
+    width: 66px;
   }
 
   .coin-dlg__title {
-    margin-bottom: 12px;
-    font-size: 15px;
+    margin-bottom: 10px;
+    font-size: 14.5px;
   }
 
   .coin-dlg__cards {
@@ -506,6 +541,20 @@ async function submitCancel() {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@media screen and (prefers-reduced-motion: reduce) {
+  .coin-dlg-mask,
+  .coin-dlg {
+    animation: none;
+  }
+
+  .coin-dlg__card,
+  .coin-dlg__cancel,
+  .coin-dlg__submit,
+  .coin-dlg__close {
+    transition-duration: 0.01ms !important;
   }
 }
 </style>

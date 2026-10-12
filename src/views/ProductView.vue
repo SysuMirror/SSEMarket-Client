@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getShopProductDetail } from '@/api/shop'
 import { deleteShopProduct, markShopProductSold } from '@/api/shop/mutations'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { showImg } from '@/components/ImageShower'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
@@ -82,7 +83,9 @@ function chatWithSeller(anonymous: boolean) {
 }
 
 async function markSold() {
-  if (!product.value || !confirm('确认标记为已售出？'))
+  if (!product.value)
+    return
+  if (!await confirmDialog({ message: '确认标记为已售出？', confirmText: '标记已售出' }))
     return
   if (await markShopProductSold(product.value.ProductID)) {
     product.value.ISSold = true
@@ -94,7 +97,9 @@ async function markSold() {
 }
 
 async function removeProduct() {
-  if (!product.value || !confirm('确定删除该商品？'))
+  if (!product.value)
+    return
+  if (!await confirmDialog({ message: '确定删除该商品？', confirmText: '删除', danger: true }))
     return
   if (await deleteShopProduct(product.value.ProductID)) {
     showMsg('已删除')
