@@ -9,11 +9,12 @@ import {
   getNovelChapters,
   getNovelComments,
   getNovelDetail,
-  rewardNovelAuthor,
+  rateNovel,
   toggleShelf,
   updateNovel,
   uploadNovelImage,
 } from '@/api/novel'
+import CoinThrowButton from '@/components/CoinThrowButton.vue'
 import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
 import NovelCover from '@/components/novel/NovelCover.vue'
@@ -46,10 +47,10 @@ const coverBusy = ref(false)
 
 const chapterBusy = ref(false)
 
-/** 读者打赏 */
-const rewardOpen = ref(false)
-const rewardBusy = ref(false)
-const rewardPoints = ref(10)
+/** 读者评分（1–5 星，每人每本一条，可改） */
+const ratingOpen = ref(false)
+const ratingBusy = ref(false)
+const ratingHover = ref(0)
 
 const chapterLimit = 50
 const reviewLimit = 20
@@ -148,36 +149,28 @@ function onReviewLiked(c: NovelCommentItem) {
 }
 
 // ---------------------------------------------------------------------------
-// 打赏作者：扣自己等量经验，作者收到积分（同一本书每人每天最多一次）
+// 评分：1–5 星，每人每本一条，可改。作者首次收到该读者的评分时 +1 币；
+// 评分不给读者任何币或经验（币与积分是两条独立的线）。
 // ---------------------------------------------------------------------------
 
-const REWARD_PRESETS = [10, 50, 100]
-
-function pickReward(points: number) {
-  rewardPoints.value = points
-}
-
-async function onReward() {
-  if (!novel.value || rewardBusy.value)
+async function onRate(score: number) {
+  if (!novel.value || ratingBusy.value)
     return
-  const points = Math.floor(Number(rewardPoints.value))
-  if (!Number.isFinite(points) || points < 10 || points > 1000) {
-    showMsg('打赏积分要在 10 到 1000 之间')
+  ratingBusy.value = true
+  const result = await rateNovel(novel.value.novelID, score)
+  ratingBusy.value = false
+  if (!result || result.score <= 0) {
+    showMsg(result?.msg || '评分失败，请稍后重试')
     return
   }
-  rewardBusy.value = true
-  const result = await rewardNovelAuthor(novel.value.novelID, points)
-  rewardBusy.value = false
-  if (!result) {
-    showMsg('打赏失败，请稍后重试')
-    return
-  }
-  if (result.points <= 0) {
-    showMsg(result.msg)
-    return
-  }
-  rewardOpen.value = false
-  showMsg(`已打赏 ${result.points} 积分 · 扣 ${result.cost} 经验 · 剩余 ${result.experience} 经验`)
+  novel.value.myRating = result.score
+  novel.value.ratingCount = result.ratingCount
+  novel.value.ratingAvg = result.ratingAvg
+  ratingOpen.value = false
+  if (result.coins > 0)
+    showMsg(`已评 ${result.score} 星 · 作者 +${result.coins} 币`)
+  else
+    showMsg(result.changed ? `已改评为 ${result.score} 星` : `已评 ${result.score} 星`)
 }
 
 function pickCover() {
@@ -279,6 +272,12 @@ onMounted(async () => {
           <span>{{ formatCount(novel.shelfNum) }}收藏</span>
           <span class="novel-book__dot">·</span>
           <span>{{ formatCount(novel.commentNum) }}评论</span>
+          <span class="novel-book__dot">·</span>
+          <span>{{ formatCount(novel.coinNum) }}币</span>
+          <template v-if="novel.ratingCount > 0">
+            <span class="novel-book__dot">·</span>
+            <span>{{ novel.ratingAvg.toFixed(1) }}分（{{ novel.ratingCount }}人评）</span>
+          </template>
         </p>
         <p v-if="novel.latestChapterTitle" class="novel-book__latest">
           最新 {{ novel.latestChapterTitle }}
@@ -306,15 +305,24 @@ onMounted(async () => {
         <Icon :icon="novel.onShelf ? 'tabler:bookmark-filled' : 'tabler:bookmark'" width="16" height="16" aria-hidden="true" />
         {{ novel.onShelf ? '已在书架' : '加入书架' }}
       </button>
+      <CoinThrowButton
+        v-if="!novel.isAuthor"
+        target-type="novel"
+        :target-i-d="novel.novelID"
+        :my-coins="novel.myCoins"
+        :coin-num="novel.coinNum"
+        variant="prominent"
+        class="novel-book__coin"
+      />
       <button
         v-if="!novel.isAuthor"
         type="button"
         class="novel-book__btn"
-        :class="{ 'novel-book__btn--on': rewardOpen }"
-        @click="rewardOpen = !rewardOpen"
+        :class="{ 'novel-book__btn--on': ratingOpen }"
+        @click="ratingOpen = !ratingOpen"
       >
-        <Icon icon="tabler:coin" width="16" height="16" aria-hidden="true" />
-        打赏作者
+        <Icon icon="tabler:star" width="16" height="16" aria-hidden="true" />
+        {{ novel.myRating > 0 ? `已评 ${novel.myRating} 星` : '给书评分' }}
       </button>
       <RouterLink
         v-if="novel.isAuthor"
@@ -348,32 +356,27 @@ onMounted(async () => {
     </div>
 
     <Transition name="novel-book-reward">
-      <div v-if="rewardOpen && !novel.isAuthor" class="novel-book__reward">
+      <div v-if="ratingOpen && !novel.isAuthor" class="novel-book__reward">
         <span class="novel-book__reward-label">
-          打赏扣自己等量经验，作者收到积分；同一本书每人每天最多一次（10–1000 积分）
+          1–5 星，每人每本一条、可以改；作者首次收到你的评分时 +1 币，评分不花你的币也不给经验
         </span>
-        <div class="novel-book__reward-row">
+        <div class="novel-book__reward-row novel-book__rating-row">
           <button
-            v-for="p in REWARD_PRESETS"
-            :key="p"
+            v-for="s in 5"
+            :key="s"
             type="button"
-            class="novel-book__reward-chip"
-            :class="{ 'novel-book__reward-chip--on': rewardPoints === p }"
-            @click="pickReward(p)"
+            class="novel-book__rating-star"
+            :class="{ 'novel-book__rating-star--on': s <= (ratingHover || novel.myRating) }"
+            :disabled="ratingBusy"
+            @mouseenter="ratingHover = s"
+            @mouseleave="ratingHover = 0"
+            @click="onRate(s)"
           >
-            {{ p }}
+            <Icon icon="tabler:star-filled" width="22" height="22" aria-hidden="true" />
           </button>
-          <input
-            v-model.number="rewardPoints"
-            class="novel-book__reward-input"
-            type="number"
-            min="10"
-            max="1000"
-            step="10"
-          >
-          <button type="button" class="novel-book__reward-submit" :disabled="rewardBusy" @click="onReward">
-            {{ rewardBusy ? '打赏中…' : '确认打赏' }}
-          </button>
+          <span class="novel-book__rating-hint">
+            {{ ratingBusy ? '提交中…' : (novel.myRating > 0 ? `当前 ${novel.myRating} 星` : '点击星星评分') }}
+          </span>
         </div>
       </div>
     </Transition>
@@ -633,54 +636,36 @@ onMounted(async () => {
   gap: 6px;
 }
 
-.novel-book__reward-chip {
-  min-width: 44px;
-  padding: 7px 10px;
-  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
-  border-radius: 8px;
-  background: var(--color-card, #fff);
-  color: var(--color-text-secondary, #475569);
-  font-size: 12px;
-  font-weight: 700;
+.novel-book__rating-row {
+  gap: 2px;
+}
+
+.novel-book__rating-star {
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--color-border, rgba(71, 85, 105, 0.3));
   cursor: pointer;
+  transition: color 0.1s ease, transform 0.1s ease;
 
   &--on {
-    border-color: var(--accent, #2c3d56);
-    background: var(--accent, #2c3d56);
-    color: #fff;
+    color: #f59e0b;
   }
-}
 
-.novel-book__reward-input {
-  width: 92px;
-  padding: 7px 10px;
-  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
-  border-radius: 8px;
-  background: var(--color-card, #fff);
-  font-size: 12px;
-  color: var(--color-text, #1e293b);
-
-  &:focus {
-    outline: none;
-    border-color: var(--accent, #2c3d56);
+  &:hover:not(:disabled) {
+    transform: scale(1.12);
   }
-}
-
-.novel-book__reward-submit {
-  margin-left: auto;
-  padding: 8px 14px;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent, #2c3d56);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
 
   &:disabled {
     opacity: 0.55;
     cursor: default;
   }
+}
+
+.novel-book__rating-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary, #475569);
 }
 
 .novel-book-reward-enter-active,

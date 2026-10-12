@@ -6,13 +6,14 @@ import {
 } from 'vue'
 import { getInfo } from './api/info/getInfo'
 import { userLogin } from './api/LoginAndRegister/login'
+import { reportDailyVisit } from './api/coin/coin'
 import { useUserStore } from './store/userStore'
 
 import NowPlayingOverlay from '@/components/music/NowPlayingOverlay.vue'
 import PlayerBar from '@/components/music/PlayerBar.vue'
 import PlaylistDrawer from '@/components/music/PlaylistDrawer.vue'
 
-const { setUserInfo, token, refreshToken, setToken, setRefreshToken } = useUserStore()
+const { setUserInfo, userInfo, token, refreshToken, setToken, setRefreshToken } = useUserStore()
 
 const isUserReady = ref(false)
 
@@ -21,6 +22,15 @@ const isUserReady = ref(false)
  */
 function handleBeforeUnload() {
   localStorage.removeItem('token')
+}
+
+/**
+ * 每日进入网页 +1 币：登录态就绪后上报一次。
+ * 本地按日期短路 + 后端按日期幂等，刷新 / 多标签页都不会重复发币。
+ */
+function reportVisitIfLoggedIn() {
+  if (token.value && userInfo.userID > 0)
+    void reportDailyVisit()
 }
 
 onBeforeMount(async () => {
@@ -48,6 +58,7 @@ onBeforeMount(async () => {
 
             localStorage.removeItem('email')
             localStorage.removeItem('password')
+            reportVisitIfLoggedIn()
             return
           }
         }
@@ -63,6 +74,7 @@ onBeforeMount(async () => {
         const info = await getInfo()
         if (info && info.userID && info.userID !== 0) {
           setUserInfo(info)
+          reportVisitIfLoggedIn()
         }
       }
       catch {

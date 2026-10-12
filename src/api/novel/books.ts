@@ -26,6 +26,11 @@ export function normalizeNovelItem(raw: Record<string, unknown>): NovelItem {
     readNum: num(raw.readNum ?? raw.ReadNum),
     shelfNum: num(raw.shelfNum ?? raw.ShelfNum),
     commentNum: num(raw.commentNum ?? raw.CommentNum),
+    coinNum: num(raw.coinNum ?? raw.CoinNum),
+    ratingCount: num(raw.ratingCount ?? raw.RatingCount),
+    ratingAvg: num(raw.ratingAvg ?? raw.RatingAvg),
+    myCoins: num(raw.myCoins ?? raw.MyCoins),
+    myRating: num(raw.myRating ?? raw.MyRating),
     latestChapterID: num(raw.latestChapterID ?? raw.LatestChapterID),
     latestChapterTitle: str(raw.latestChapterTitle ?? raw.LatestChapterTitle),
     latestChapterAt: latestAt ? str(latestAt) : null,
@@ -103,6 +108,50 @@ export async function getNovelDetail(novelID: number): Promise<NovelDetail | nul
     authorIdentity: str(data.authorIdentity ?? data.AuthorIdentity),
     authorIntro: str(data.authorIntro ?? data.AuthorIntro),
     isAuthor: Boolean(data.isAuthor ?? data.IsAuthor),
+  }
+}
+
+export interface NovelRatingResult {
+  novelID: number
+  score: number
+  changed: boolean
+  firstTime: boolean
+  ratingCount: number
+  ratingAvg: number
+  coins: number
+  msg: string
+}
+
+/**
+ * 给书评分（1–5 星，每人每本一条，可改）。
+ * 作者首次收到该读者的评分时 +1 币；评分不给读者任何币或经验。
+ */
+export async function rateNovel(novelID: number, score: number): Promise<NovelRatingResult | null> {
+  const raw = await novelPostRaw('/auth/novel/rate', { novelID, score })
+  if (!raw)
+    return null
+  const d = raw.data ?? {}
+  if (!raw.ok) {
+    return {
+      novelID,
+      score: 0,
+      changed: false,
+      firstTime: false,
+      ratingCount: 0,
+      ratingAvg: 0,
+      coins: 0,
+      msg: str(d.msg) || '评分失败，请稍后重试',
+    }
+  }
+  return {
+    novelID: num(d.novelID) || novelID,
+    score: num(d.score),
+    changed: Boolean(d.changed),
+    firstTime: Boolean(d.firstTime),
+    ratingCount: num(d.ratingCount),
+    ratingAvg: num(d.ratingAvg),
+    coins: num(d.coins),
+    msg: str(d.msg) || '已评分',
   }
 }
 

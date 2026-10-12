@@ -19,6 +19,13 @@ export interface NovelItem {
   readNum: number
   shelfNum: number
   commentNum: number
+  // 投币与评分：coinNum/ratingCount/ratingAvg 是公开数据，
+  // myCoins/myRating 是当前用户自己的状态（0 = 没投过 / 没评过）。
+  coinNum: number
+  ratingCount: number
+  ratingAvg: number
+  myCoins: number
+  myRating: number
   latestChapterID: number
   latestChapterTitle: string
   latestChapterAt: string | null
@@ -154,9 +161,5 @@ export interface NovelCheckInResult {
   already: boolean
 }
 
-export interface NovelRewardResult {
-  points: number
-  cost: number
-  experience: number
-  msg: string
-}
+// 打赏已下线（被投币体系替换）：NovelRewardResult 随之移除，
+// 评分结果类型见 books.ts 的 NovelRatingResult。

@@ -18,7 +18,7 @@ import MarkdownContainer from '../MarkdownContainer.vue'
 import PostWatchButton from '../PostWatchButton.vue'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
-import VoteLink from '../VoteLink.vue'
+import CoinThrowButton from '../CoinThrowButton.vue'
 import BasicCard from './BasicCard.vue'
 
 const { post } = defineProps<{
@@ -230,7 +230,14 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: 
             variant="prominent"
             @watched-change="(w) => emits('watchChange', w)"
           />
-          <VoteLink :post-i-d="post.PostID" variant="prominent" />
+          <CoinThrowButton
+            target-type="post"
+            :target-i-d="post.PostID"
+            :my-coins="post.MyCoins ?? 0"
+            :coin-num="post.Coin ?? 0"
+            :self="isSelf"
+            variant="prominent"
+          />
         </div>
       </template>
     </CommentToolbar>

@@ -35,6 +35,8 @@ const defaultPost: Post = {
   Content: '',
   Like: 0,
   Comment: 0,
+  Coin: 0,
+  MyCoins: 0,
   Browse: 0,
   Heat: 0,
   PostTime: '',

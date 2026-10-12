@@ -91,6 +91,10 @@ onMounted(() => {
         <Icon icon="tabler:coin" width="18" height="18" aria-hidden="true" />
         <span>积分中心</span>
       </div>
+      <RouterLink class="novel-points__back" to="/coin">
+        <Icon icon="tabler:coin" width="18" height="18" aria-hidden="true" />
+        <span>币中心</span>
+      </RouterLink>
       <button type="button" class="novel-points__refresh" :disabled="loading" @click="loadAll">
         <Icon icon="tabler:refresh" width="15" height="15" aria-hidden="true" />
       </button>
@@ -151,8 +155,10 @@ onMounted(() => {
           <li><span>新增在读读者</span><em>+0.1 积分</em><i>按本独立、UV 去重、只算一次</i></li>
           <li><span>写作每满 5000 字</span><em>+1 积分</em><i>按书字数游标结算，改文不重复计</i></li>
           <li><span>章节更新</span><em>+2 积分</em><i>每日最多计 5 章</i></li>
-          <li><span>打赏作者</span><em>作者 +积分</em><i>扣自己等量经验；同一本书每人每天一次；10–1000 积分</i></li>
         </ul>
+        <p class="novel-points__rules-note">
+          打赏已下线，改为<RouterLink to="/coin">投币</RouterLink>：给帖子或小说投币每人最多 2 币，每投 1 币自己 +10 主页经验。经验与积分仍是两条独立的线，币不能与它们互相兑换。
+        </p>
       </section>
 
       <section v-if="summary && summary.byEvent.length > 0" class="novel-points__card">
@@ -380,6 +386,21 @@ onMounted(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
+}
+
+.novel-points__rules-note {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft, rgba(44, 61, 86, 0.08));
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-secondary, #475569);
+
+  a {
+    color: var(--accent, #2c3d56);
+    font-weight: 700;
+  }
 }
 
 .novel-points__rules li {

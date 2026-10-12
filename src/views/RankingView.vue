@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import type { UserRankItem, VoteRankItem } from '@/api/vote/vote'
+import type { PostCoinRankItem, UserCoinRankItem } from '@/api/rank/rank'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
-import { getPostRanking, getUserRanking } from '@/api/vote/vote'
+import { getPostCoinRanking, getUserCoinRanking } from '@/api/rank/rank'
 import { showMsg } from '@/components/MessageBox'
 
 type RankTab = 'post' | 'user'
 
 const activeTab = ref<RankTab>('post')
-const postRanking = ref<VoteRankItem[]>([])
-const userRanking = ref<UserRankItem[]>([])
+const postRanking = ref<PostCoinRankItem[]>([])
+const userRanking = ref<UserCoinRankItem[]>([])
 const loading = ref(true)
 const avatarFailed = ref<Record<number, boolean>>({})
 
 const subtitle = computed(() => {
   if (activeTab.value === 'post')
-    return '按得票数排序 · 前 100 名'
-  return '获赞与获票合计 · 前 100 名'
+    return '按投币数排序 · 前 100 名'
+  return '按收到的投币数排序 · 前 100 名'
 })
 
 const currentList = computed(() => {
@@ -62,18 +62,18 @@ function userNameAvatarText(userName: string) {
   return chars[0].toUpperCase()
 }
 
-function displayUserName(item: UserRankItem) {
+function displayUserName(item: UserCoinRankItem) {
   return item.userName?.trim() || '匿名用户'
 }
 
-function userAvatarSrc(item: UserRankItem) {
+function userAvatarSrc(item: UserCoinRankItem) {
   if (avatarFailed.value[item.userID])
     return ''
   const url = item.avatarURL?.trim()
   return url || ''
 }
 
-function shouldShowAvatarFallback(item: UserRankItem) {
+function shouldShowAvatarFallback(item: UserCoinRankItem) {
   return avatarFailed.value[item.userID] || !item.avatarURL?.trim()
 }
 
@@ -94,9 +94,9 @@ async function loadRanking() {
   avatarFailed.value = {}
   try {
     if (activeTab.value === 'post')
-      postRanking.value = await getPostRanking()
+      postRanking.value = await getPostCoinRanking()
     else
-      userRanking.value = await getUserRanking()
+      userRanking.value = await getUserCoinRanking()
   }
   catch (e) {
     console.error(e)
@@ -130,8 +130,8 @@ onMounted(() => {
               {{ subtitle }}
             </p>
           </div>
-          <RouterLink to="/vote" class="ranking-page__cta">
-            去投票
+          <RouterLink to="/coin" class="ranking-page__cta">
+            去投币
           </RouterLink>
         </div>
 
@@ -225,8 +225,8 @@ onMounted(() => {
               </span>
               <span class="ranking-page__podium-title">{{ item.title }}</span>
               <span class="ranking-page__podium-stat">
-                <Icon icon="tabler:heart-filled" width="12" height="12" aria-hidden="true" />
-                {{ formatCount(item.voteCount) }} 票
+                <Icon icon="tabler:coin-filled" width="12" height="12" aria-hidden="true" />
+                {{ formatCount(item.coinNum) }} 币
               </span>
               <span v-if="item.partition" class="ranking-page__podium-tag">{{ item.partition }}</span>
             </RouterLink>
@@ -270,7 +270,8 @@ onMounted(() => {
               </span>
               <span class="ranking-page__podium-title">{{ displayUserName(item) }}</span>
               <span class="ranking-page__podium-stat">
-                合计 {{ formatCount(item.rankScore) }}
+                <Icon icon="tabler:coin-filled" width="12" height="12" aria-hidden="true" />
+                {{ formatCount(item.receivedCoins) }} 币
               </span>
             </RouterLink>
           </template>
@@ -295,8 +296,8 @@ onMounted(() => {
                     {{ item.partition }}
                   </span>
                   <span class="ranking-page__stat">
-                    <Icon icon="tabler:heart" width="13" height="13" aria-hidden="true" />
-                    {{ formatCount(item.voteCount) }} 票
+                    <Icon icon="tabler:coin" width="13" height="13" aria-hidden="true" />
+                    {{ formatCount(item.coinNum) }} 币
                   </span>
                 </span>
               </span>
@@ -331,15 +332,9 @@ onMounted(() => {
               <span class="ranking-page__content">
                 <span class="ranking-page__name">{{ displayUserName(item) }}</span>
                 <span class="ranking-page__meta">
-                  <span class="ranking-page__stat">
-                    赞 {{ formatCount(item.receivedLikeNum) }}
-                  </span>
-                  <span class="ranking-page__stat-divider" aria-hidden="true">·</span>
-                  <span class="ranking-page__stat">
-                    票 {{ formatCount(item.receivedVoteNum) }}
-                  </span>
                   <span class="ranking-page__stat ranking-page__stat--total">
-                    合计 {{ formatCount(item.rankScore) }}
+                    <Icon icon="tabler:coin" width="13" height="13" aria-hidden="true" />
+                    收到 {{ formatCount(item.receivedCoins) }} 币
                   </span>
                 </span>
               </span>

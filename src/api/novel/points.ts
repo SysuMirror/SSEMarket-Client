@@ -3,9 +3,8 @@ import type {
   NovelLedgerItem,
   NovelPointsEvent,
   NovelPointsSummary,
-  NovelRewardResult,
 } from './types'
-import { novelPostJSON, novelPostRaw, num, str } from './request'
+import { novelPostJSON, num, str } from './request'
 
 function normalizeEvent(raw: unknown): NovelPointsEvent {
   const r = (raw ?? {}) as Record<string, unknown>
@@ -73,26 +72,4 @@ export async function novelCheckIn(): Promise<NovelCheckInResult | null> {
   }
 }
 
-/**
- * 打赏作者：扣自己等量经验，作者收到积分。
- * 失败时返回后端 msg（经验不足 / 不能给自己打赏 / 今天已经打赏过）。
- */
-export async function rewardNovelAuthor(
-  novelID: number,
-  points: number,
-): Promise<NovelRewardResult | null> {
-  const res = await novelPostRaw('/auth/novel/reward', { novelID, points })
-  if (!res)
-    return null
-  // 该接口走 response.Response 包装：{code, data:{...}, msg}
-  const msg = str(res.data.msg)
-  if (!res.ok)
-    return { points: 0, cost: 0, experience: 0, msg: msg || '打赏失败，请稍后重试' }
-  const payload = (res.data.data ?? {}) as Record<string, unknown>
-  return {
-    points: num(payload.points),
-    cost: num(payload.cost),
-    experience: num(payload.experience),
-    msg: msg || '已打赏',
-  }
-}
+// 打赏已下线（被投币体系替换，见 @/api/coin/coin 与 books.ts 的 rateNovel）。

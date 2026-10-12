@@ -3,7 +3,9 @@ import type { NovelItem } from '@/api/novel/types'
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import CoinThrowButton from '@/components/CoinThrowButton.vue'
 import NovelCover from '@/components/novel/NovelCover.vue'
+import { useUserStore } from '@/store/userStore'
 import { novelBookPath, novelReadPath } from '@/utils/novelRoute'
 import { formatCount, formatNovelTime, formatWordCount } from '@/utils/novelText'
 
@@ -13,8 +15,10 @@ const { novel } = defineProps<{
   novel: NovelItem
 }>()
 
+const { userInfo } = useUserStore()
 const continueChapter = computed(() => novel.progressChapterID || novel.latestChapterID)
 const showProgress = computed(() => novel.progressPercent > 0 && novel.progressPercent < 100)
+const isSelf = computed(() => novel.authorID > 0 && novel.authorID === userInfo.userID)
 </script>
 
 <template>
@@ -41,6 +45,12 @@ const showProgress = computed(() => novel.progressPercent > 0 && novel.progressP
           <span>{{ formatWordCount(novel.wordNum) }}</span>
           <span class="novel-card__dot">·</span>
           <span>{{ formatCount(novel.readNum) }}人在读</span>
+          <span class="novel-card__dot">·</span>
+          <span>{{ formatCount(novel.coinNum) }}币</span>
+          <template v-if="novel.ratingCount > 0">
+            <span class="novel-card__dot">·</span>
+            <span>{{ novel.ratingAvg.toFixed(1) }}分</span>
+          </template>
           <template v-if="novel.latestChapterAt">
             <span class="novel-card__dot">·</span>
             <span>{{ formatNovelTime(novel.latestChapterAt) }}更新</span>
@@ -51,14 +61,24 @@ const showProgress = computed(() => novel.progressPercent > 0 && novel.progressP
         </p>
       </div>
     </RouterLink>
-    <RouterLink
-      v-if="continueChapter > 0"
-      class="novel-card__read"
-      :to="novelReadPath(continueChapter)"
-    >
-      <Icon :icon="showProgress ? 'tabler:player-play' : 'tabler:book'" width="15" height="15" aria-hidden="true" />
-      <span>{{ showProgress ? '继续阅读' : '开始阅读' }}</span>
-    </RouterLink>
+    <div class="novel-card__side">
+      <RouterLink
+        v-if="continueChapter > 0"
+        class="novel-card__read"
+        :to="novelReadPath(continueChapter)"
+      >
+        <Icon :icon="showProgress ? 'tabler:player-play' : 'tabler:book'" width="15" height="15" aria-hidden="true" />
+        <span>{{ showProgress ? '继续阅读' : '开始阅读' }}</span>
+      </RouterLink>
+      <CoinThrowButton
+        target-type="novel"
+        :target-i-d="novel.novelID"
+        :my-coins="novel.myCoins"
+        :coin-num="novel.coinNum"
+        :self="isSelf"
+        variant="muted"
+      />
+    </div>
   </article>
 </template>
 
@@ -146,6 +166,16 @@ const showProgress = computed(() => novel.progressPercent > 0 && novel.progressP
 .novel-card__dot {
   margin: 0 3px;
   opacity: 0.6;
+}
+
+.novel-card__side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 8px 8px 0;
 }
 
 .novel-card__read {

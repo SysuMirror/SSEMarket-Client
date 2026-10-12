@@ -165,9 +165,9 @@ const router = createRouter({
           component: () => import('@/views/HeatView.vue'),
         },
         {
-          path: 'vote',
-          name: 'Vote',
-          component: () => import('@/views/VoteView.vue'),
+          path: 'coin',
+          name: 'Coin',
+          component: () => import('@/views/CoinView.vue'),
         },
         {
           path: 'ranking',
