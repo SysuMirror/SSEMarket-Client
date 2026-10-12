@@ -146,10 +146,12 @@ function onChanged(nextMy: number, delta: number) {
     letter-spacing: 0.02em;
     color: var(--chat-accent);
     background: var(--chat-bg);
-    border: 1px solid var(--chat-accent);
+    /* 淡灰描边（与「码住」同级），蓝色只留给币图和数字，整颗按钮不再这么抢眼 */
+    border: 1px solid var(--chat-border-strong, rgba(71, 85, 105, 0.2));
     border-radius: 8px;
 
     &:hover:not(:disabled) {
+      border-color: var(--chat-accent);
       background: var(--chat-accent-soft);
     }
 

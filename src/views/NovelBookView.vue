@@ -741,7 +741,7 @@ onMounted(async () => {
   padding: 9px 14px;
   border-radius: 9px;
   color: var(--accent, #2c3d56);
-  border-color: var(--accent, #2c3d56);
+  border-color: var(--color-border, rgba(71, 85, 105, 0.12));
 
   &.coin-throw--thrown {
     background: var(--accent-soft, rgba(44, 61, 86, 0.08));
