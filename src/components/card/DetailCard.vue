@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
-import { Icon } from '@iconify/vue'
 import { computed, defineAsyncComponent, ref, useTemplateRef } from 'vue'
 import { sendComment } from '@/api/editPostAndComment/editComment'
 import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
@@ -15,6 +14,7 @@ import { isPostOwner } from '@/utils/postOwner'
 
 import BasicInfo from '../BasicInfo.vue'
 import CoinThrowButton from '../CoinThrowButton.vue'
+import CommentToolbar from '../comment/CommentToolbar.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
 import PostWatchButton from '../PostWatchButton.vue'
 import UserAvatar from '../UserAvatar.vue'
@@ -214,61 +214,44 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: 
       <OldImages :photos="post.Photos" />
     </template>
     <BasicInfo
-      :time="post.PostTime" :browse="post.Browse" :comment="post.Comment"
-      hide-like
+      :time="post.PostTime"
+      :browse="post.Browse"
+      :comment="post.Comment"
+      :is-like="post.IsLiked"
+      :like="post.Like"
+      @like-change="like"
     />
-    <!-- B 站式操作条：点赞 | 投币 | 码住 | 写评论，四格均分、图标在上数字在下 -->
-    <div class="detail-actions" role="toolbar" aria-label="帖子操作">
-      <button
-        type="button"
-        class="detail-actions__item"
-        :class="{ 'detail-actions__item--liked': post.IsLiked }"
-        :aria-pressed="!!post.IsLiked"
-        :title="post.IsLiked ? '取消点赞' : '点赞'"
-        @click="like"
-      >
-        <Icon
-          class="detail-actions__icon"
-          :icon="post.IsLiked ? 'tabler:heart-filled' : 'tabler:heart'"
-          width="22"
-          height="22"
-          aria-hidden="true"
-        />
-        <span class="detail-actions__label">{{ post.Like ?? 0 }}</span>
-      </button>
-      <CoinThrowButton
-        target-type="post"
-        :target-i-d="post.PostID"
-        :my-coins="post.MyCoins ?? 0"
-        :coin-num="post.Coin ?? 0"
-        :self="isSelf"
-        target-label="帖子"
-        variant="prominent"
-      />
-      <PostWatchButton
-        :post-i-d="post.PostID"
-        :watched="!!post.IsWatched"
-        variant="bar"
-        @watched-change="(w) => emits('watchChange', w)"
-      />
-      <button
-        type="button"
-        class="detail-actions__item"
-        :class="{ 'detail-actions__item--active': commentButtonIsShow }"
-        :aria-expanded="commentButtonIsShow"
-        title="写评论"
-        @click="commentButtonIsShow = !commentButtonIsShow"
-      >
-        <Icon
-          class="detail-actions__icon"
-          icon="tabler:message-circle"
-          width="22"
-          height="22"
-          aria-hidden="true"
-        />
-        <span class="detail-actions__label">评论 {{ post.Comment ?? 0 }}</span>
-      </button>
-    </div>
+    <!-- 原版的操作行：投币 | 码住 靠左、写评论靠右（描边药丸）。
+         投币排在最左，接在统计行的点赞之后，读起来是「点赞 → 投币 → 码住 → 评论」。 -->
+    <CommentToolbar
+      reply-label="写评论"
+      reply-align-end
+      reply-prominent
+      no-top-border
+      :reply-open="commentButtonIsShow"
+      :show-sub-toggle="false"
+      @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
+    >
+      <template #leading>
+        <div class="detail-card__leading">
+          <CoinThrowButton
+            target-type="post"
+            :target-i-d="post.PostID"
+            :my-coins="post.MyCoins ?? 0"
+            :coin-num="post.Coin ?? 0"
+            :self="isSelf"
+            target-label="帖子"
+            variant="prominent"
+          />
+          <PostWatchButton
+            :post-i-d="post.PostID"
+            :watched="!!post.IsWatched"
+            variant="prominent"
+            @watched-change="(w) => emits('watchChange', w)"
+          />
+        </div>
+      </template>
+    </CommentToolbar>
     <div v-if="commentButtonIsShow" class="comment-compose max-w-full">
       <MarkdownEditor
         v-model="commentContent"
@@ -338,65 +321,13 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: 
   font-weight: 600;
 }
 
-/* B 站式操作条：四格均分，图标在上数字在下，点谁谁亮 */
-.detail-actions {
+/* 操作行左侧的投币 / 码住：紧凑横排，靠左侧起排（写评论由 CommentToolbar 推到右侧）。
+   窄屏放不下时整组换行，不会把写评论挤没。 */
+.detail-card__leading {
   display: flex;
-  align-items: stretch;
-  width: 100%;
-  margin-top: 4px;
-  padding: 4px 0 2px;
-  border-top: 1px solid var(--chat-border);
-}
-
-.detail-actions__item {
-  flex: 1;
-  display: inline-flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 2px;
-  padding: 5px 4px;
-  font-family: inherit;
-  color: var(--color-text-secondary, #475569);
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-
-  &:hover {
-    color: var(--chat-accent);
-    background: var(--chat-accent-soft, rgb(59 130 246 / 6%));
-  }
-
-  &--liked {
-    color: #e11d48;
-
-    &:hover {
-      color: #e11d48;
-      background: rgb(225 29 72 / 6%);
-    }
-  }
-
-  &--active {
-    color: var(--chat-accent);
-  }
-}
-
-.detail-actions__icon {
-  flex-shrink: 0;
-}
-
-.detail-actions__label {
-  max-width: 100%;
-  overflow: hidden;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  gap: 8px;
+  min-width: 0;
 }
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-const { isDense, browse, comment, isLike = false, like = 0, layout = 'default', hideTime = false, hideLike = false } = defineProps<{
+const { isDense, browse, comment, isLike = false, like = 0, layout = 'default', hideTime = false } = defineProps<{
   isDense?: boolean
   browse?: number
   comment?: number
@@ -11,8 +11,6 @@ const { isDense, browse, comment, isLike = false, like = 0, layout = 'default', 
   layout?: 'default' | 'inline'
   /** 时间由卡片头部展示时设为 true */
   hideTime?: boolean
-  /** 详情页把点赞挪进独立操作条时设为 true，这里就不再重复展示 */
-  hideLike?: boolean
 }>()
 const emit = defineEmits(['likeChange'])
 
@@ -77,7 +75,6 @@ function LikeChange() {
           </svg>
         </span>
         <span
-          v-if="!hideLike"
           class="basic-info__stat basic-info__stat--like cursor-pointer *:pointer-events-none"
           :class="{ 'basic-info__stat--liked': isLike }"
           @click.prevent="LikeChange"

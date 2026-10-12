@@ -237,12 +237,12 @@ async function submitCancel() {
 
 <style scoped lang="scss">
 /* 桌面：居中弹窗（B 站 PC 式）；移动端：底部面板（B 站 App 式）。
-   层级卡在底栏（1000）之上、全局 toast（1005）之下——
-   投币失败的提示必须浮在弹窗上面，不能被 mask 盖住。 */
+   层级：底栏 2000 / 站点头 2100 都要被弹窗盖住（之前取 1002 被底栏压在下面，
+   手机上「确定」按钮整块看不见），但全局 toast 会抬到 4000 浮在弹窗之上。 */
 .coin-dlg-mask {
   position: fixed;
   inset: 0;
-  z-index: 1002;
+  z-index: 2150;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -253,6 +253,9 @@ async function submitCancel() {
 .coin-dlg {
   position: relative;
   width: min(400px, calc(100vw - 32px));
+  /* 矮屏 / 横屏手机：内容超高时面板内部滚动，余额与「确定」不会被顶出屏幕 */
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
   box-sizing: border-box;
   padding: 22px 24px 14px;
   text-align: center;
@@ -474,13 +477,24 @@ async function submitCancel() {
   .coin-dlg {
     width: 100%;
     max-width: none;
-    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    /* 底部面板贴住屏幕下沿，安全区内缩一点，别让 home 条压住内容 */
+    padding: 18px 16px calc(14px + env(safe-area-inset-bottom));
     border-radius: 14px 14px 0 0;
     animation: coin-dlg-slide-up 0.2s ease;
   }
 
+  /* 立绘缩一号：一屏里标题、两张卡、取消入口、余额+确定全都看得见 */
   .coin-dlg__mascot {
-    width: 92px;
+    width: 78px;
+  }
+
+  .coin-dlg__title {
+    margin-bottom: 12px;
+    font-size: 15px;
+  }
+
+  .coin-dlg__cards {
+    gap: 10px;
   }
 }
 

@@ -135,13 +135,27 @@ function onChanged(nextMy: number, delta: number) {
     font-size: 12px;
   }
 
-  /* prominent：币在上、个数在下（详情页操作条的竖排位） */
+  /* prominent：详情页操作行的描边药丸，与「码住」同构（币图 + 个数横排）。
+     投过币后淡底填充——比「码住」的实心激活态轻一档，避免两个按钮抢视觉重心。 */
   &--prominent {
-    flex: 1;
-    flex-direction: column;
-    gap: 3px;
-    padding: 4px 8px;
-    font-size: 12px;
+    gap: 6px;
+    min-height: 32px;
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--chat-accent);
+    background: var(--chat-bg);
+    border: 1px solid var(--chat-accent);
+    border-radius: 8px;
+
+    &:hover:not(:disabled) {
+      background: var(--chat-accent-soft);
+    }
+
+    &.coin-throw--thrown {
+      background: var(--chat-accent-soft);
+    }
   }
 
   &--off {
@@ -162,6 +176,13 @@ function onChanged(nextMy: number, delta: number) {
     height: 20px;
     user-select: none;
     filter: saturate(0.55) opacity(0.82);
+
+    /* 药丸变体里币图略小一号，和「码住」的文字字号对齐 */
+    .coin-throw--prominent & {
+      width: 18px;
+      height: 18px;
+    }
+
     transition:
       transform 0.16s ease,
       filter 0.16s ease;

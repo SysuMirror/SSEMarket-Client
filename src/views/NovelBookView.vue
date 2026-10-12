@@ -734,6 +734,20 @@ onMounted(async () => {
   margin-top: 8px;
 }
 
+/* 投币钮混在书详情操作行里：高度与相邻按钮对齐，配色跟本页的 accent（不是评论区蓝）。
+   选择器带一层 __actions 是为了压过组件自身的 prominent 样式。 */
+.novel-book__actions .novel-book__coin {
+  min-height: 38px;
+  padding: 9px 14px;
+  border-radius: 9px;
+  color: var(--accent, #2c3d56);
+  border-color: var(--accent, #2c3d56);
+
+  &.coin-throw--thrown {
+    background: var(--accent-soft, rgba(44, 61, 86, 0.08));
+  }
+}
+
 .novel-book__btn {
   display: inline-flex;
   align-items: center;

@@ -12,7 +12,10 @@
   background-color: rgba(174, 174, 174, 0.5);
   backdrop-filter: blur(10px);
   border-radius: 10px;
-  z-index: 1005;
+  /* 提示必须浮在一切覆盖层之上：底栏 2000 / 站点头 2100 / 投币弹窗 2150 /
+     阅读器覆盖层 2200–2400 / 小秋 2600 / 音乐上传 3200。
+     之前是 1005：弹窗一开错误提示被盖住，手机上连底栏都压在它上面。 */
+  z-index: 4000;
   animation:
     fade-out 6s forwards,
     move-down 6s forwards !important;

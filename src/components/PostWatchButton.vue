@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
 import { computed, ref, watch } from 'vue'
 import { toggleWatchPost } from '@/api/watch/watch'
 import { showMsg } from '@/components/MessageBox'
@@ -9,8 +8,8 @@ const props = withDefaults(
   defineProps<{
     postID: number
     watched?: boolean
-    /** muted：信息流；prominent：描边药丸；bar：详情页操作条（图标+文字竖排） */
-    variant?: 'muted' | 'prominent' | 'bar'
+    /** muted：信息流；prominent：详情页操作行的描边药丸 */
+    variant?: 'muted' | 'prominent'
   }>(),
   { watched: false, variant: 'prominent' },
 )
@@ -63,11 +62,7 @@ async function handleToggle(event: Event) {
     type="button"
     class="watch-link"
     :class="[
-      variant === 'prominent'
-        ? 'watch-link--prominent'
-        : variant === 'bar'
-          ? 'watch-link--bar'
-          : 'watch-link--muted',
+      variant === 'prominent' ? 'watch-link--prominent' : 'watch-link--muted',
       {
         'watch-link--active': isWatched,
         'watch-link--busy': submitting,
@@ -78,14 +73,6 @@ async function handleToggle(event: Event) {
     :title="isWatched ? '取消码住' : '码住，更新时提醒我'"
     @click="handleToggle"
   >
-    <Icon
-      v-if="variant === 'bar'"
-      class="watch-link__icon"
-      :icon="isWatched ? 'tabler:bell-filled' : 'tabler:bell'"
-      width="22"
-      height="22"
-      aria-hidden="true"
-    />
-    <span :class="variant === 'bar' ? 'watch-link__label' : ''">{{ label }}</span>
+    <span>{{ label }}</span>
   </button>
 </template>
