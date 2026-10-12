@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import type { CoinTargetType } from '@/api/coin/coin'
 import { computed, ref, watch } from 'vue'
-import { throwCoin } from '@/api/coin/coin'
+import coinIcon from '@/assets/coin-icon.png'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
+import CoinThrowDialog from './CoinThrowDialog.vue'
 
 /**
- * 投币按钮（B 站式）：给帖子或小说投币，每人对每个内容最多 2 币。
- * 每投 1 币，投币者自己 +10 主页经验。
+ * B 站式投币钮：币图标（币.png）+ 个数。
  *
- * 历史投票已折算为「已经投过的币」，myCoins / coinNum 由后端直接给出，
- * 前端不再单独查投票状态。
+ * 点击不再直接投币，而是弹出选币弹窗（选 1 枚 / 2 枚、查看余额）；
+ * 已投过币（含投满 2 枚）时按钮仍可点——弹窗里可取消投币拿回余额。
+ * 每人对每个内容最多 2 币；每投 1 币，投币者自己 +10 主页经验。
  */
 const props = withDefaults(
   defineProps<{
@@ -20,12 +21,14 @@ const props = withDefaults(
     myCoins?: number
     /** 这条内容被投币总数（含历史投票折算） */
     coinNum?: number
-    /** muted：信息流卡片；prominent：详情页 */
+    /** muted：信息流卡片（横排小图标）；prominent：详情页操作条（与点赞/码住同排） */
     variant?: 'muted' | 'prominent'
     /** 自己的内容不能投自己的币 */
     self?: boolean
+    /** 弹窗标题里的对象名（「帖子」/「小说」） */
+    targetLabel?: string
   }>(),
-  { myCoins: 0, coinNum: 0, variant: 'muted', self: false },
+  { myCoins: 0, coinNum: 0, variant: 'muted', self: false, targetLabel: '' },
 )
 
 const emit = defineEmits<{
@@ -35,62 +38,44 @@ const emit = defineEmits<{
 const { isLogin } = useUserStore()
 const my = ref(props.myCoins)
 const total = ref(props.coinNum)
-const submitting = ref(false)
+const dialogOpen = ref(false)
 
 watch(() => [props.myCoins, props.targetID], () => {
   my.value = props.myCoins
   total.value = props.coinNum
 })
 
-const full = computed(() => my.value >= 2)
 const blocked = computed(() => !props.targetID || props.self)
 
-// 按钮上不摆文字（B 站式：币形徽标 + 个数），状态说明放 title/aria-label
+// 按钮上不摆文字（B 站式：币形徽标 + 个数），状态说明放 title/aria-label。
+// 投满不再禁用——点开弹窗可以取消投币。
 const titleText = computed(() => {
-  if (submitting.value)
-    return '投币中…'
   if (props.self)
     return '不能给自己的内容投币'
-  if (full.value)
-    return `已投满 ${my.value} 币`
+  if (my.value >= 2)
+    return `已投满 ${my.value} 币，点击可取消投币`
   if (my.value === 1)
-    return '已投 1 币，可再投 1 币'
+    return '已投 1 币，点击再投 1 币或取消投币'
   return '投币（每人最多 2 币，每币 +10 主页经验）'
 })
 
-async function handleThrow(event: Event) {
+function openDialog(event: Event) {
   event.preventDefault()
   event.stopPropagation()
-  if (blocked.value || submitting.value)
+  if (blocked.value)
     return
   if (!isLogin.value) {
     showMsg('登录后才能投币')
     return
   }
-  if (full.value) {
-    showMsg('每人对每个内容最多投 2 币')
-    return
-  }
-  submitting.value = true
-  try {
-    const { ok, msg, result } = await throwCoin(props.targetType, props.targetID, 1)
-    if (ok && result) {
-      my.value = result.total
-      total.value += 1
-      emit('thrown', result.total, total.value)
-      showMsg(`已投 1 币 · +${result.exp} 主页经验 · 余 ${result.coinsLeft} 币`)
-    }
-    else {
-      showMsg(msg)
-    }
-  }
-  catch (e) {
-    console.error(e)
-    showMsg('投币失败')
-  }
-  finally {
-    submitting.value = false
-  }
+  dialogOpen.value = true
+}
+
+function onChanged(nextMy: number, delta: number) {
+  my.value = nextMy
+  // delta：+n 投出去 / -n 撤回；目标总数跟着增减（其余人的币不受影响）
+  total.value = Math.max(total.value + delta, 0)
+  emit('thrown', my.value, total.value)
 }
 </script>
 
@@ -101,28 +86,39 @@ async function handleThrow(event: Event) {
     :class="[
       variant === 'prominent' ? 'coin-throw--prominent' : 'coin-throw--muted',
       {
-        'coin-throw--full': full,
-        'coin-throw--busy': submitting,
+        'coin-throw--thrown': my > 0,
         'coin-throw--off': blocked,
       },
     ]"
-    :disabled="blocked || submitting"
+    :disabled="blocked"
     :title="titleText"
-    :aria-label="titleText"
-    @click="handleThrow"
+    :aria-label="`投币，当前 ${total} 币${my > 0 ? `，我已投 ${my} 币` : ''}`"
+    @click="openDialog"
   >
-    <span
+    <img
       class="coin-throw__coin"
-      :class="{ 'coin-throw__coin--thrown': my > 0 }"
+      :src="coinIcon"
+      alt=""
       aria-hidden="true"
-    >币</span>
+      draggable="false"
+    >
     <span class="coin-throw__num">{{ total }}</span>
   </button>
+
+  <CoinThrowDialog
+    v-if="dialogOpen"
+    :target-type="targetType"
+    :target-i-d="targetID"
+    :my-coins="my"
+    :target-label="targetLabel || (targetType === 'novel' ? '小说' : '帖子')"
+    @close="dialogOpen = false"
+    @changed="onChanged"
+  />
 </template>
 
 <style scoped lang="scss">
-/* B 站式投币钮：圆形「币」徽标 + 个数，不放文字。
-   投过币后徽标变实心琥珀色（B 站投过币的币是亮起来的）。 */
+/* B 站式投币钮：币图徽标 + 个数，不放文字。
+   投过币后个数变主题蓝、币图带一圈柔光，一眼能看出「我投过」。 */
 .coin-throw {
   display: inline-flex;
   align-items: center;
@@ -139,16 +135,13 @@ async function handleThrow(event: Event) {
     font-size: 12px;
   }
 
-  /* prominent：币在上、个数在下，贴近 B 站详情页的竖排 */
+  /* prominent：币在上、个数在下（详情页操作条的竖排位） */
   &--prominent {
+    flex: 1;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     padding: 4px 8px;
     font-size: 12px;
-  }
-
-  &--full {
-    cursor: default;
   }
 
   &--off {
@@ -156,46 +149,37 @@ async function handleThrow(event: Event) {
     cursor: not-allowed;
   }
 
-  &--busy {
-    opacity: 0.7;
-  }
-
   &:hover:not(:disabled) .coin-throw__coin {
-    transform: scale(1.08);
+    transform: scale(1.1) rotate(-8deg);
   }
 
-  &--prominent .coin-throw__coin {
-    width: 26px;
-    height: 26px;
-    font-size: 14px;
+  &:active:not(:disabled) .coin-throw__coin {
+    transform: scale(0.94);
   }
 
   .coin-throw__coin {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 20px;
     height: 20px;
-    border-radius: 50%;
-    border: 1.5px solid #d97706;
-    color: #b45309;
-    background: rgba(245, 158, 11, 0.12);
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
     user-select: none;
-    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+    filter: saturate(0.55) opacity(0.82);
+    transition:
+      transform 0.16s ease,
+      filter 0.16s ease;
 
-    &--thrown {
-      background: #f59e0b;
-      border-color: #d97706;
-      color: #fff;
+    /* 投过币：图标恢复全彩 + 柔光 */
+    .coin-throw--thrown & {
+      filter: saturate(1) drop-shadow(0 0 4px rgb(59 130 246 / 45%));
     }
   }
 
   .coin-throw__num {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+    transition: color 0.16s ease;
+
+    .coin-throw--thrown & {
+      color: var(--chat-accent, #3b82f6);
+    }
   }
 }
 </style>
