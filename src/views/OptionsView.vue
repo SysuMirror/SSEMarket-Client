@@ -346,6 +346,7 @@ async function resetEmail() {
       phone: '',
       email: '',
       identity: '',
+      coins: 0,
     })
     emailForm.value = { newEmail: '', vcode: '' }
     emailOpen.value = false

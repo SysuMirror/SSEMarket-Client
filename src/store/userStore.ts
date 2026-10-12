@@ -10,6 +10,8 @@ export interface UserInfo {
   phone: string
   email: string
   identity: string
+  /** 站内币余额（来自 /auth/info 的 UserDto.coins） */
+  coins: number
 }
 
 interface TokenInfo {
@@ -29,6 +31,7 @@ const userInfo = reactive<UserInfo>({
   phone: '',
   email: '',
   identity: '',
+  coins: 0,
 })
 const tokenInfo = reactive<TokenInfo>({
   value: '',

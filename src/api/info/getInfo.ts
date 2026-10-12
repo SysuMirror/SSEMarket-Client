@@ -14,6 +14,8 @@ export interface UserInfo {
   phone: string
   email: string
   identity: string
+  /** 站内币余额（见币中心 /coin） */
+  coins: number
 }
 
 /**
@@ -45,6 +47,7 @@ async function getInfo(): Promise<UserInfo> {
       phone: '',
       email: '',
       identity: '',
+      coins: 0,
     }
   }
 }
@@ -78,6 +81,8 @@ export interface AllInfo {
   userID: number
   /** 为 true 时，其他用户在其个人主页看不到发帖列表 */
   hideProfilePosts?: boolean
+  /** 站内币余额；后端只在本人查看自己主页时返回，他人主页为 undefined */
+  coins?: number
 }
 
 export function normalizeAllInfo(raw: Partial<AllInfo> | Record<string, unknown>): AllInfo {
@@ -98,6 +103,7 @@ export function normalizeAllInfo(raw: Partial<AllInfo> | Record<string, unknown>
     score: Number(src.score ?? 0),
     userID: Number(src.userID ?? 0),
     hideProfilePosts: coerceApiBool(src.hideProfilePosts),
+    coins: src.coins === undefined || src.coins === null ? undefined : Number(src.coins),
   }
 }
 

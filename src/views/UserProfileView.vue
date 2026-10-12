@@ -3,7 +3,7 @@ import type { AllInfo } from '@/api/info/getInfo'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
 import { computed, nextTick, onBeforeMount, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getUserProfilePostNum, getUserProfilePosts } from '@/api/browse/getUserProfilePosts'
 import { getInfoById, normalizeAllInfo } from '@/api/info/getInfo'
 import { showMsg } from '@/components/MessageBox'
@@ -49,6 +49,10 @@ const levelLabel = computed(() => {
 })
 
 const isSelf = computed(() => userInfo.userID === user.value?.userID)
+
+// 币余额仅本人可见（后端只在本人查看时返回 coins）
+const showCoins = computed(() => isSelf.value && user.value?.coins !== undefined)
+const coinRulesOpen = ref(false)
 
 const expTarget = computed(() => {
   const s = user.value?.score ?? 0
@@ -222,6 +226,24 @@ function onAvatarError(e: Event) {
         </div>
       </div>
 
+      <button
+        v-if="showCoins"
+        type="button"
+        class="profile-row profile-row--clickable"
+        @click="coinRulesOpen = true"
+      >
+        <Icon icon="tabler:coin" class="profile-row__icon" width="20" height="20" aria-hidden="true" />
+        <div class="profile-row__body">
+          <p class="profile-row__label">
+            币
+          </p>
+          <p class="profile-row__value profile-row__value--coin">
+            {{ user.coins }} 币 · 点击查看发放规则
+          </p>
+        </div>
+        <Icon icon="tabler:chevron-right" class="profile-row__chevron" width="18" height="18" aria-hidden="true" />
+      </button>
+
       <div class="profile-row">
         <Icon icon="tabler:id-badge-2" class="profile-row__icon" width="20" height="20" aria-hidden="true" />
         <div class="profile-row__body">
@@ -268,6 +290,35 @@ function onAvatarError(e: Event) {
       <p class="profile-hidden__hint">
         该用户关闭了动态展示
       </p>
+    </div>
+
+    <!-- 币发放规则弹窗 -->
+    <div v-if="coinRulesOpen" class="coin-rules-mask" @click.self="coinRulesOpen = false">
+      <div class="coin-rules" role="dialog" aria-modal="true" aria-label="币发放规则">
+        <h2 class="coin-rules__title">
+          <Icon icon="tabler:coin" width="18" height="18" aria-hidden="true" />
+          币发放规则
+        </h2>
+        <ul class="coin-rules__list">
+          <li>每天进入网页 <strong>+1 币</strong>（一天一次）</li>
+          <li>每天首次发帖 <strong>+1 币</strong></li>
+          <li>当天阅读累计满 30 分钟 <strong>+1 币</strong></li>
+          <li>当天更新写作满 4000 字 <strong>+1 币</strong></li>
+          <li>收到评分：作者 <strong>+1 币</strong>（同一读者对同一本书只算一次）</li>
+          <li>投币：每人对每个帖子 / 小说最多 2 币；每投 1 币自己 +10 主页经验</li>
+        </ul>
+        <p class="coin-rules__note">
+          币与小说的经验 / 积分是两条独立的线，不能互相兑换。
+        </p>
+        <div class="coin-rules__actions">
+          <RouterLink class="coin-rules__link" to="/coin" @click="coinRulesOpen = false">
+            去币中心看流水
+          </RouterLink>
+          <button type="button" class="coin-rules__close" @click="coinRulesOpen = false">
+            关闭
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -436,6 +487,126 @@ function onAvatarError(e: Event) {
   border-radius: 3px;
   background: var(--accent);
   transition: width 0.3s ease;
+}
+
+/* —— 币行（可点击弹规则） —— */
+.profile-row--clickable {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    background: var(--accent-soft, rgba(44, 61, 86, 0.05));
+  }
+}
+
+.profile-row__value--coin {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.profile-row__chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* —— 币规则弹窗 —— */
+.coin-rules-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.coin-rules {
+  width: 100%;
+  max-width: 420px;
+  padding: 16px;
+  border-radius: var(--radius-lg, 8px);
+  background: var(--color-card, #fff);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+
+.coin-rules__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-text, #1e293b);
+}
+
+.coin-rules__list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--color-text, #1e293b);
+
+  strong {
+    color: #b45309;
+  }
+}
+
+.coin-rules__note {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft, rgba(44, 61, 86, 0.08));
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-secondary, #475569);
+}
+
+.coin-rules__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.coin-rules__link {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.coin-rules__close {
+  padding: 7px 18px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-card, #fff);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #475569);
+  cursor: pointer;
+  font-family: inherit;
+
+  &:hover {
+    background: var(--accent-soft, rgba(44, 61, 86, 0.05));
+  }
 }
 
 /* —— 动态列表 —— */
