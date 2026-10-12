@@ -427,6 +427,44 @@ body.dark-mode .comment-row > .sub-comments-thread {
   }
 }
 
+/* 详情页操作条变体：图标 + 文字竖排，与点赞/投币/评论同构，无药丸描边。
+   布局（flex:1）由所在操作条控制，这里只管自身外观与激活态。 */
+.watch-link--bar {
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #475569);
+  border-radius: 8px;
+
+  .watch-link__icon {
+    flex-shrink: 0;
+  }
+
+  .watch-link__label {
+    max-width: 100%;
+    overflow: hidden;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover:not(.watch-link--active):not(:disabled) {
+    color: var(--chat-accent);
+    background: var(--chat-accent-soft, rgb(59 130 246 / 6%));
+  }
+
+  &.watch-link--active {
+    color: var(--chat-accent);
+
+    &:hover {
+      color: var(--chat-accent);
+      background: none;
+    }
+  }
+}
+
 /* 投票入口：详情页醒目藏青 / 信息流淡雅 */
 .vote-link {
   display: inline-flex;
