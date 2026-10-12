@@ -386,18 +386,6 @@ onUnmounted(() => {
         </button>
 
         <button
-          type="button"
-          class="post-page__chip"
-          :class="{ 'post-page__chip--on': postAnonymous }"
-          :aria-pressed="postAnonymous"
-          title="隐藏我的昵称、头像与等级"
-          @click="postAnonymous = !postAnonymous"
-        >
-          <Icon icon="tabler:user-secret" width="14" height="14" aria-hidden="true" />
-          匿名
-        </button>
-
-        <button
           v-if="partition === '主页'"
           type="button"
           class="post-page__chip"
