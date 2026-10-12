@@ -210,6 +210,7 @@ async function like() {
           :user-identity="comment.AuthorIdentity"
           :user-name="comment.Author"
           :user-score="comment.AuthorScore"
+          :user-title="comment.AuthorTitle"
         />
       </div>
       <time class="comment-row__time" :datetime="String(comment.CommentTime)">{{ formattedTime }}</time>

@@ -17,6 +17,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { useNoticeStore } from '@/store/noticeStore'
 import { showSnackbar } from '@/utils/snackbar'
+import IWikiFloatingEntry from '@/components/IWikiFloatingEntry.vue'
 
 const BottomNavbar = defineAsyncComponent(
   () => import('@/components/BottomNavbar.vue'),
@@ -199,6 +200,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
         </router-view>
       </div>
     </main>
+    <IWikiFloatingEntry v-if="!layoutFill && !isAnyInputFocused" />
   </div>
 </template>
 

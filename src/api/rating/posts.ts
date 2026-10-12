@@ -135,6 +135,7 @@ function normalizeRatingPostItem(raw: Record<string, unknown>): RatingPostItem {
     userID: Number(raw.userID ?? raw.UserID ?? 0),
     userName: String(raw.userName ?? raw.UserName ?? ''),
     userScore: Number(raw.userScore ?? raw.UserScore ?? 0),
+    userTitle: String(raw.userTitle ?? raw.UserTitle ?? ''),
     userTelephone: String(raw.userTelephone ?? raw.UserTelephone ?? ''),
     userAvatar: String(raw.userAvatar ?? raw.UserAvatar ?? ''),
     userIdentity: String(raw.userIdentity ?? raw.UserIdentity ?? ''),

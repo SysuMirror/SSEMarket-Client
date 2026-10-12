@@ -9,7 +9,7 @@ import { getInfoById, normalizeAllInfo } from '@/api/info/getInfo'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { useUserStore } from '@/store/userStore'
-import { levelClassHandler, levelExpHandler, levelNameHandler } from '@/utils/level'
+import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
 import { setWindowScrollY } from '@/utils/windowScroll'
 
@@ -45,7 +45,7 @@ const avatarSrc = computed(() => {
 const levelLabel = computed(() => {
   if (!user.value)
     return ''
-  return levelNameHandler(user.value.score)
+  return titleNameHandler(user.value.score, user.value.customTitle, user.value.name)
 })
 
 const isSelf = computed(() => userInfo.userID === user.value?.userID)

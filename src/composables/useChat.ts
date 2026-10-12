@@ -244,7 +244,10 @@ export function useChat() {
 
     isInit = true
     // 用当前来源作 base，使 IP 直连与域名访问都能正确解析 WebSocket 地址
-    const wsURL = new URL('/websocket/auth/chat', window.location.origin)
+    // 测试环境按路径分流（test.ssemarket.cn/<名字>/）时，构建时注入 VITE_WS_BASE=/<名字>/ 让 ws 也带上前缀；
+    // 主站不设这个变量，行为完全不变（仍是 /websocket/auth/chat）
+    const wsBase = String(import.meta.env.VITE_WS_BASE || '/').replace(/\/+$/, '')
+    const wsURL = new URL(`${wsBase}/websocket/auth/chat`, window.location.origin)
     wsURL.searchParams.append('token', token.value)
     wsURL.protocol = wsURL.protocol.replace('http', 'ws')
     const { connect: connectWebSocket, sendWebSocketMessage, on: listenWebSocket, disconnect: disconnectWebSocket } = useWebSocket<ChatEventMap, ChatMessage>(wsURL, {

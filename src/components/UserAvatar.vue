@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useSlots, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { levelClassHandler, levelNameHandler } from '@/utils/level'
+import { levelClassHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
 import UserIdentityIcon from './UserIdentityIcon.vue'
 
@@ -12,6 +12,8 @@ const props = withDefaults(
     userIdentity?: string
     userName?: string
     userScore?: number
+    /** Lv8 用户自定义称号;空=未自定义(显示 userName) */
+    userTitle?: string
     /** 为 true 时不渲染内置个人主页链接（由外层 RouterLink 包裹时使用，避免 a 嵌套 a） */
     noProfileLink?: boolean
     /** @deprecated 已废弃，个人主页跳转仅依赖 userId */
@@ -19,7 +21,7 @@ const props = withDefaults(
     /** compact：评论区等窄场景，缩小头像与字号 */
     size?: 'default' | 'compact'
   }>(),
-  { userId: 0, userIdentity: '', userName: '', userScore: 0, noProfileLink: false, userPhone: undefined, size: 'default' },
+  { userId: 0, userIdentity: '', userName: '', userScore: 0, userTitle: '', noProfileLink: false, userPhone: undefined, size: 'default' },
 )
 
 const slots = useSlots()
@@ -33,6 +35,15 @@ const resolvedUserId = computed(() => {
 })
 
 const defaultAvatar = computed(() => defaultAvatarFor(resolvedUserId.value))
+
+const levelText = computed(() => titleNameHandler(props.userScore ?? 0, props.userTitle, props.userName))
+
+// Lv8 倒影文字经 CSS 变量注入,JSON.stringify 负责加引号并转义
+const level8Style = computed(() => {
+  if ((props.userScore ?? 0) < 5000)
+    return undefined
+  return { '--lv8-text': JSON.stringify(levelText.value) }
+})
 
 const profileNavigable = computed(
   () => !props.noProfileLink && resolvedUserId.value > 0,
@@ -108,7 +119,8 @@ function onProfileKeydown(event: KeyboardEvent) {
           v-if="props.userScore"
           class="user-level w-fit whitespace-nowrap text-3"
           :class="levelClassHandler(props.userScore)"
-        >{{ levelNameHandler(props.userScore) }}
+          :style="level8Style"
+        >{{ levelText }}
         </span>
         <span class="user-name w-fit whitespace-nowrap text-5">{{ props.userName
         }}</span>
@@ -364,7 +376,7 @@ function onProfileKeydown(event: KeyboardEvent) {
     -2px -2px 4px rgba(255, 255, 255, 0.3);
 }
 .level-8::before {
-  content: '祖师爷';
+  content: var(--lv8-text, 'Lv8');
   transform: rotateX(160deg) skew(10deg);
   position: absolute;
   transform-origin: bottom;

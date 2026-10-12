@@ -29,7 +29,6 @@ const router = useRouter()
 const draft = ref('')
 const historyDiv = useTemplateRef('historyDiv')
 const composerInput = useTemplateRef('composerInput')
-const sessionId = ref('')
 const sessionReady = ref(false)
 const bootstrapError = ref('')
 
@@ -45,15 +44,18 @@ const ratings = ref<Record<string, 1 | -1>>({})
 const stickToBottom = ref(true)
 const showJumpToBottom = ref(false)
 
+// shareKey='chat'：流状态挂模块级，切路由卸载组件不丢流；切回续看正在生成的回复
+// （此前实例级状态随组件销毁，切界面即"中断"，还诱发重发双跑）
 const {
   timeline,
   globalError,
   isStreaming,
+  sessionId,
   sendAgentMessage,
   pushUserMessage,
   seedWelcomeMessages,
   abort,
-} = useOpsAgentStream()
+} = useOpsAgentStream('chat')
 
 const showSuggestions = computed(() =>
   suggestions.value.length > 0 && !isStreaming.value && timeline.value.length <= 1)
@@ -403,8 +405,16 @@ onMounted(() => {
   const restored = sessionStorage.getItem(DRAFT_KEY)
   if (restored)
     draft.value = restored
+  // 切路由回来且共享流还在跑：直接续看，不重新 bootstrap（防覆盖正在生成的回复）
+  if (isStreaming.value) {
+    sessionReady.value = true
+    stickToBottom.value = true
+    scrollToBottom(true)
+    return
+  }
   const deepLinkId = typeof route.query.c === 'string' ? route.query.c : ''
-  runBootstrap(deepLinkId || undefined).catch((e) => {
+  // 无深链时按共享 sessionId 恢复原会话（切走前正在看的那个），而非"最近会话"
+  runBootstrap(deepLinkId || sessionId.value || undefined).catch((e) => {
     console.error(e)
     bootstrapError.value = e instanceof Error ? e.message : '无法连接对话服务'
     sessionReady.value = false

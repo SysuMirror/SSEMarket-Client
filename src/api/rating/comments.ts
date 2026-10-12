@@ -17,6 +17,7 @@ export async function getRatingComments(ratingPostID: number): Promise<RatingCom
       author: String(r.author ?? r.Author ?? ''),
       authorTelephone: String(r.authorTelephone ?? r.AuthorTelephone ?? ''),
       authorScore: Number(r.authorScore ?? r.AuthorScore ?? 0),
+      authorTitle: String(r.authorTitle ?? r.AuthorTitle ?? ''),
       authorAvatar: String(r.authorAvatar ?? r.AuthorAvatar ?? ''),
       authorIdentity: String(r.authorIdentity ?? r.AuthorIdentity ?? ''),
       commentTime: String(r.commentTime ?? r.CommentTime ?? ''),

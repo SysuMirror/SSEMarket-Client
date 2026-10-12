@@ -3,6 +3,7 @@ export interface Post {
   UserID?: number
   UserName: string
   UserScore: number
+  UserTitle?: string
   UserTelephone: string
   UserAvatar: string
   UserIdentity: string
