@@ -155,11 +155,12 @@ async function submitCancel() {
              素材中段几乎空白、栏杆本身很淡，所以不做 border-image 九宫格切片
              （切片会把栏杆拉散）；正式的可拉伸框素材到位后再换。 -->
         <img
-          class="coin-dlg__bar"
-          :src="coinBar"
-          alt=""
-          aria-hidden="true"
-          draggable="false"
+        class="coin-dlg__bar"
+        style="transform: translateY(5%);"
+        :src="coinBar"
+        alt=""
+        aria-hidden="true"
+        draggable="false"
         >
         <button
           type="button"
