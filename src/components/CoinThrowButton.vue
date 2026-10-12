@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { CoinTargetType } from '@/api/coin/coin'
-import { Icon } from '@iconify/vue'
 import { computed, ref, watch } from 'vue'
 import { throwCoin } from '@/api/coin/coin'
 import { showMsg } from '@/components/MessageBox'
@@ -46,14 +45,17 @@ watch(() => [props.myCoins, props.targetID], () => {
 const full = computed(() => my.value >= 2)
 const blocked = computed(() => !props.targetID || props.self)
 
-const label = computed(() => {
+// 按钮上不摆文字（B 站式：币形徽标 + 个数），状态说明放 title/aria-label
+const titleText = computed(() => {
   if (submitting.value)
-    return '投币中'
+    return '投币中…'
+  if (props.self)
+    return '不能给自己的内容投币'
   if (full.value)
-    return `已投 ${my.value}`
+    return `已投满 ${my.value} 币`
   if (my.value === 1)
-    return '再投 1 币'
-  return '投币'
+    return '已投 1 币，可再投 1 币'
+  return '投币（每人最多 2 币，每币 +10 主页经验）'
 })
 
 async function handleThrow(event: Event) {
@@ -105,42 +107,48 @@ async function handleThrow(event: Event) {
       },
     ]"
     :disabled="blocked || submitting"
-    :title="self ? '不能给自己的内容投币' : '每人最多投 2 币，每币 +10 主页经验'"
+    :title="titleText"
+    :aria-label="titleText"
     @click="handleThrow"
   >
-    <Icon icon="tabler:coin" width="14" height="14" aria-hidden="true" />
-    <span>{{ label }}</span>
-    <span v-if="total > 0" class="coin-throw__num">{{ total }}</span>
+    <span
+      class="coin-throw__coin"
+      :class="{ 'coin-throw__coin--thrown': my > 0 }"
+      aria-hidden="true"
+    >币</span>
+    <span class="coin-throw__num">{{ total }}</span>
   </button>
 </template>
 
 <style scoped lang="scss">
+/* B 站式投币钮：圆形「币」徽标 + 个数，不放文字。
+   投过币后徽标变实心琥珀色（B 站投过币的币是亮起来的）。 */
 .coin-throw {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
-  border-radius: 8px;
-  background: var(--color-card, #fff);
+  gap: 5px;
+  border: none;
+  background: transparent;
   color: var(--color-text-secondary, #475569);
   cursor: pointer;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 
   &--muted {
-    padding: 3px 8px;
+    padding: 2px 4px;
     font-size: 12px;
   }
 
+  /* prominent：币在上、个数在下，贴近 B 站详情页的竖排 */
   &--prominent {
-    padding: 7px 12px;
-    font-size: 13px;
-    font-weight: 600;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 8px;
+    font-size: 12px;
   }
 
   &--full {
-    color: var(--accent, #2c3d56);
-    border-color: var(--accent, #2c3d56);
-    background: var(--accent-soft, rgba(44, 61, 86, 0.08));
+    cursor: default;
   }
 
   &--off {
@@ -152,8 +160,42 @@ async function handleThrow(event: Event) {
     opacity: 0.7;
   }
 
+  &:hover:not(:disabled) .coin-throw__coin {
+    transform: scale(1.08);
+  }
+
+  &--prominent .coin-throw__coin {
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
+  }
+
+  .coin-throw__coin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid #d97706;
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.12);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    user-select: none;
+    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+
+    &--thrown {
+      background: #f59e0b;
+      border-color: #d97706;
+      color: #fff;
+    }
+  }
+
   .coin-throw__num {
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
   }
 }
 </style>
