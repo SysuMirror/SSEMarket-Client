@@ -349,15 +349,15 @@ function closePanel() {
 // ---------------------------------------------------------------------------
 
 const SEL_MENU_W = 216
+const SEL_MENU_H = 42
 
-/** 桌面端贴着选区浮出；移动端固定在底部导航上方，不跟选区跑。 */
+/** 全端统一：菜单贴着选区浮出（JS 定位），不再区分桌面 / 移动端。 */
 const selMenuStyle = computed<Record<string, string>>(() => {
-  const menu = selMenu.value
   const style: Record<string, string> = {}
-  if (!menu || window.innerWidth < 769)
-    return style
-  style.left = `${menu.x}px`
-  style.top = `${menu.y}px`
+  if (selMenu.value) {
+    style.left = `${selMenu.value.x}px`
+    style.top = `${selMenu.value.y}px`
+  }
   return style
 })
 
@@ -394,11 +394,17 @@ function captureSelection() {
   }
   const rect = range.getBoundingClientRect()
   const vw = window.innerWidth
+  // 一般阅读器习惯：菜单贴在选区上方；顶部放不下（贴到站点头了）再落到选区下方
+  const x = Math.min(Math.max(8, rect.left), Math.max(8, vw - SEL_MENU_W - 8))
+  const aboveY = rect.top - SEL_MENU_H - 10
+  const y = aboveY >= 60
+    ? aboveY
+    : Math.min(rect.bottom + 10, window.innerHeight - SEL_MENU_H - 16)
   selMenu.value = {
     paragraph,
     text,
-    x: Math.min(Math.max(8, rect.left), Math.max(8, vw - SEL_MENU_W - 8)),
-    y: Math.max(8, rect.top - 46),
+    x,
+    y,
   }
 }
 
@@ -499,6 +505,47 @@ function onDocumentPointerDown(e: PointerEvent) {
   if ((e.target as HTMLElement).closest?.('.novel-reader__selmenu'))
     return
   hideSelMenu()
+}
+
+/**
+ * 手机上拦掉系统的「复制 / 全选 / 搜一搜」菜单——复制走自绘菜单，两份菜单叠着很怪。
+ * 桌面右键保留系统菜单（检查、复制链接等习惯不受影响）。
+ */
+function onBodyContextMenu(e: MouseEvent) {
+  if (window.innerWidth < 769)
+    e.preventDefault()
+}
+
+/**
+ * 兜底：部分内核（iOS WeChat / 旧 X5）拦了 contextmenu 仍会弹系统选择菜单。
+ * 程序化设置的选区不会弹系统菜单，所以等用户停手后把选区原样重设一遍，菜单就没了。
+ * 代价是拖拽小蓝点会停 350ms 后失效——反正长按整段的流程也不靠系统小蓝点。
+ */
+let selReapplyTimer: ReturnType<typeof setTimeout> | null = null
+let selReapplying = false
+
+function onDocumentSelectionChange() {
+  if (window.innerWidth >= 769 || selReapplying)
+    return
+  if (selReapplyTimer)
+    clearTimeout(selReapplyTimer)
+  selReapplyTimer = setTimeout(() => {
+    selReapplyTimer = null
+    const sel = window.getSelection()
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0)
+      return
+    const range = sel.getRangeAt(0)
+    // 只管正文里的选区，别动设置面板 / 目录里的
+    if (!paragraphElFromNode(range.startContainer))
+      return
+    selReapplying = true
+    sel.removeAllRanges()
+    sel.addRange(range)
+    captureSelection()
+    setTimeout(() => {
+      selReapplying = false
+    }, 60)
+  }, 350)
 }
 
 function onDocumentKeyDown(e: KeyboardEvent) {
@@ -618,6 +665,7 @@ onMounted(() => {
   void loadChapter()
   startReadHeartbeat()
   document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('selectionchange', onDocumentSelectionChange)
   document.addEventListener('keydown', onDocumentKeyDown)
   document.addEventListener('visibilitychange', onVisibilityChange)
   window.addEventListener('scroll', onScrollDismiss, { passive: true })
@@ -626,6 +674,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('selectionchange', onDocumentSelectionChange)
   document.removeEventListener('keydown', onDocumentKeyDown)
   document.removeEventListener('visibilitychange', onVisibilityChange)
   window.removeEventListener('scroll', onScrollDismiss)
@@ -680,6 +729,7 @@ onUnmounted(() => {
       :class="{ 'novel-reader__body--wide': settings.wideLine }"
       :style="{ fontSize: `${fontPx}px` }"
       @mouseup="captureSelection"
+      @contextmenu="onBodyContextMenu"
       @touchstart.passive="onBodyTouchStart"
       @touchmove.passive="onBodyTouchMove"
       @touchend="cancelLongPress"
@@ -1046,6 +1096,8 @@ onUnmounted(() => {
   padding: 14px 2px 4px;
   line-height: 1.8;
   color: var(--color-text, #1e293b);
+  /* iOS：长按不出系统放大镜 / 呼出菜单，选中交给自绘菜单 */
+  -webkit-touch-callout: none;
 
   &--wide {
     line-height: 2.3;
@@ -1383,11 +1435,9 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* 选中正文后浮现的操作菜单：移动端固定在底部导航上方。 */
+/* 选中正文后浮现的操作菜单：位置由 JS 按选区实时算（贴选区上方，放不下落到下方）。 */
 .novel-reader__selmenu {
   position: fixed;
-  left: 50%;
-  bottom: calc(var(--layout-bottom-nav-h, 52px) + 12px);
   z-index: 2300;
   display: flex;
   align-items: center;
@@ -1396,7 +1446,6 @@ onUnmounted(() => {
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.92);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.3);
-  transform: translateX(-50%);
 
   button {
     display: inline-flex;
@@ -1433,7 +1482,7 @@ onUnmounted(() => {
 .novel-selmenu-enter-from,
 .novel-selmenu-leave-to {
   opacity: 0;
-  transform: translate(-50%, 6px);
+  transform: translateY(6px);
 }
 
 /* 正文配图的大图预览：同样 Teleport 到 body，层级高于站点头与选中菜单。 */
@@ -1830,13 +1879,8 @@ onUnmounted(() => {
   }
 
   .novel-reader__selmenu {
-    left: auto;
-    bottom: auto;
-  }
-
-  .novel-selmenu-enter-from,
-  .novel-selmenu-leave-to {
-    transform: translate(-50%, 6px);
+    /* 位置完全交给 JS（贴选区上方），端上只收紧一点留白 */
+    max-width: calc(100vw - 16px);
   }
 
   /* 面板打开时正文列变窄，不被抽屉压住 */
