@@ -7,8 +7,9 @@ import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from
 import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
 import { showMsg } from '@/components/MessageBox'
+import { emojiSrc, getCachedEmoji, resolveEmojiIDs } from '@/composables/useEmoji'
 import { useUserStore } from '@/store/userStore'
-import { formatEmojiToken } from '@/utils/emojiToken'
+import { formatEmojiToken, parseEmojiSegments } from '@/utils/emojiToken'
 import EmojiPanel from './emoji/EmojiPanel.vue'
 import MarkdownContainer from './MarkdownContainer.vue'
 
@@ -76,6 +77,27 @@ const modelValue = defineModel({
   type: String,
   required: true,
 })
+
+/* ---------------- 草稿表情条：输入框上方显示已选表情缩略图（确认选择成功，可 × 移除） ---------------- */
+
+const draftStickers = computed(() =>
+  parseEmojiSegments(modelValue.value)
+    .filter(segment => segment.type === 'emoji')
+    .map(segment => segment.emojiID!),
+)
+
+watch(draftStickers, (ids) => {
+  if (ids.length > 0)
+    void resolveEmojiIDs(ids)
+}, { immediate: true })
+
+/** 移除草稿里第一次出现的这张表情 */
+function removeDraftSticker(emojiID: number) {
+  const token = formatEmojiToken(emojiID)
+  const i = modelValue.value.indexOf(token)
+  if (i >= 0)
+    modelValue.value = modelValue.value.slice(0, i) + modelValue.value.slice(i + token.length)
+}
 
 /* ---------------- 图片上传(点击/粘贴) ---------------- */
 
@@ -480,7 +502,7 @@ watch(isPreview, (preview) => {
           aria-label="表情包"
           @click="showEmojiPanel = !showEmojiPanel"
         >
-          <Icon icon="tabler:emoji" width="17" height="17" aria-hidden="true" />
+          <Icon icon="tabler:mood-smile" width="17" height="17" aria-hidden="true" />
         </button>
         <button type="button" class="md-editor__tool" title="插入图片(可直接粘贴)" @click="openImagePicker">
           <Icon icon="tabler:photo" width="17" height="17" aria-hidden="true" />
@@ -529,6 +551,21 @@ watch(isPreview, (preview) => {
       class="md-editor__emoji-panel"
       @pick="onPickEmoji"
     />
+
+    <div v-if="draftStickers.length" class="md-editor__draft-emojis" aria-label="草稿中的表情">
+      <span v-for="(id, i) in draftStickers" :key="`${id}-${i}`" class="md-editor__draft-emoji">
+        <img
+          v-if="getCachedEmoji(id)"
+          :src="emojiSrc(getCachedEmoji(id)!)"
+          :alt="getCachedEmoji(id)!.name"
+          :title="getCachedEmoji(id)!.name"
+        >
+        <span v-else class="md-editor__draft-emoji--missing">[表情]</span>
+        <button type="button" class="md-editor__draft-emoji-x" title="从草稿移除" @click="removeDraftSticker(id)">
+          <Icon icon="tabler:x" width="10" height="10" aria-hidden="true" />
+        </button>
+      </span>
+    </div>
 
     <div class="md-editor__body" :class="{ 'md-editor__body--preview': isPreview }">
       <textarea
@@ -706,6 +743,55 @@ watch(isPreview, (preview) => {
 /* 表情面板:挂在工具栏与输入框之间,窄屏靠 EmojiPanel 自身的响应式网格 */
 .md-editor__emoji-panel {
   margin-bottom: 8px;
+}
+
+/* 草稿表情条:选完一张立刻在这里看到图 */
+.md-editor__draft-emojis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.md-editor__draft-emoji {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  background: var(--chat-bg-highlight);
+
+  img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 7px;
+  }
+}
+
+.md-editor__draft-emoji--missing {
+  font-size: 12px;
+  color: var(--chat-text-tips);
+}
+
+.md-editor__draft-emoji-x {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.55);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 @media screen and (max-width: 768px) {

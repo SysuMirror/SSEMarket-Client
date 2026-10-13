@@ -503,7 +503,7 @@ watch([isMobile, mobilePane], () => {
               title="表情包"
               @click="showEmojiPanel = !showEmojiPanel"
             >
-              <Icon icon="tabler:emoji" width="20" height="20" />
+              <Icon icon="tabler:mood-smile" width="20" height="20" />
             </button>
             <textarea
               ref="draftInput"

@@ -3,15 +3,16 @@ import mk from '@vscode/markdown-it-katex'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import Prism from 'prismjs'
-import { computed, createApp, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { computed, createApp, nextTick, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMusicList } from '@/api/music/getMusicList'
 import { getVideo } from '@/api/video/getVideos'
 import { showMsg } from '@/components/MessageBox'
 import VideoPlayer from '@/components/video/VideoPlayer.vue'
-import { emojiSrc, getCachedEmoji, resolveEmojiIDs } from '@/composables/useEmoji'
+import { addEmojiToPersonalPack, emojiSrc, getCachedEmoji, resolveEmojiIDs } from '@/composables/useEmoji'
 import { primeMentionCache, useMentionResolve } from '@/composables/useMentionResolve'
 import { musicCoverOrDefault, useMusicStore } from '@/store/musicStore'
+import { useUserStore } from '@/store/userStore'
 import { injectMentionsInRenderedHTML } from '@/utils/mention'
 import 'prismjs/plugins/autoloader/prism-autoloader'
 import 'github-markdown-css'
@@ -232,8 +233,17 @@ const safeHTML = computed(() => {
   return finalHTML
 })
 
+const emojiPressTimers = new Map<number, ReturnType<typeof setTimeout>>()
+let suppressViewerClickUntil = 0
+
 async function handleMarkdownClick(event: MouseEvent) {
   const target = event.target as HTMLElement
+
+  // 长按收藏后紧随的 click：拦掉传播，免得图片查看器弹出来
+  if (target.classList?.contains('md-emoji__img') && Date.now() < suppressViewerClickUntil) {
+    event.stopPropagation()
+    return
+  }
 
   const musicCard = target.closest('.post-music[data-music-id]') as HTMLElement | null
   if (musicCard) {
@@ -358,9 +368,69 @@ async function hydrateEmojiNodes() {
     if (!emoji)
       continue
     const name = md.utils.escapeHtml(emoji.name)
-    node.innerHTML = `<img class="md-emoji__img" src="${emojiSrc(emoji)}" alt="${name}" title="${name}" loading="lazy" />`
+    node.innerHTML = `<img class="md-emoji__img" src="${emojiSrc(emoji)}" alt="${name}" title="${name}（长按 / 右键加入我的表情）" loading="lazy" draggable="false" />`
   }
 }
+
+/* ---------------- 评论/帖子里的表情：长按(手机) / 右键(电脑) 加入「我的表情」 ---------------- */
+
+const { isLogin } = useUserStore()
+
+function emojiIDFromTarget(target: EventTarget | null): number | null {
+  const el = target as HTMLElement | null
+  if (!el?.classList?.contains('md-emoji__img'))
+    return null
+  const id = Number((el.closest('.md-emoji[data-emoji-id]') as HTMLElement | null)?.dataset.emojiId)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+async function addStickerToMine(emojiID: number) {
+  if (!isLogin.value) {
+    showMsg('登录后才能收藏表情', 'error')
+    return
+  }
+  const result = await addEmojiToPersonalPack(emojiID)
+  showMsg(result.ok ? '已加入「我的表情」' : result.msg, result.ok ? 'success' : 'error')
+}
+
+function onEmojiPointerDown(event: PointerEvent) {
+  const id = emojiIDFromTarget(event.target)
+  if (id === null)
+    return
+  const existing = emojiPressTimers.get(id)
+  if (existing)
+    clearTimeout(existing)
+  emojiPressTimers.set(id, setTimeout(() => {
+    emojiPressTimers.delete(id)
+    // 长按完成后抑制紧随其后的 click（否则图片查看器会弹出来）
+    suppressViewerClickUntil = Date.now() + 400
+    void addStickerToMine(id)
+  }, 550))
+}
+
+function cancelEmojiPress(event: PointerEvent) {
+  const id = emojiIDFromTarget(event.target)
+  if (id === null)
+    return
+  const timer = emojiPressTimers.get(id)
+  if (timer)
+    clearTimeout(timer)
+  emojiPressTimers.delete(id)
+}
+
+function onEmojiContextMenu(event: MouseEvent) {
+  const id = emojiIDFromTarget(event.target)
+  if (id === null)
+    return
+  event.preventDefault()
+  void addStickerToMine(id)
+}
+
+onUnmounted(() => {
+  for (const timer of emojiPressTimers.values())
+    clearTimeout(timer)
+  emojiPressTimers.clear()
+})
 
 watch(safeHTML, () => {
   nextTick(() => {
@@ -379,6 +449,11 @@ watch(safeHTML, () => {
     :class="{ 'markdown-body--chat': variant === 'chat' }"
     data-theme="light"
     @click="handleMarkdownClick"
+    @pointerdown="onEmojiPointerDown"
+    @pointerup="cancelEmojiPress"
+    @pointerleave="cancelEmojiPress"
+    @pointercancel="cancelEmojiPress"
+    @contextmenu="onEmojiContextMenu"
     v-html="safeHTML"
   />
 </template>
@@ -528,6 +603,11 @@ watch(safeHTML, () => {
   max-height: 120px;
   vertical-align: middle;
   border-radius: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .markdown-body :deep(.md-mention) {
