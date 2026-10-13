@@ -552,22 +552,21 @@ watch(isPreview, (preview) => {
       @pick="onPickEmoji"
     />
 
-    <div v-if="draftStickers.length" class="md-editor__draft-emojis" aria-label="草稿中的表情">
-      <span v-for="(id, i) in draftStickers" :key="`${id}-${i}`" class="md-editor__draft-emoji">
-        <img
-          v-if="getCachedEmoji(id)"
-          :src="emojiSrc(getCachedEmoji(id)!)"
-          :alt="getCachedEmoji(id)!.name"
-          :title="getCachedEmoji(id)!.name"
-        >
-        <span v-else class="md-editor__draft-emoji--missing">[表情]</span>
-        <button type="button" class="md-editor__draft-emoji-x" title="从草稿移除" @click="removeDraftSticker(id)">
-          <Icon icon="tabler:x" width="10" height="10" aria-hidden="true" />
-        </button>
-      </span>
-    </div>
-
-    <div class="md-editor__body" :class="{ 'md-editor__body--preview': isPreview }">
+    <div class="md-editor__body" :class="{ 'md-editor__body--preview': isPreview, 'md-editor__body--emoji-strip': draftStickers.length }">
+      <div v-if="draftStickers.length" class="md-editor__draft-emojis" aria-label="草稿中的表情" @click.stop>
+        <span v-for="(id, i) in draftStickers" :key="`${id}-${i}`" class="md-editor__draft-emoji">
+          <img
+            v-if="getCachedEmoji(id)"
+            :src="emojiSrc(getCachedEmoji(id)!)"
+            :alt="getCachedEmoji(id)!.name"
+            :title="getCachedEmoji(id)!.name"
+          >
+          <span v-else class="md-editor__draft-emoji--missing">[表情]</span>
+          <button type="button" class="md-editor__draft-emoji-x" title="从草稿移除" @click.stop="removeDraftSticker(id)">
+            <Icon icon="tabler:x" width="10" height="10" aria-hidden="true" />
+          </button>
+        </span>
+      </div>
       <textarea
         v-show="!isPreview"
         ref="textarea"
@@ -745,12 +744,22 @@ watch(isPreview, (preview) => {
   margin-bottom: 8px;
 }
 
-/* 草稿表情条:选完一张立刻在这里看到图 */
+/* 草稿表情条:贴在文本框顶部、共用边框,选完一张立刻在框里看到图 */
 .md-editor__draft-emojis {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--chat-border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: var(--chat-bg-main);
+}
+
+.md-editor__body--emoji-strip textarea,
+.md-editor__body--emoji-strip .md-editor__preview-pane {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 .md-editor__draft-emoji {

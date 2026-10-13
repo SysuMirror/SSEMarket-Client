@@ -368,7 +368,7 @@ async function hydrateEmojiNodes() {
     if (!emoji)
       continue
     const name = md.utils.escapeHtml(emoji.name)
-    node.innerHTML = `<img class="md-emoji__img" src="${emojiSrc(emoji)}" alt="${name}" title="${name}（长按 / 右键加入我的表情）" loading="lazy" draggable="false" />`
+    node.innerHTML = `<img class="md-emoji__img" src="${emojiSrc(emoji)}" alt="${name}" title="${name}（长按 / 右键可收藏）" loading="lazy" draggable="false" />`
   }
 }
 
@@ -393,6 +393,24 @@ async function addStickerToMine(emojiID: number) {
   showMsg(result.ok ? '已加入「我的表情」' : result.msg, result.ok ? 'success' : 'error')
 }
 
+/** 长按/右键不直接添加：先弹确认卡片，用户点「加入」才落库（防误触） */
+const emojiAction = ref<{ id: number, x: number, y: number } | null>(null)
+
+function openEmojiAction(emojiID: number, x: number, y: number) {
+  emojiAction.value = {
+    id: emojiID,
+    x: Math.max(8, Math.min(x, window.innerWidth - 230)),
+    y: Math.max(8, Math.min(y, window.innerHeight - 180)),
+  }
+}
+
+async function confirmAddEmoji() {
+  if (!emojiAction.value)
+    return
+  await addStickerToMine(emojiAction.value.id)
+  emojiAction.value = null
+}
+
 function onEmojiPointerDown(event: PointerEvent) {
   const id = emojiIDFromTarget(event.target)
   if (id === null)
@@ -400,11 +418,12 @@ function onEmojiPointerDown(event: PointerEvent) {
   const existing = emojiPressTimers.get(id)
   if (existing)
     clearTimeout(existing)
+  const { clientX, clientY } = event
   emojiPressTimers.set(id, setTimeout(() => {
     emojiPressTimers.delete(id)
     // 长按完成后抑制紧随其后的 click（否则图片查看器会弹出来）
     suppressViewerClickUntil = Date.now() + 400
-    void addStickerToMine(id)
+    openEmojiAction(id, clientX, clientY)
   }, 550))
 }
 
@@ -423,7 +442,7 @@ function onEmojiContextMenu(event: MouseEvent) {
   if (id === null)
     return
   event.preventDefault()
-  void addStickerToMine(id)
+  openEmojiAction(id, event.clientX, event.clientY)
 }
 
 onUnmounted(() => {
@@ -456,6 +475,26 @@ watch(safeHTML, () => {
     @contextmenu="onEmojiContextMenu"
     v-html="safeHTML"
   />
+
+  <Teleport to="body">
+    <div v-if="emojiAction" class="md-emoji-action" @click.self="emojiAction = null">
+      <div class="md-emoji-action__card" :style="{ left: `${emojiAction.x}px`, top: `${emojiAction.y}px` }">
+        <img
+          v-if="getCachedEmoji(emojiAction.id)"
+          class="md-emoji-action__img"
+          :src="emojiSrc(getCachedEmoji(emojiAction.id)!)"
+          :alt="getCachedEmoji(emojiAction.id)!.name"
+        >
+        <span v-else class="md-emoji-action__name">[表情]</span>
+        <button type="button" class="md-emoji-action__add" @click="confirmAddEmoji">
+          加入「我的表情」
+        </button>
+        <button type="button" class="md-emoji-action__close" aria-label="关闭" @click="emojiAction = null">
+          ×
+        </button>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -597,6 +636,58 @@ watch(safeHTML, () => {
 }
 
 /* 表情 token 水合后的内联小图（尺寸口径与聊天气泡 ChatEmojiText 一致） */
+/* 长按/右键后的确认卡片（Teleport 到 body，点空白处关闭） */
+.md-emoji-action {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+}
+
+.md-emoji-action__card {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--chat-border, #e5e7eb);
+  border-radius: 12px;
+  background: var(--chat-bg-highlight, #fff);
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.18);
+}
+
+.md-emoji-action__img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.md-emoji-action__name {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.md-emoji-action__add {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  background: var(--chat-accent, #2f6fed);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.md-emoji-action__close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
 .markdown-body :deep(.md-emoji__img) {
   display: inline-block;
   max-width: 120px;

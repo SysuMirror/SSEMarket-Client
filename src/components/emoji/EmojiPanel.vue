@@ -299,7 +299,7 @@ async function submitUpload() {
             type="button"
             class="emoji-panel__tile"
             :title="sticker.name"
-            @click="pick(sticker)"
+            @click.stop="pick(sticker)"
           >
             <img :src="emojiSrc(sticker)" :alt="sticker.name" loading="lazy">
           </button>
@@ -351,7 +351,7 @@ async function submitUpload() {
             type="button"
             class="emoji-panel__tile"
             :title="sticker.name"
-            @click="pick(sticker)"
+            @click.stop="pick(sticker)"
           >
             <img :src="emojiSrc(sticker)" :alt="sticker.name" loading="lazy">
           </button>
