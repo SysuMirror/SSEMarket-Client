@@ -3,33 +3,33 @@ import { computed, ref } from 'vue'
 
 defineOptions({ name: 'NovelCover' })
 
-const { title, coverURL } = defineProps<{
+const props = defineProps<{
   title: string
-  coverURL?: string
+  coverUrl?: string // 1. 这里改成 coverUrl
 }>()
 
-/** 加载失败的封面不再重试：记住失败的 URL，换 URL 后自动恢复。 */
 const failedURL = ref('')
-const showImg = computed(() => Boolean(coverURL) && failedURL.value !== coverURL)
 
-/** 标题哈希 → 稳定配色：同一本书每次渲染颜色一致，不同书颜色不同。 */
+// 2. 这里也改成 props.coverUrl
+const showImg = computed(() => Boolean(props.coverUrl) && failedURL.value !== props.coverUrl)
+
 const hue = computed(() => {
   let h = 0
-  for (const ch of title)
+  for (const ch of props.title)
     h = (h * 31 + (ch.codePointAt(0) ?? 0)) % 360
   return h
 })
+
 const placeholderBg = computed(() => {
   const h1 = hue.value
   const h2 = (hue.value + 42) % 360
   return `linear-gradient(160deg, hsl(${h1} 42% 40%), hsl(${h2} 48% 24%))`
 })
+
 const titleFontSize = computed(() => {
-  const n = Array.from(title).length
-  if (n <= 4)
-    return '15px'
-  if (n <= 8)
-    return '12px'
+  const n = Array.from(props.title).length
+  if (n <= 4) return '15px'
+  if (n <= 8) return '12px'
   return '10px'
 })
 </script>
@@ -38,10 +38,10 @@ const titleFontSize = computed(() => {
   <span class="novel-cover" :style="showImg ? undefined : { background: placeholderBg }">
     <img
       v-if="showImg"
-      :src="coverURL"
+      :src="coverUrl"
       :alt="title"
       loading="lazy"
-      @error="failedURL = coverURL ?? ''"
+      @error="failedURL = coverUrl ?? ''"
     >
     <span v-else class="novel-cover__text" :style="{ fontSize: titleFontSize }">
       {{ title || '未命名' }}
