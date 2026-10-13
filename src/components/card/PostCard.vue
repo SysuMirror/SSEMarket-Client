@@ -11,6 +11,7 @@ import { showMsg } from '@/components/MessageBox'
 import { applyPostMutation, usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
 import { debounceAsync } from '@/utils/debounced'
+import { stripEmojiTokens } from '@/utils/emojiToken'
 import { isPostOwner } from '@/utils/postOwner'
 
 import BasicInfo from '../BasicInfo.vue'
@@ -55,17 +56,17 @@ const previewImages = computed<string[]>(() => {
   return imgs.slice(0, 9)
 })
 
-/** 摘要文本：去掉 markdown 图片语法，只保留纯文本 */
+/** 摘要文本：去掉 markdown 图片语法与表情 token，只保留纯文本 */
 const excerptText = computed(() => {
   const raw = post.Content || ''
-  const cleaned = raw.replace(/!\[[^\]]*?\]\([^)]*?\)/g, '').trim()
+  const cleaned = stripEmojiTokens(raw).replace(/!\[[^\]]*?\]\([^)]*?\)/g, '').trim()
   return cleaned.slice(0, 100) || 'loading'
 })
 
-/** 热门评论纯文本预览:去掉 markdown 图片语法,只保留文字 */
+/** 热门评论纯文本预览:去掉 markdown 图片语法与表情 token,只保留文字 */
 const hotCommentExcerpt = computed(() => {
   const raw = post.HotComment?.content || ''
-  const cleaned = raw.replace(/!\[[^\]]*?\]\([^)]*?\)/g, '').trim()
+  const cleaned = stripEmojiTokens(raw).replace(/!\[[^\]]*?\]\([^)]*?\)/g, '').trim()
   if (cleaned.length <= 50)
     return cleaned
   return `${cleaned.slice(0, 50)}…`

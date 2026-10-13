@@ -7,6 +7,7 @@ import { getNotices, readNotice } from '@/api/notice/notice'
 import { showMsg } from '@/components/MessageBox'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useNoticeStore } from '@/store/noticeStore'
+import { stripEmojiTokens } from '@/utils/emojiToken'
 import { strHandler } from '@/utils/strHandler'
 
 const PAGE_SIZE = 20
@@ -276,7 +277,7 @@ onUnmounted(() => {
               <time class="notice-card__time" :datetime="notice.time">{{ strHandler('time', notice.time) }}</time>
             </div>
             <p class="notice-card__content">
-              {{ notice.content }}
+              {{ stripEmojiTokens(notice.content ?? '') }}
             </p>
             <div v-if="notice.type" class="notice-card__type">
               {{ noticeTypeLabel(notice.type) }}

@@ -9,6 +9,7 @@ import { getMusicList } from '@/api/music/getMusicList'
 import { getVideo } from '@/api/video/getVideos'
 import { showMsg } from '@/components/MessageBox'
 import VideoPlayer from '@/components/video/VideoPlayer.vue'
+import { emojiSrc, getCachedEmoji, resolveEmojiIDs } from '@/composables/useEmoji'
 import { primeMentionCache, useMentionResolve } from '@/composables/useMentionResolve'
 import { musicCoverOrDefault, useMusicStore } from '@/store/musicStore'
 import { injectMentionsInRenderedHTML } from '@/utils/mention'
@@ -150,6 +151,8 @@ function preprocessMarkdown(content: string): string {
   text = text.replace(/(^|\n)[ \t]*::music\s+(\d+)::[ \t]*(?=\n|$)/g, (m, lead, id) => `${lead}<div class="post-music" data-music-id="${id}"></div>`)
   // 帖子内嵌视频标记：[video:123] 渲染为受控播放器占位节点
   text = text.replace(/(^|\n)[ \t]*\[video:(\d+)\][ \t]*(?=\n|$)/g, (_m, lead, id) => `${lead}<div class="post-video" data-video-id="${id}"></div>`)
+  // 评论/帖子里的表情 token：[emoji:123] → 占位节点，水合后换成 <img>（与聊天气泡同一契约）
+  text = text.replace(/\[emoji:(\d+)\]/g, (_m, id) => `<span class="md-emoji" data-emoji-id="${id}">[表情]</span>`)
   // 先用正则匹配一下
   return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, urlPart) => {
     const titleIndex = urlPart.lastIndexOf(' "')
@@ -216,6 +219,7 @@ const safeHTML = computed(() => {
       'data-user-id',
       'data-music-id',
       'data-video-id',
+      'data-emoji-id',
       'role',
       'tabindex',
     ],
@@ -336,11 +340,34 @@ async function hydrateVideoCards() {
   }
 }
 
+/** 把 [emoji:123] 占位 span 换成表情图（缓存没有的走 resolve 按需补拉，拉不到保持 [表情] 文本） */
+async function hydrateEmojiNodes() {
+  const root = content.value
+  if (!root)
+    return
+  const nodes = Array.from(root.querySelectorAll<HTMLElement>('.md-emoji[data-emoji-id]:not([data-hydrated])'))
+  if (nodes.length === 0)
+    return
+  nodes.forEach((n) => {
+    n.dataset.hydrated = '1'
+  })
+  const ids = [...new Set(nodes.map(n => Number(n.dataset.emojiId)).filter(n => Number.isInteger(n) && n > 0))]
+  await resolveEmojiIDs(ids)
+  for (const node of nodes) {
+    const emoji = getCachedEmoji(Number(node.dataset.emojiId))
+    if (!emoji)
+      continue
+    const name = md.utils.escapeHtml(emoji.name)
+    node.innerHTML = `<img class="md-emoji__img" src="${emojiSrc(emoji)}" alt="${name}" title="${name}" loading="lazy" />`
+  }
+}
+
 watch(safeHTML, () => {
   nextTick(() => {
     Prism.highlightAllUnder(content.value!)
     hydrateMusicCards()
     hydrateVideoCards()
+    hydrateEmojiNodes()
   })
 }, { immediate: true })
 </script>
@@ -492,6 +519,15 @@ watch(safeHTML, () => {
 
 .markdown-body :deep(table tbody tr:nth-child(even) th) {
   background-color: #f6f8fa;
+}
+
+/* 表情 token 水合后的内联小图（尺寸口径与聊天气泡 ChatEmojiText 一致） */
+.markdown-body :deep(.md-emoji__img) {
+  display: inline-block;
+  max-width: 120px;
+  max-height: 120px;
+  vertical-align: middle;
+  border-radius: 6px;
 }
 
 .markdown-body :deep(.md-mention) {

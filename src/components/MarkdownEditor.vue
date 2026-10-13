@@ -1,11 +1,15 @@
 <!-- eslint-disable vue/html-self-closing -->
 <script setup lang="ts">
+import type { EmojiItem } from '@/api/emoji/emoji'
 import { Icon } from '@iconify/vue'
 
 import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
 import { showMsg } from '@/components/MessageBox'
+import { useUserStore } from '@/store/userStore'
+import { formatEmojiToken } from '@/utils/emojiToken'
+import EmojiPanel from './emoji/EmojiPanel.vue'
 import MarkdownContainer from './MarkdownContainer.vue'
 
 /**
@@ -24,6 +28,8 @@ const props = withDefaults(
     fill?: boolean
     /** 显示「插入音乐」按钮（发帖页），点击向父组件发 insert-music 事件 */
     musicEnabled?: boolean
+    /** 显示「表情包」按钮（需登录）；评论区/发帖页默认开启 */
+    emojiEnabled?: boolean
     placeholder?: string
   }>(),
   {
@@ -31,6 +37,7 @@ const props = withDefaults(
     compact: false,
     fill: false,
     musicEnabled: false,
+    emojiEnabled: true,
     placeholder: '请输入正文',
   },
 )
@@ -41,6 +48,16 @@ const emit = defineEmits<{
 }>()
 
 const isBusy = computed(() => props.submitBusy)
+
+/* ---------------- 表情包（与聊天共用 EmojiPanel / token 契约） ---------------- */
+
+const { isLogin } = useUserStore()
+const showEmojiPanel = ref(false)
+
+/** 点一张表情 → 把 token 插到光标处（面板保持打开，可连续选） */
+function onPickEmoji(emoji: EmojiItem) {
+  insertAtCursor(formatEmojiToken(emoji.emojiID))
+}
 
 function emitSend() {
   if (isBusy.value)
@@ -452,8 +469,19 @@ watch(isPreview, (preview) => {
         </button>
       </div>
 
-      <!-- 右侧:图片 / 预览 -->
+      <!-- 右侧:表情 / 图片 / 预览 -->
       <div class="md-editor__tools-right">
+        <button
+          v-if="emojiEnabled && isLogin"
+          type="button"
+          class="md-editor__tool"
+          :class="{ 'md-editor__tool--active': showEmojiPanel }"
+          title="表情包"
+          aria-label="表情包"
+          @click="showEmojiPanel = !showEmojiPanel"
+        >
+          <Icon icon="tabler:emoji" width="17" height="17" aria-hidden="true" />
+        </button>
         <button type="button" class="md-editor__tool" title="插入图片(可直接粘贴)" @click="openImagePicker">
           <Icon icon="tabler:photo" width="17" height="17" aria-hidden="true" />
         </button>
@@ -495,6 +523,12 @@ watch(isPreview, (preview) => {
         >
       </div>
     </div>
+
+    <EmojiPanel
+      v-if="showEmojiPanel"
+      class="md-editor__emoji-panel"
+      @pick="onPickEmoji"
+    />
 
     <div class="md-editor__body" :class="{ 'md-editor__body--preview': isPreview }">
       <textarea
@@ -667,6 +701,17 @@ watch(isPreview, (preview) => {
   height: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+/* 表情面板:挂在工具栏与输入框之间,窄屏靠 EmojiPanel 自身的响应式网格 */
+.md-editor__emoji-panel {
+  margin-bottom: 8px;
+}
+
+@media screen and (max-width: 768px) {
+  .md-editor__emoji-panel {
+    max-height: 40vh;
+  }
 }
 
 /* ---------- 输入区 ---------- */
