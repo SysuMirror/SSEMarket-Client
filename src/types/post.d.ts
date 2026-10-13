@@ -11,6 +11,9 @@ export interface Post {
   Content: string
   Like: number
   Comment: number
+  // Coin 被投币总数（含历史投票折算）；MyCoins 我累计投了几个（0–2）
+  Coin?: number
+  MyCoins?: number
   Browse: number
   Heat: number
   PostTime: string

@@ -157,8 +157,8 @@ $accent: #ec4141;
   max-height: min(560px, calc(100vh - 48px));
   max-height: min(560px, calc(100dvh - 48px));
   background: var(--color-card, #fff);
-  border-radius: 14px;
-  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 18%);
   overflow: hidden;
 }
 
@@ -176,9 +176,13 @@ $accent: #ec4141;
 .mpicker__close {
   margin-left: auto;
   display: inline-flex;
-  padding: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: #64748b;
   cursor: pointer;
@@ -192,7 +196,7 @@ $accent: #ec4141;
   flex: 1;
   min-height: 120px;
   overflow-y: auto;
-  padding: 10px 12px;
+  padding: 12px 14px;
 }
 
 .mpicker__section-title {
@@ -323,6 +327,14 @@ $accent: #ec4141;
 
   .mpicker {
     transform: translateY(12px) scale(0.98);
+  }
+}
+
+@media screen and (prefers-reduced-motion: reduce) {
+  .mpicker-mask,
+  .mpicker {
+    animation: none;
+    transition: none !important;
   }
 }
 </style>

@@ -10,6 +10,7 @@ import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
 import { sendCode } from '@/api/LoginAndRegister/utils'
 import { ssoBindStart, ssoStatus, ssoUnbind } from '@/api/sso/sso'
 import ApiTokenPanel from '@/components/ApiTokenPanel.vue'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsToggle } from '@/components/settings'
 import { usePWA } from '@/composables/usePWA'
@@ -375,6 +376,7 @@ async function resetEmail() {
       phone: '',
       email: '',
       identity: '',
+      coins: 0,
     })
     emailForm.value = { newEmail: '', vcode: '' }
     emailOpen.value = false
@@ -389,18 +391,18 @@ async function resetEmail() {
   }
 }
 
-function logout() {
-  if (confirm('确定要退出登录吗')) {
-    localStorage.removeItem('userInfo')
-    localStorage.removeItem('token')
-    localStorage.removeItem('email')
-    localStorage.removeItem('password')
-    localStorage.removeItem('rememberMe')
-    setToken('')
-    setRefreshToken('')
-    router.push('/')
-    window.location.reload()
-  }
+async function logout() {
+  if (!await confirmDialog({ message: '确定要退出登录吗？', confirmText: '退出登录', danger: true }))
+    return
+  localStorage.removeItem('userInfo')
+  localStorage.removeItem('token')
+  localStorage.removeItem('email')
+  localStorage.removeItem('password')
+  localStorage.removeItem('rememberMe')
+  setToken('')
+  setRefreshToken('')
+  router.push('/')
+  window.location.reload()
 }
 
 async function loadSsoStatus() {
@@ -476,6 +478,7 @@ onMounted(() => {
       :score="allInfo.score ?? 0"
       :exp-target="expTarget"
       :next-level-label="nextLevelLabel"
+      :coins="allInfo.coins"
       @upload-avatar="onUploadAvatar"
       @avatar-error="onAvatarError"
       @edit-profile="onEditProfile"

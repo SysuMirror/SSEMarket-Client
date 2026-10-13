@@ -109,6 +109,12 @@ function goBack() {
         <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=60985&format=png&color=000000);" />
         <span>打分</span>
       </router-link>
+      <router-link to="/novel">
+        <div class="icon-wrapper">
+          <Icon icon="tabler:book-2" class="sidebar-novel-icon" width="22" height="22" aria-hidden="true" />
+        </div>
+        <span>小说</span>
+      </router-link>
       <router-link to="/smart-xiaoqiu">
         <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=59695&format=png&color=000000); background-size: 90% 90%;" />
         <span>小秋</span>

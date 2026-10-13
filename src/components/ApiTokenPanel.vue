@@ -9,6 +9,7 @@ import {
   listAPITokenScopes,
   revokeAPIToken,
 } from '@/api/info/apiToken'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 
 const scopes = ref<APITokenScope[]>([])
@@ -96,7 +97,12 @@ async function handleCreate() {
 }
 
 async function handleRevoke(item: APITokenItem) {
-  if (!confirm(`确定吊销 token「${item.name}」吗？此操作不可恢复。`))
+  if (!await confirmDialog({
+    title: '吊销 token',
+    message: `确定吊销 token「${item.name}」吗？此操作不可恢复。`,
+    confirmText: '吊销',
+    danger: true,
+  }))
     return
   try {
     const ok = await revokeAPIToken(item.token_id)
@@ -111,7 +117,12 @@ async function handleRevoke(item: APITokenItem) {
 }
 
 async function handleDelete(item: APITokenItem) {
-  if (!confirm(`确定彻底删除已吊销的 token「${item.name}」吗？删除后该记录将不再显示。`))
+  if (!await confirmDialog({
+    title: '删除记录',
+    message: `确定彻底删除已吊销的 token「${item.name}」吗？删除后该记录将不再显示。`,
+    confirmText: '删除',
+    danger: true,
+  }))
     return
   try {
     const ok = await deleteAPIToken(item.token_id)

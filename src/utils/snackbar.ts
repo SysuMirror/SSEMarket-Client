@@ -1,6 +1,6 @@
 import '@/assets/snackbar.css'
 
-interface SnackbarOptions {
+export interface SnackbarOptions {
   message: string
   actionText?: string
   duration?: number
@@ -12,7 +12,7 @@ interface SnackbarOptions {
   alwaysShow?: boolean
 }
 
-interface SnackbarInstance {
+export interface SnackbarInstance {
   show: () => void
   hide: () => void
   destroy: () => void
@@ -20,32 +20,55 @@ interface SnackbarInstance {
   id?: string
 }
 
+/** 进出动画时长，需与 snackbar.css 里的 transition 时长一致 */
+const ANIM_MS = 200
+
+/** 同一位置最多同时显示几条 */
+const MAX_STACK = 4
+
+type Position = 'top' | 'bottom'
+
+/**
+ * 两个层级：
+ * - toast（一次性提示，showMsg 走这档）z-index 4000，必须浮在一切覆盖层之上；
+ * - notice（alwaysShow 的常驻通知，比如「有新帖子」）z-index 1000，
+ *   保持改造前的层级 —— 别在全屏阅读器 / 播放器之上还杵在那儿。
+ */
+type Tier = 'toast' | 'notice'
+
 class SnackbarManager {
   private instances: Map<string, SnackbarInstance> = new Map()
-  private container: HTMLElement | null = null
+  private containers: Map<string, HTMLElement> = new Map()
   private isDestroyed = false
-  private hideTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
 
-  private createContainer(): HTMLElement {
-    if (this.container)
-      return this.container
+  /**
+   * 每个「层级 × 位置」一个流式容器（flex 列），条目按顺序排布 —— 之前每条 snackbar 各自
+   * position:fixed; left:50%，多条同时出现会完全重叠在同一个点上。
+   */
+  private getContainer(position: Position, tier: Tier): HTMLElement {
+    const key = `${tier}:${position}`
+    const existing = this.containers.get(key)
+    if (existing)
+      return existing
 
-    this.container = document.createElement('div')
-    this.container.className = 'snackbar-container'
-    document.body.appendChild(this.container)
-    return this.container
+    const container = document.createElement('div')
+    container.className = `snackbar-container snackbar-container--${position} snackbar-container--${tier}`
+    container.setAttribute('aria-live', 'polite')
+    container.setAttribute('aria-atomic', 'false')
+    document.body.appendChild(container)
+    this.containers.set(key, container)
+    return container
   }
 
   private createSnackbar(options: SnackbarOptions): SnackbarInstance {
-    const id = options.id || Math.random().toString(36).substr(2, 9)
-    const container = this.createContainer()
+    const id = options.id || Math.random().toString(36).slice(2, 11)
+    const position = options.position || 'bottom'
+    const container = this.getContainer(position, options.alwaysShow ? 'notice' : 'toast')
 
     const snackbar = document.createElement('div')
-    snackbar.className = `snackbar snackbar--${options.position || 'bottom'} snackbar--${options.type || 'info'}`
-    snackbar.style.opacity = '0'
-    snackbar.style.transform = options.position === 'top'
-      ? 'translateX(-50%) translateY(-20px)'
-      : 'translateX(-50%) translateY(20px)'
+    // 以「未入场」状态入 DOM：否则从 append 到第一帧 rAF 之间会有一帧全亮闪烁
+    snackbar.className = `snackbar snackbar--${position} snackbar--${options.type || 'info'} snackbar--enter`
+    snackbar.setAttribute('role', options.type === 'error' ? 'alert' : 'status')
 
     const content = document.createElement('div')
     content.className = 'snackbar-content'
@@ -56,22 +79,36 @@ class SnackbarManager {
     content.appendChild(message)
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let leaveId: ReturnType<typeof setTimeout> | null = null
 
     const instance: SnackbarInstance = {
       id,
+
       show: () => {
-        // 显示动画
+        // 重入（同 id 再次 show）：先掐掉上一轮的隐藏定时器，
+        // 否则旧定时器会在 toast 刚复活时把它收掉
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
+        if (leaveId) {
+          clearTimeout(leaveId)
+          leaveId = null
+        }
+
+        snackbar.classList.remove('snackbar--leave')
+        snackbar.classList.add('snackbar--enter')
+
         requestAnimationFrame(() => {
-          snackbar.style.transition = 'all 0.3s ease'
-          snackbar.style.opacity = '1'
-          snackbar.style.transform = 'translateX(-50%) translateY(0)'
+          requestAnimationFrame(() => {
+            snackbar.classList.remove('snackbar--enter')
+            snackbar.classList.add('snackbar--entered')
+          })
         })
 
-        // 自动隐藏（alwaysShow为true时忽略duration）
+        // 自动隐藏（alwaysShow 时忽略 duration）
         if (!options.alwaysShow && options.duration && options.duration > 0) {
-          timeoutId = setTimeout(() => {
-            instance.hide()
-          }, options.duration)
+          timeoutId = setTimeout(() => instance.hide(), options.duration)
         }
       },
 
@@ -81,41 +118,10 @@ class SnackbarManager {
           timeoutId = null
         }
 
-        snackbar.style.transition = 'all 0.3s ease'
-        snackbar.style.opacity = '0'
-        snackbar.style.transform = options.position === 'top'
-          ? 'translateX(-50%) translateY(-20px)'
-          : 'translateX(-50%) translateY(20px)'
+        snackbar.classList.remove('snackbar--enter', 'snackbar--entered')
+        snackbar.classList.add('snackbar--leave')
 
-        // 清除之前的销毁定时器
-        if (options.id && this.hideTimers.has(options.id)) {
-          clearTimeout(this.hideTimers.get(options.id)!)
-          this.hideTimers.delete(options.id)
-        }
-
-        // 对于 alwaysShow 的snackbar，不设置自动销毁定时器
-        if (!options.alwaysShow) {
-          // 设置500ms后自动销毁（如果没有重新调用）
-          if (options.id) {
-            const destroyTimer = setTimeout(() => {
-              if (snackbar.parentNode) {
-                snackbar.parentNode.removeChild(snackbar)
-              }
-              this.instances.delete(id)
-              this.hideTimers.delete(options.id!)
-            }, 500)
-            this.hideTimers.set(options.id, destroyTimer)
-          }
-          else {
-            // 没有ID的实例300ms后销毁
-            setTimeout(() => {
-              if (snackbar.parentNode) {
-                snackbar.parentNode.removeChild(snackbar)
-              }
-              this.instances.delete(id)
-            }, 300)
-          }
-        }
+        leaveId = setTimeout(() => instance.destroy(), ANIM_MS)
       },
 
       destroy: () => {
@@ -123,14 +129,12 @@ class SnackbarManager {
           clearTimeout(timeoutId)
           timeoutId = null
         }
-        // 清除销毁定时器
-        if (options.id && this.hideTimers.has(options.id)) {
-          clearTimeout(this.hideTimers.get(options.id)!)
-          this.hideTimers.delete(options.id)
+        if (leaveId) {
+          clearTimeout(leaveId)
+          leaveId = null
         }
-        if (snackbar.parentNode) {
+        if (snackbar.parentNode)
           snackbar.parentNode.removeChild(snackbar)
-        }
         this.instances.delete(id)
       },
 
@@ -141,23 +145,24 @@ class SnackbarManager {
 
     if (options.actionText) {
       const actionButton = document.createElement('button')
+      actionButton.type = 'button'
       actionButton.className = 'snackbar-action'
       actionButton.textContent = options.actionText
       actionButton.addEventListener('click', () => {
         options.onAction?.()
-        // alwaysShow的snackbar点击后直接销毁，否则隐藏
-        if (options.alwaysShow) {
+        // alwaysShow 的 snackbar 点击后直接销毁，否则走隐藏动画
+        if (options.alwaysShow)
           instance.destroy()
-        }
-        else {
+        else
           instance.hide()
-        }
       })
       content.appendChild(actionButton)
     }
 
     const closeButton = document.createElement('button')
+    closeButton.type = 'button'
     closeButton.className = 'snackbar-close'
+    closeButton.setAttribute('aria-label', '关闭提示')
     closeButton.innerHTML = `
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M9 3L3 9M3 3L9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -165,46 +170,47 @@ class SnackbarManager {
     `
     closeButton.addEventListener('click', () => {
       options.onClose?.()
-      // alwaysShow的snackbar点击后直接销毁，否则隐藏
-      if (options.alwaysShow) {
+      if (options.alwaysShow)
         instance.destroy()
-      }
-      else {
+      else
         instance.hide()
-      }
     })
 
     snackbar.appendChild(content)
     snackbar.appendChild(closeButton)
+    snackbar.dataset.snackbarId = id
     container.appendChild(snackbar)
 
     this.instances.set(id, instance)
+
+    // 堆叠上限：连点受限操作时别堆成塔，超出就摘掉最旧的一条
+    while (container.children.length > MAX_STACK) {
+      const oldest = container.firstElementChild as HTMLElement | null
+      if (!oldest || oldest === snackbar)
+        break
+      const stale = this.instances.get(oldest.dataset.snackbarId || '')
+      if (stale)
+        stale.destroy()
+      else
+        oldest.remove()
+    }
+
     return instance
   }
 
   show(options: SnackbarOptions): SnackbarInstance {
-    if (this.isDestroyed) {
+    if (this.isDestroyed)
       throw new Error('SnackbarManager has been destroyed')
-    }
 
-    // 如果指定了ID，检查是否已存在，存在则更新消息并重新显示
+    // 指定了 id 就复用同一条：只换文案并重置计时，不新增一行
     if (options.id) {
       const existingInstance = this.instances.get(options.id)
       if (existingInstance) {
-        // 清除销毁定时器（因为重新调用了）
-        if (this.hideTimers.has(options.id)) {
-          clearTimeout(this.hideTimers.get(options.id)!)
-          this.hideTimers.delete(options.id)
-        }
-
-        // 更新现有实例的消息并重新显示
         existingInstance.updateMessage(options.message)
         existingInstance.show()
         return existingInstance
       }
     }
-
-    // 创建新的snackbar实例
 
     const instance = this.createSnackbar(options)
     instance.show()
@@ -217,7 +223,7 @@ class SnackbarManager {
       message,
       actionText,
       type: 'success',
-      duration: 4000,
+      duration: 2600,
       position: 'bottom',
       onAction,
     })
@@ -239,7 +245,7 @@ class SnackbarManager {
       message,
       actionText,
       type: 'info',
-      duration: 4000,
+      duration: 2600,
       position: 'bottom',
       onAction,
     })
@@ -250,10 +256,21 @@ class SnackbarManager {
       message,
       actionText,
       type: 'warning',
-      duration: 4000,
+      duration: 3200,
       position: 'top',
       onAction,
     })
+  }
+
+  destroy(): void {
+    for (const instance of this.instances.values())
+      instance.destroy()
+    for (const container of this.containers.values()) {
+      if (container.parentNode)
+        container.parentNode.removeChild(container)
+    }
+    this.containers.clear()
+    this.isDestroyed = true
   }
 }
 

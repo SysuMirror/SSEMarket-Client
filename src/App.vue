@@ -6,6 +6,7 @@ import {
 } from 'vue'
 import { getInfo, getSelfAllInfo } from './api/info/getInfo'
 import { userLogin } from './api/LoginAndRegister/login'
+import { reportDailyVisit } from './api/coin/coin'
 import { useUserStore } from './store/userStore'
 
 import TitleCustomizeModal from '@/components/TitleCustomizeModal.vue'
@@ -13,7 +14,7 @@ import NowPlayingOverlay from '@/components/music/NowPlayingOverlay.vue'
 import PlayerBar from '@/components/music/PlayerBar.vue'
 import PlaylistDrawer from '@/components/music/PlaylistDrawer.vue'
 
-const { setUserInfo, token, refreshToken, setToken, setRefreshToken, userInfo } = useUserStore()
+const { setUserInfo, userInfo, token, refreshToken, setToken, setRefreshToken } = useUserStore()
 
 const isUserReady = ref(false)
 const showTitleModal = ref(false)
@@ -42,6 +43,16 @@ function handleBeforeUnload() {
   localStorage.removeItem('token')
 }
 
+/**
+ * 每日进入网页 +1 币：登录态就绪后上报一次。
+ * 「今天领没领」只由后端记录（coin_ledger 幂等键含用户+日期），
+ * 前端不缓存判断 —— 切换账号后新账号照常能领当天的币。
+ */
+function reportVisitIfLoggedIn() {
+  if (token.value && userInfo.userID > 0)
+    void reportDailyVisit()
+}
+
 onBeforeMount(async () => {
   window.addEventListener('beforeunload', handleBeforeUnload)
   const hasLegacyCreds = !!(localStorage.email && localStorage.password)
@@ -67,6 +78,7 @@ onBeforeMount(async () => {
 
             localStorage.removeItem('email')
             localStorage.removeItem('password')
+            reportVisitIfLoggedIn()
             return
           }
         }
@@ -82,6 +94,7 @@ onBeforeMount(async () => {
         const info = await getInfo()
         if (info && info.userID && info.userID !== 0) {
           setUserInfo(info)
+          reportVisitIfLoggedIn()
         }
       }
       catch {

@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { createRatingComment, deleteRatingPost, likeRatingPost, submitRatingStar } from '@/api/rating'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
 import { ratingZonePath } from '@/utils/ratingRoute'
@@ -98,7 +99,7 @@ async function onLike() {
 }
 
 async function onDelete() {
-  if (!confirm('确定删除这条评分？'))
+  if (!await confirmDialog({ message: '确定删除这条评分？', confirmText: '删除', danger: true }))
     return
   try {
     const ok = await deleteRatingPost(post.ratingPostID)

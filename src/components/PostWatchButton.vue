@@ -8,6 +8,7 @@ const props = withDefaults(
   defineProps<{
     postID: number
     watched?: boolean
+    /** muted：信息流；prominent：详情页操作行的描边药丸 */
     variant?: 'muted' | 'prominent'
   }>(),
   { watched: false, variant: 'prominent' },
@@ -69,8 +70,9 @@ async function handleToggle(event: Event) {
     ]"
     :disabled="!postID || submitting"
     :aria-pressed="isWatched"
+    :title="isWatched ? '取消码住' : '码住，更新时提醒我'"
     @click="handleToggle"
   >
-    {{ label }}
+    <span>{{ label }}</span>
   </button>
 </template>

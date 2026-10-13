@@ -1,140 +1,190 @@
+/* ===== 全局提示条（toast）=====
+   showMsg()（src/components/MessageBox.tsx）与 showSnackbar()（src/utils/snackbar.ts）
+   共用这一套视觉与堆叠容器。
+
+   堆叠：每个位置一个 flex 列容器，条目按顺序排布。
+   （旧实现是每条各自 position:fixed; left:50%，多条同时出现会重叠在同一个点上。）
+
+   层级：4000 —— 必须浮在一切覆盖层之上
+   （底栏 2000 / 站点头 2100 / 投币弹窗 2150 / 阅读器 2200–2400 / 小秋 2600 /
+     音乐上传 3200 / 确认弹窗 3600）。 */
+
 .snackbar-container {
   position: fixed;
-  top: 0;
+  right: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
   pointer-events: none;
+}
+
+/* 一次性提示（showMsg）浮在一切覆盖层之上；
+   alwaysShow 的常驻通知保持旧层级 1000，别在全屏阅读器 / 播放器之上还杵着 */
+.snackbar-container--toast {
+  z-index: 4000;
+}
+
+.snackbar-container--notice {
   z-index: 1000;
+}
+
+.snackbar-container--top {
+  top: calc(var(--layout-header-h, 0px) + 10px);
+}
+
+.snackbar-container--bottom {
+  bottom: calc(var(--layout-bottom-nav-h, 0px) + 10px);
 }
 
 .snackbar {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  padding: 8px 8px 8px 12px;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--color-border);
-  z-index: 1000;
-  transition: all 0.3s ease;
-  max-width: 90%;
-  min-width: 280px;
-  user-select: none;
-  -webkit-user-select: none;
+  --snack-accent: var(--color-info, #3b82f6);
+
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+
+  /* 小尺寸：宽度随文案收缩，最长 340px（旧版固定 min-width 280px，短提示也拖一大块） */
+  box-sizing: border-box;
+  max-width: min(86vw, 340px);
+  padding: 7px 8px 7px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text, #1e293b);
+  background-color: var(--color-card, #fff);
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+  border-left: 3px solid var(--snack-accent);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(15 23 42 / 12%);
+  user-select: none;
+  -webkit-user-select: none;
   pointer-events: auto;
-}
-
-.snackbar--top {
-  top: 100px;
-}
-
-.snackbar--bottom {
-  bottom: 90px;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .snackbar--success {
-  border-left: 4px solid var(--color-success);
+  --snack-accent: var(--color-success, #10b981);
 }
 
 .snackbar--error {
-  border-left: 4px solid var(--color-error);
+  --snack-accent: var(--color-error, #ef4444);
 }
 
 .snackbar--info {
-  border-left: 4px solid var(--color-info);
+  --snack-accent: var(--color-info, #3b82f6);
 }
 
 .snackbar--warning {
-  border-left: 4px solid var(--color-warning);
+  --snack-accent: var(--color-warning, #f59e0b);
 }
 
-.snackbar:hover {
-  transform: translateX(-50%) translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+/* 进出场：位移 12px + 淡入淡出，0.2s（与 snackbar.ts 的 ANIM_MS 一致） */
+.snackbar--enter,
+.snackbar--leave {
+  opacity: 0;
+}
+
+.snackbar--entered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.snackbar--top.snackbar--enter,
+.snackbar--top.snackbar--leave {
+  transform: translateY(-12px);
+}
+
+.snackbar--bottom.snackbar--enter,
+.snackbar--bottom.snackbar--leave {
+  transform: translateY(12px);
 }
 
 .snackbar-content {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   flex: 1;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
 }
 
 .snackbar-message {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
   font-size: 13px;
   font-weight: 500;
-  flex: 1;
 }
 
 .snackbar-action {
-  background: var(--color-button-bg);
-  border: 1px solid var(--color-border);
-  color: var(--color-button);
   padding: 4px 8px;
-  border-radius: 5px;
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
+  color: var(--color-button-secondary, #334155);
+  background: var(--color-button-bg-secondary, #f1f5f9);
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+  border-radius: 6px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .snackbar-action:hover {
-  opacity: 0.8;
+  color: var(--color-button-hover, #fff);
+  background: var(--color-button-bg-hover, var(--accent-hover, #3d5170));
 }
 
 .snackbar-close {
-  background: transparent;
-  border: none;
-  color: var(--color-text);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  width: 20px;
-  height: 20px;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-  opacity: 0.7;
-  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
   padding: 0;
+  color: var(--color-text-muted, #94a3b8);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.7;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .snackbar-close:hover {
-  background: var(--color-button-bg);
-  color: var(--color-button);
-  opacity: 0.8;
+  color: var(--color-text, #1e293b);
+  background: var(--color-hover, rgba(44, 61, 86, 0.06));
+  opacity: 1;
 }
 
-.snackbar-enter-active,
-.snackbar-leave-active {
-  transition: all 0.3s ease;
+@media screen and (max-width: 768px) {
+  .snackbar-container--bottom {
+    /* 手机：让开底栏（含 home 条安全区） */
+    bottom: calc(var(--layout-bottom-nav-h, 52px) + 10px);
+  }
+
+  .snackbar {
+    max-width: min(88vw, 320px);
+  }
 }
 
-.snackbar-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(20px);
-}
+@media screen and (prefers-reduced-motion: reduce) {
+  .snackbar {
+    transition: none;
+  }
 
-.snackbar-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(20px);
-}
-
-.snackbar--top.snackbar-enter-from {
-  transform: translateX(-50%) translateY(-20px);
-}
-
-.snackbar--top.snackbar-leave-to {
-  transform: translateX(-50%) translateY(-20px);
+  .snackbar--enter,
+  .snackbar--leave {
+    opacity: 0;
+    transform: none;
+  }
 }

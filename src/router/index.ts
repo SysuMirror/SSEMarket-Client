@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
 import { setTitle } from '@/utils/title'
 
@@ -54,6 +55,37 @@ const router = createRouter({
         {
           path: 'partition/打分',
           redirect: '/rating',
+        },
+        {
+          path: 'novel',
+          name: 'Novel',
+          component: () => import('@/views/NovelView.vue'),
+        },
+        {
+          path: 'novel/book/:id',
+          name: 'NovelBook',
+          component: () => import('@/views/NovelBookView.vue'),
+          props: true,
+        },
+        {
+          path: 'novel/read/:chapterID',
+          name: 'NovelReader',
+          component: () => import('@/views/NovelReaderView.vue'),
+          props: true,
+        },
+        {
+          path: 'novel/write',
+          name: 'NovelWrite',
+          component: () => import('@/views/NovelWriteView.vue'),
+        },
+        {
+          path: 'novel/points',
+          name: 'NovelPoints',
+          component: () => import('@/views/NovelPointsView.vue'),
+        },
+        {
+          path: 'partition/小说',
+          redirect: '/novel',
         },
         {
           path: 'resume',
@@ -134,9 +166,9 @@ const router = createRouter({
           component: () => import('@/views/HeatView.vue'),
         },
         {
-          path: 'vote',
-          name: 'Vote',
-          component: () => import('@/views/VoteView.vue'),
+          path: 'coin',
+          name: 'Coin',
+          component: () => import('@/views/CoinView.vue'),
         },
         {
           path: 'ranking',
@@ -303,7 +335,8 @@ router.beforeEach((to, from, next) => {
     const end = new Date('2026-02-27T23:59:59').getTime()
 
     if (now < start || now > end) {
-      alert('不在活动时间内')
+      // 路由守卫里不弹阻塞框，走全局提示条
+      showMsg('不在活动时间内', 'warning')
       next('/')
       return
     }

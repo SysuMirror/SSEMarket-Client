@@ -94,9 +94,11 @@ function updateWidth() {
   windowWidth.value = window.innerWidth
 }
 
-/** 首页 / 分区流 / 打分区：显示顶部分区横条（含「打分」入口） */
+/** 首页 / 分区流 / 打分区 / 小说浏览区：显示顶部分区横条（含「打分」「小说」入口）；阅读页与写作页沉浸展示，不带横条 */
 const isHomePage = computed(() => {
   const seg = route.path.split('/').filter(Boolean)[0] ?? ''
+  if (seg === 'novel')
+    return route.name !== 'NovelReader' && route.name !== 'NovelWrite'
   return seg === '' || seg === 'partition' || seg === 'rating'
 })
 

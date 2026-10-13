@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref } from 'vue'
 import { deleteMusic } from '@/api/music/controlMusic'
 import { getMusicList } from '@/api/music/getMusicList'
+import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import UploadDialog from '@/components/music/UploadDialog.vue'
 import { formatDuration, musicCoverOrDefault, useMusicStore } from '@/store/musicStore'
@@ -75,7 +76,7 @@ function playEverything() {
 }
 
 async function removeSong(music: MusicSummary) {
-  if (!window.confirm(`确定删除「${music.title}」吗？`))
+  if (!await confirmDialog({ message: `确定删除「${music.title}」吗？`, confirmText: '删除', danger: true }))
     return
   try {
     await deleteMusic(music.musicID)

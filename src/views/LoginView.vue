@@ -5,6 +5,7 @@ import { ref } from 'vue'
 
 import { getInfo } from '@/api/info/getInfo'
 import { userLogin } from '@/api/LoginAndRegister/login'
+import { reportDailyVisit } from '@/api/coin/coin'
 import { ssoLoginURL } from '@/api/sso/sso'
 import FormContainer from '@/components/FormContainer.vue'
 import { showMsg } from '@/components/MessageBox'
@@ -56,6 +57,8 @@ async function loginHandler() {
       setRefreshToken(result.refresh_token)
       const info = await getInfo()
       setUserInfo(info)
+      // 每日进入网页 +1 币（后端按日期幂等，重复登录不会重复发）
+      void reportDailyVisit()
     }
   }
   catch (error) {

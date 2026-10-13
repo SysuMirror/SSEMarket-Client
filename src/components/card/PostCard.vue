@@ -16,7 +16,7 @@ import { isPostOwner } from '@/utils/postOwner'
 import BasicInfo from '../BasicInfo.vue'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
-import VoteLink from '../VoteLink.vue'
+import CoinThrowButton from '../CoinThrowButton.vue'
 import BasicCard from './BasicCard.vue'
 
 const { isDense, post, isNew, noSave = false } = defineProps<{
@@ -314,7 +314,14 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
       @like-change="like"
     >
       <template v-if="!isDense" #stats-trailing>
-        <VoteLink :post-i-d="post.PostID" variant="muted" />
+        <CoinThrowButton
+          target-type="post"
+          :target-i-d="post.PostID"
+          :my-coins="post.MyCoins ?? 0"
+          :coin-num="post.Coin ?? 0"
+          :self="isSelf"
+          variant="muted"
+        />
       </template>
     </BasicInfo>
   </BasicCard>

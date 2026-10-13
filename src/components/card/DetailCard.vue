@@ -13,12 +13,12 @@ import { debounceAsync } from '@/utils/debounced'
 import { isPostOwner } from '@/utils/postOwner'
 
 import BasicInfo from '../BasicInfo.vue'
+import CoinThrowButton from '../CoinThrowButton.vue'
 import CommentToolbar from '../comment/CommentToolbar.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
 import PostWatchButton from '../PostWatchButton.vue'
 import UserAvatar from '../UserAvatar.vue'
 import UserButton from '../UserButton.vue'
-import VoteLink from '../VoteLink.vue'
 import BasicCard from './BasicCard.vue'
 
 const { post } = defineProps<{
@@ -214,24 +214,42 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: 
     <template v-if="post.Photos">
       <OldImages :photos="post.Photos" />
     </template>
-    <BasicInfo :time="post.PostTime" :browse="post.Browse" :comment="post.Comment" :is-like="post.IsLiked" :like="post.Like" @like-change="like" />
+    <BasicInfo
+      :time="post.PostTime"
+      :browse="post.Browse"
+      :comment="post.Comment"
+      :is-like="post.IsLiked"
+      :like="post.Like"
+      @like-change="like"
+    />
+    <!-- 原版的操作行：投币 | 码住 靠左、写评论靠右（描边药丸）。
+         投币排在最左，接在统计行的点赞之后，读起来是「点赞 → 投币 → 码住 → 评论」。 -->
     <CommentToolbar
       reply-label="写评论"
-
-      reply-align-end reply-prominent no-top-border
+      reply-align-end
+      reply-prominent
+      no-top-border
       :reply-open="commentButtonIsShow"
       :show-sub-toggle="false"
       @toggle-reply="commentButtonIsShow = !commentButtonIsShow"
     >
       <template #leading>
         <div class="detail-card__leading">
+          <CoinThrowButton
+            target-type="post"
+            :target-i-d="post.PostID"
+            :my-coins="post.MyCoins ?? 0"
+            :coin-num="post.Coin ?? 0"
+            :self="isSelf"
+            target-label="帖子"
+            variant="prominent"
+          />
           <PostWatchButton
             :post-i-d="post.PostID"
             :watched="!!post.IsWatched"
             variant="prominent"
             @watched-change="(w) => emits('watchChange', w)"
           />
-          <VoteLink :post-i-d="post.PostID" variant="prominent" />
         </div>
       </template>
     </CommentToolbar>
@@ -304,10 +322,13 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: 
   font-weight: 600;
 }
 
+/* 操作行左侧的投币 / 码住：紧凑横排，靠左侧起排（写评论由 CommentToolbar 推到右侧）。
+   窄屏放不下时整组换行，不会把写评论挤没。 */
 .detail-card__leading {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  min-width: 0;
 }
 </style>

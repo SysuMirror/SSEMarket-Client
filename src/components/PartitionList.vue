@@ -8,11 +8,13 @@ const mainTabs = [
   { to: '/smart-xiaoqiu', label: '小秋' },
   { to: '/partitions', label: '分区' },
   { to: '/rating', label: '打分' },
+  { to: '/novel', label: '小说' },
   { to: '/shop', label: '商城' },
 ]
 
-const isTabActive = (to: string) => {
-  if (to === '/') return route.path === '/'
+function isTabActive(to: string) {
+  if (to === '/')
+    return route.path === '/'
   return route.path.startsWith(to)
 }
 </script>

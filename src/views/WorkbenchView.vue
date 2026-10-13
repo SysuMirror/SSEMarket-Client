@@ -20,6 +20,7 @@ const fallbackEntries: CommonEntry[] = [
   { key: 'ranking', label: '排行榜', icon: 'tabler:trophy', to: '/ranking' },
   { key: 'xiaoqiu', label: '小秋', icon: 'tabler:sparkles', to: '/smart-xiaoqiu' },
   { key: 'rating', label: '打分', icon: 'tabler:star', to: '/rating' },
+  { key: 'novel', label: '小说', icon: 'tabler:book-2', to: '/novel' },
   { key: 'resume', label: '简历', icon: 'tabler:file-cv', to: '/resume' },
   { key: 'shop', label: '商城', icon: 'tabler:shopping-bag', to: '/shop' },
   { key: 'iwiki', label: 'iWiki', icon: 'tabler:book-2', href: 'https://ssemarket.cn/iwiki/' },
@@ -294,6 +295,10 @@ function entryStyle(entry: CommonEntry) {
   --cell-bg: #fef9c3;
   --cell-fg: #a16207;
 }
+.wb-cell--novel {
+  --cell-bg: #ede9fe;
+  --cell-fg: #6d28d9;
+}
 .wb-cell--resume {
   --cell-bg: #ccfbf1;
   --cell-fg: #0f766e;
@@ -384,6 +389,10 @@ body.dark-mode .wb-cell--xiaoqiu {
 body.dark-mode .wb-cell--rating {
   --cell-bg: #713f12;
   --cell-fg: #fef08a;
+}
+body.dark-mode .wb-cell--novel {
+  --cell-bg: #4c1d95;
+  --cell-fg: #ddd6fe;
 }
 body.dark-mode .wb-cell--resume {
   --cell-bg: #115e59;
