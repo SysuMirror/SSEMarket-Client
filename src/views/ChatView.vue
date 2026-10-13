@@ -1,12 +1,16 @@
 <script setup lang="ts">
+import type { EmojiItem } from '@/api/emoji/emoji'
 import type { ChatMessageItem, RelevantUser } from '@/composables/useChat'
 import { Icon } from '@iconify/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getInfoById } from '@/api/info/getInfo'
+import ChatEmojiText from '@/components/emoji/ChatEmojiText.vue'
+import EmojiPanel from '@/components/emoji/EmojiPanel.vue'
 import { showMsg } from '@/components/MessageBox'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useChat } from '@/composables/useChat'
+import { useEmoji } from '@/composables/useEmoji'
 import { useUserStore } from '@/store/userStore'
 import {
   ANONYMOUS_DISPLAY_NAME,
@@ -18,6 +22,7 @@ import {
   recalledBubbleText,
 } from '@/utils/chatAnonymous'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
+import { formatEmojiToken } from '@/utils/emojiToken'
 
 export interface MessageCreation {
   senderUserID: number
@@ -40,7 +45,36 @@ const { userInfo } = useUserStore()
 const { on, off, contacts, chatHistory, sendChatMessage, recallMessage, selectContact: selectChatContact, addContact, current, isAnonymousMode, setAnonymousMode, leaveCurrentView } = useChat()
 
 const draft = ref('')
+const showEmojiPanel = ref(false)
+const draftInput = useTemplateRef<HTMLTextAreaElement>('draftInput')
+const { addEmojiToPersonalPack } = useEmoji()
 type Contact = RelevantUser & Partial<{ ban: string, phone: string, punishnum: number, intro: string, unRead: number, emailpush: boolean }>
+
+/** 点表情：输入框为空就直接发（微信式），有文字就把 token 插到光标处。 */
+function handlePickEmoji(emoji: EmojiItem) {
+  const token = formatEmojiToken(emoji.emojiID)
+  if (draft.value.trim() === '') {
+    if (!sendChatMessage(token))
+      toastError('表情发送失败（服务器未连接）')
+    scrollHistory()
+    return
+  }
+  const el = draftInput.value
+  const pos = el?.selectionStart ?? draft.value.length
+  draft.value = draft.value.slice(0, pos) + token + draft.value.slice(pos)
+  nextTick(() => {
+    if (!el)
+      return
+    el.focus()
+    el.setSelectionRange(pos + token.length, pos + token.length)
+  })
+}
+
+/** 长按聊天里的表情 → 加进个人表情组「我的表情」。 */
+async function handleAddEmoji(emojiID: number) {
+  const result = await addEmojiToPersonalPack(emojiID)
+  showMsg(result.ok ? '已加入「我的表情」' : result.msg, result.ok ? 'success' : 'error')
+}
 
 const historyDiv = useTemplateRef<HTMLDivElement>('historyDiv')
 const isMobile = ref(false)
@@ -437,7 +471,7 @@ watch([isMobile, mobilePane], () => {
                     { 'thread-bubble--anon': messageShowsAnonymous(entry) },
                   ]"
                 >
-                  {{ entry.content }}
+                  <ChatEmojiText :content="entry.content" @add-emoji="handleAddEmoji" />
                 </div>
               </div>
             </div>
@@ -459,8 +493,20 @@ watch([isMobile, mobilePane], () => {
             <span v-if="current.threadAnonymous">{{ isAnonymousMode ? '匿名发送已开启' : '匿名发送已关闭' }}</span>
             <span v-else>发起匿名会话</span>
           </button>
+          <EmojiPanel v-if="showEmojiPanel" @pick="handlePickEmoji" />
           <div class="thread-composer__bar">
+            <button
+              type="button"
+              class="thread-composer__emoji"
+              :class="{ 'thread-composer__emoji--active': showEmojiPanel }"
+              aria-label="表情包"
+              title="表情包"
+              @click="showEmojiPanel = !showEmojiPanel"
+            >
+              <Icon icon="tabler:emoji" width="20" height="20" />
+            </button>
             <textarea
+              ref="draftInput"
               v-model="draft"
               class="lite-scrollbar thread-composer__input"
               placeholder="发消息…"
@@ -969,6 +1015,39 @@ watch([isMobile, mobilePane], () => {
   color: var(--chat-accent);
   background: var(--chat-accent-soft);
   border-color: var(--chat-accent);
+}
+
+.thread-composer .emoji-panel {
+  margin: 0 2px 10px;
+}
+
+.thread-composer__emoji {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  margin: 2px 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--chat-text-secondary);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    color: var(--chat-accent);
+  }
+}
+
+.thread-composer__emoji--active {
+  color: var(--chat-accent);
+  background: var(--chat-accent-soft);
 }
 
 .thread-composer__bar {

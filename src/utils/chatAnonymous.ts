@@ -1,4 +1,5 @@
 import type { ChatMessageItem } from '@/composables/useChat'
+import { stripEmojiTokens } from './emojiToken'
 
 /** 接收方看到的匿名会话对象名 */
 export const ANONYMOUS_DISPLAY_NAME = '匿名用户'
@@ -16,9 +17,11 @@ export function conversationKey(userID: number, threadAnonymous: boolean) {
 export function previewText(content: string, isAnonymous: boolean, isRecalled?: boolean) {
   if (isRecalled)
     return RECALL_LIST_PREVIEW
+  // 表情 token 在列表预览里还原成 [表情]，与后端 buildRelevantUserJSON 口径一致。
+  const text = stripEmojiTokens(content)
   if (isAnonymous)
-    return `[匿名] ${content}`
-  return content
+    return `[匿名] ${text}`
+  return text
 }
 
 export function recalledBubbleText(viewerUserId: number, senderUserId: number) {
