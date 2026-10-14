@@ -30,7 +30,8 @@ function primeAliases(aliases: StaffAlias[]) {
 
 /** 全量职位候选（模块级缓存；失败/未配置恒为 []） */
 export async function loadStaffAliases(force = false): Promise<StaffAlias[]> {
-  if (aliasesCache && !force)
+  // 空结果不缓存：可能是「未登录被跳过」或「尚未配置」，登录后/配置后要能重新取到
+  if (aliasesCache && aliasesCache.length > 0 && !force)
     return aliasesCache
   if (!aliasesPromise) {
     aliasesPromise = loadStaffAliasesInner().finally(() => {

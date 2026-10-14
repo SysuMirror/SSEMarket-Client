@@ -1,4 +1,15 @@
+import { useUserStore } from '@/store/userStore'
 import { requestFunc } from '../req'
+
+/** 未登录时直接跳过：不打 requestFunc 的鉴权路径（避免「登录过期」提示），对游客零打扰 */
+function hasAccessToken(): boolean {
+  try {
+    return !!useUserStore().token.value
+  }
+  catch {
+    return false
+  }
+}
 
 /**
  * 职位账号（开发人员匿名 @）前端 API。
@@ -22,6 +33,8 @@ async function parseResponse<T>(res: Response): Promise<T | null> {
 
 /** @ 下拉候选：全部职位账号（表为空时返回 []，前端据此隐藏 @ 入口） */
 export async function listStaffAliases(): Promise<StaffAlias[]> {
+  if (!hasAccessToken())
+    return []
   try {
     const res = await requestFunc(
       '/auth/staff/alias/list',
@@ -49,7 +62,7 @@ export async function listStaffAliases(): Promise<StaffAlias[]> {
  * 普通用户恒为 []。
  */
 export async function threadStaffAliases(postID: number): Promise<StaffAlias[]> {
-  if (!postID)
+  if (!postID || !hasAccessToken())
     return []
   try {
     const res = await requestFunc(
