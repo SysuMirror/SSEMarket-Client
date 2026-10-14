@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import type { LotteryDetail } from '@/api/lottery/lottery'
-import type { Comment } from '@/types/comment'
-
-import type { Post } from '@/types/post'
 import type { AssistPostData } from '@/api/assist'
 import type { DigestPrefData } from '@/api/digestPref'
-import { fetchAssistPost } from '@/api/assist'
-import { getDigestPref } from '@/api/digestPref'
+
+import type { LotteryDetail } from '@/api/lottery/lottery'
+import type { Comment } from '@/types/comment'
+import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
+import { fetchAssistPost } from '@/api/assist'
 import { getCommentsByPostID } from '@/api/browse/getComment'
+
 import { getPostByID } from '@/api/browse/getPost'
+import { getDigestPref } from '@/api/digestPref'
 import { getLotteryDetail } from '@/api/lottery/lottery'
 import DetailCard from '@/components/card/DetailCard.vue'
 import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import { showImg } from '@/components/ImageShower'
 import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
 import { showMsg } from '@/components/MessageBox'
-import { isDigestPrefEnabled } from '@/config/digestPref'
 import { loadStaffAliases } from '@/composables/useStaffAliases'
+import { isDigestPrefEnabled } from '@/config/digestPref'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'

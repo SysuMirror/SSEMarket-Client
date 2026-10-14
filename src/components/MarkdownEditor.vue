@@ -1,14 +1,14 @@
 <!-- eslint-disable vue/html-self-closing -->
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
-
 import type { StaffAlias } from '@/api/staff/staff'
+
+import { Icon } from '@iconify/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
-import { useStaffAliases } from '@/composables/useStaffAliases'
-import { primeMentionCache } from '@/composables/useMentionResolve'
 import { showMsg } from '@/components/MessageBox'
+import { primeMentionCache } from '@/composables/useMentionResolve'
+import { useStaffAliases } from '@/composables/useStaffAliases'
 import { buildMentionPrefix } from '@/utils/mention'
 import MarkdownContainer from './MarkdownContainer.vue'
 

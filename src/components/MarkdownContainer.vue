@@ -9,8 +9,8 @@ import { getMusicList } from '@/api/music/getMusicList'
 import { getVideo } from '@/api/video/getVideos'
 import { showMsg } from '@/components/MessageBox'
 import VideoPlayer from '@/components/video/VideoPlayer.vue'
-import { getStaffAliasNames, staffAliasesVersion } from '@/composables/useStaffAliases'
 import { primeMentionCache, useMentionResolve } from '@/composables/useMentionResolve'
+import { staffAliasNames } from '@/composables/useStaffAliases'
 import { musicCoverOrDefault, useMusicStore } from '@/store/musicStore'
 import { injectMentionsInRenderedHTML } from '@/utils/mention'
 import 'prismjs/plugins/autoloader/prism-autoloader'
@@ -170,8 +170,6 @@ const safeHTML = computed(() => {
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   mentionMapVersion.value
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  staffAliasesVersion.value
 
   // 预处理 markdown 内容，编码图片链接中的空格
   const processedContent = preprocessMarkdown(markdownContent)
@@ -187,7 +185,7 @@ const safeHTML = computed(() => {
   if (variant === 'chat')
     rendered = stripLeadingEmptyBlocks(rendered)
   else
-    rendered = injectMentionsInRenderedHTML(rendered, effectiveMentionMap.value, getStaffAliasNames())
+    rendered = injectMentionsInRenderedHTML(rendered, effectiveMentionMap.value, staffAliasNames.value)
   const finalHTML = DOMPurify.sanitize(rendered, {
     ADD_TAGS: [
       'math',

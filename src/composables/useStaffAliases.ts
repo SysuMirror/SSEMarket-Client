@@ -14,8 +14,8 @@ import { primeMentionCache } from './useMentionResolve'
  */
 
 const aliasesRef = ref<StaffAlias[]>([])
-/** 职位列表加载/更新计数：渲染层引用它，列表到位后给已有 @职位 补上「职位」样式 */
-export const staffAliasesVersion = ref(0)
+/** 渲染期用：已知职位名集合（给 @ 高亮加「职位」样式）；列表到位后自动触发重算 */
+export const staffAliasNames = computed(() => new Set(aliasesRef.value.map(a => a.alias)))
 let aliasesCache: StaffAlias[] | null = null
 let aliasesPromise: Promise<StaffAlias[]> | null = null
 
@@ -45,7 +45,6 @@ async function loadStaffAliasesInner(): Promise<StaffAlias[]> {
   const list = await listStaffAliases()
   aliasesCache = list
   aliasesRef.value = list
-  staffAliasesVersion.value += 1
   primeAliases(list)
   return list
 }
@@ -57,11 +56,6 @@ export function useStaffAliases() {
     staffAliases: computed(() => aliasesRef.value),
     hasStaffAliases: computed(() => aliasesRef.value.length > 0),
   }
-}
-
-/** 渲染期用：已知职位名集合（给 @ 高亮加「职位」样式） */
-export function getStaffAliasNames(): Set<string> {
-  return new Set(aliasesRef.value.map(a => a.alias))
 }
 
 /**
