@@ -2,10 +2,14 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
-import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+import type { StaffAlias } from '@/api/staff/staff'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
+import { useStaffAliases } from '@/composables/useStaffAliases'
+import { primeMentionCache } from '@/composables/useMentionResolve'
 import { showMsg } from '@/components/MessageBox'
+import { buildMentionPrefix } from '@/utils/mention'
 import MarkdownContainer from './MarkdownContainer.vue'
 
 /**
@@ -260,6 +264,50 @@ function applyFormat(kind: FormatKind) {
   }
 }
 
+/* ---------------- @ 职位提及（开发人员匿名 @） ---------------- */
+
+const { staffAliases } = useStaffAliases()
+const mentionOpen = ref(false)
+const mentionFilter = ref('')
+const mentionInputRef = useTemplateRef<HTMLInputElement>('mentionInput')
+
+const filteredStaffAliases = computed(() => {
+  const q = mentionFilter.value.trim().toLowerCase()
+  if (!q)
+    return staffAliases.value
+  return staffAliases.value.filter(
+    a => a.alias.toLowerCase().includes(q) || a.title.toLowerCase().includes(q),
+  )
+})
+
+function closeMention() {
+  mentionOpen.value = false
+}
+
+function toggleMention() {
+  mentionOpen.value = !mentionOpen.value
+  if (mentionOpen.value) {
+    mentionFilter.value = ''
+    if (isPreview.value)
+      isPreview.value = false
+    nextTick(() => mentionInputRef.value?.focus())
+  }
+}
+
+function pickStaffAlias(a: StaffAlias) {
+  insertAtCursor(buildMentionPrefix(a.alias))
+  primeMentionCache(a.alias, a.userID)
+  closeMention()
+}
+
+function handleDocClick(event: MouseEvent) {
+  if (!mentionOpen.value)
+    return
+  if ((event.target as HTMLElement).closest('.md-editor__mention-anchor, .md-editor__mention'))
+    return
+  closeMention()
+}
+
 /* ---------------- 键盘:Ctrl+B/I/S、Ctrl+Enter 发送、回车续列表 ---------------- */
 
 function handleKeydown(event: KeyboardEvent) {
@@ -268,6 +316,24 @@ function handleKeydown(event: KeyboardEvent) {
   // 中文输入法合成中的回车/快捷键不拦截
   if (event.isComposing)
     return
+
+  // @ 下拉打开时：Esc 关闭，Enter 选中当前第一项
+  if (mentionOpen.value) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeMention()
+      textarea.value?.focus()
+      return
+    }
+    if (event.key === 'Enter' && !mod && !event.shiftKey) {
+      const first = filteredStaffAliases.value[0]
+      if (first) {
+        event.preventDefault()
+        pickStaffAlias(first)
+        return
+      }
+    }
+  }
 
   if (mod && event.key === 'Enter') {
     event.preventDefault()
@@ -380,10 +446,15 @@ function handleInput(event: Event) {
 }
 
 onMounted(() => {
+  document.addEventListener('click', handleDocClick, true)
   nextTick(() => {
     autoResize()
     requestAnimationFrame(() => autoResize())
   })
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocClick, true)
 })
 
 watch(textarea, (el) => {
@@ -452,8 +523,20 @@ watch(isPreview, (preview) => {
         </button>
       </div>
 
-      <!-- 右侧:图片 / 预览 -->
-      <div class="md-editor__tools-right">
+      <!-- 右侧:@ 职位 / 图片 / 预览 -->
+      <div class="md-editor__tools-right md-editor__mention-anchor">
+        <button
+          v-if="staffAliases.length > 0"
+          type="button"
+          class="md-editor__tool"
+          :class="{ 'md-editor__tool--active': mentionOpen }"
+          title="@ 开发人员（职位）"
+          aria-haspopup="listbox"
+          :aria-expanded="mentionOpen"
+          @click="toggleMention"
+        >
+          <span class="md-editor__glyph md-editor__glyph--at">@</span>
+        </button>
         <button type="button" class="md-editor__tool" title="插入图片(可直接粘贴)" @click="openImagePicker">
           <Icon icon="tabler:photo" width="17" height="17" aria-hidden="true" />
         </button>
@@ -493,6 +576,41 @@ watch(isPreview, (preview) => {
           class="md-editor__file-input"
           @input="handleFileUpload"
         >
+      </div>
+    </div>
+
+    <!-- @ 职位下拉：仅配置了职位账号时出现（普通用户看不到，行为不变） -->
+    <div
+      v-if="mentionOpen && staffAliases.length > 0"
+      class="md-editor__mention"
+      role="listbox"
+      aria-label="选择要 @ 的开发人员职位"
+    >
+      <div class="md-editor__mention-head">
+        <span class="md-editor__mention-caption">要 @ 哪位开发人员？</span>
+        <input
+          v-if="staffAliases.length > 6"
+          ref="mentionInput"
+          v-model="mentionFilter"
+          class="md-editor__mention-search"
+          type="search"
+          placeholder="筛选职位…"
+          aria-label="筛选职位"
+        >
+      </div>
+      <ul class="md-editor__mention-list">
+        <li v-for="a in filteredStaffAliases" :key="a.aliasID">
+          <button type="button" class="md-editor__mention-item" role="option" @click="pickStaffAlias(a)">
+            <span class="md-editor__mention-alias">@{{ a.alias }}</span>
+            <span class="md-editor__mention-title">{{ a.title }}</span>
+          </button>
+        </li>
+        <li v-if="filteredStaffAliases.length === 0" class="md-editor__mention-empty">
+          没有匹配的职位
+        </li>
+      </ul>
+      <div class="md-editor__mention-foot">
+        对外只显示职位，不显示真人 · Enter 选第一项 · Esc 关闭
       </div>
     </div>
 
@@ -544,6 +662,7 @@ watch(isPreview, (preview) => {
 
 <style scoped lang="scss">
 .md-editor {
+  position: relative;
   width: 100%;
 }
 
@@ -667,6 +786,117 @@ watch(isPreview, (preview) => {
   height: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+/* ---------- @ 职位下拉（开发人员匿名 @） ---------- */
+
+.md-editor__glyph--at {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.md-editor__mention {
+  position: absolute;
+  z-index: 30;
+  top: 40px;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(320px, calc(100vw - 32px));
+  max-height: 300px;
+  padding: 10px;
+  border: 1px solid var(--chat-border-strong);
+  border-radius: 10px;
+  background: var(--chat-bg-main);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  box-sizing: border-box;
+}
+
+.md-editor__mention-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.md-editor__mention-caption {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--chat-text-secondary);
+}
+
+.md-editor__mention-search {
+  min-width: 0;
+  flex: 0 1 140px;
+  padding: 4px 8px;
+  border: 1px solid var(--chat-border);
+  border-radius: 6px;
+  background: var(--chat-bg-highlight);
+  color: var(--chat-text);
+  font-family: inherit;
+  font-size: 12px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--chat-accent);
+  }
+}
+
+.md-editor__mention-list {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.md-editor__mention-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--chat-accent-soft);
+  }
+}
+
+.md-editor__mention-alias {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--chat-accent);
+}
+
+.md-editor__mention-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--chat-text-tips);
+}
+
+.md-editor__mention-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--chat-text-tips);
+}
+
+.md-editor__mention-foot {
+  padding-top: 6px;
+  border-top: 1px solid var(--chat-border);
+  font-size: 11px;
+  color: var(--chat-text-tips);
+  line-height: 1.4;
 }
 
 /* ---------- 输入区 ---------- */
@@ -953,6 +1183,25 @@ watch(isPreview, (preview) => {
 
   .md-editor__hint {
     display: none;
+  }
+
+  /* 手机端：@ 下拉改为底部抽屉，拇指可达、不被键盘遮挡 */
+  .md-editor__mention {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+    max-height: min(56vh, 340px);
+  }
+
+  .md-editor__mention-item {
+    padding: 10px 8px;
+  }
+
+  .md-editor__mention-search {
+    flex: 1 1 120px;
   }
 }
 </style>

@@ -100,6 +100,7 @@ export function parseMentionTokens(content: string): string[] {
 export function injectMentionHighlightHTML(
   content: string,
   nameToUserId: Record<string, number> = {},
+  staffNames?: Set<string>,
 ): string {
   const known = knownNamesSorted(nameToUserId)
   let out = ''
@@ -131,7 +132,8 @@ export function injectMentionHighlightHTML(
         }
       }
       if (matched) {
-        out += `<span class="md-mention md-mention--link" data-user-id="${nameToUserId[matched]}" role="link" tabindex="0">${content.slice(i, j + matched.length)}</span>`
+        const staffCls = staffNames?.has(matched) ? ' md-mention--staff' : ''
+        out += `<span class="md-mention md-mention--link${staffCls}" data-user-id="${nameToUserId[matched]}" role="link" tabindex="0">${content.slice(i, j + matched.length)}</span>`
         i = j + matched.length
         continue
       }
@@ -156,14 +158,15 @@ export function injectMentionHighlightHTML(
 export function injectMentionsInRenderedHTML(
   html: string,
   nameToUserId: Record<string, number> = {},
+  staffNames?: Set<string>,
 ): string {
   if (!html || !Object.keys(nameToUserId).length)
-    return injectMentionHighlightHTML(html, nameToUserId)
+    return injectMentionHighlightHTML(html, nameToUserId, staffNames)
   const segments = html.split(/(<(?:pre|code)\b[^>]*>[\s\S]*?<\/(?:pre|code)>)/gi)
   return segments.map((part, index) => {
     if (index % 2 === 1)
       return part
-    return injectMentionHighlightHTML(part, nameToUserId)
+    return injectMentionHighlightHTML(part, nameToUserId, staffNames)
   }).join('')
 }
 

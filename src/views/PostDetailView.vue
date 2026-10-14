@@ -19,6 +19,7 @@ import { showImg } from '@/components/ImageShower'
 import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
 import { showMsg } from '@/components/MessageBox'
 import { isDigestPrefEnabled } from '@/config/digestPref'
+import { loadStaffAliases } from '@/composables/useStaffAliases'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
@@ -192,6 +193,8 @@ onMounted(async () => {
     void resolveAssistForPost(post.value)
     // 白名单用户拉取日报倾向状态（决定「调整日报倾向」按钮可见性；静默失败）
     void refreshDigestPref()
+    // 预热职位账号缓存：已有评论里的 @iwiki开发人员 直接渲染成职位链接（静默失败）
+    void loadStaffAliases()
     await getCommentList()
     await loadLottery()
     removeNewPostId(ID)

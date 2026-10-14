@@ -357,6 +357,15 @@ body.dark-mode .comment-row > .sub-comments-thread {
   }
 }
 
+/* 职位账号（开发人员匿名 @）：轻微描边药丸 */
+:deep(.md-mention--staff) {
+  padding: 0 5px;
+  border: 1px solid rgba(9, 105, 218, 0.35);
+  border-radius: 6px;
+  background: rgba(9, 105, 218, 0.08);
+  font-weight: 600;
+}
+
 /* 码住入口 */
 .watch-link {
   display: inline-flex;

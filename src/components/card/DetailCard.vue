@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import type { StaffAlias } from '@/api/staff/staff'
 import type { Post } from '@/types/post'
-import { computed, defineAsyncComponent, ref, useTemplateRef } from 'vue'
+import { computed, defineAsyncComponent, ref, useTemplateRef, watch } from 'vue'
 import { sendComment } from '@/api/editPostAndComment/editComment'
 import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
 
 import { likePost, savePost } from '@/api/SaveAndLike/SaveAndLike'
 import { showMsg } from '@/components/MessageBox'
 
+import { fetchThreadStaffAliases } from '@/composables/useStaffAliases'
 import { useUserStore } from '@/store/userStore'
 import { debounceAsync } from '@/utils/debounced'
 
@@ -15,6 +17,7 @@ import { isPostOwner } from '@/utils/postOwner'
 import BasicInfo from '../BasicInfo.vue'
 import CoinThrowButton from '../CoinThrowButton.vue'
 import CommentToolbar from '../comment/CommentToolbar.vue'
+import StaffReplyToggle from '../comment/StaffReplyToggle.vue'
 import MarkdownContainer from '../MarkdownContainer.vue'
 import PostWatchButton from '../PostWatchButton.vue'
 import UserAvatar from '../UserAvatar.vue'
@@ -39,6 +42,16 @@ const MarkdownEditor = defineAsyncComponent(
 const commentButtonIsShow = ref(false)
 const commentContent = ref('')
 const commentSubmitting = ref(false)
+
+/* 「以职位身份回复」：仅被 @ 的开发人员会拿到非空 aliases（普通用户恒空，UI 不渲染） */
+const staffAliases = ref<StaffAlias[]>([])
+const staffReplyAs = ref(0)
+
+watch(commentButtonIsShow, async (open) => {
+  if (!open || staffAliases.value.length > 0)
+    return
+  staffAliases.value = await fetchThreadStaffAliases(Number(post.PostID))
+})
 
 const { userInfo } = useUserStore()
 
@@ -71,10 +84,12 @@ async function sendCommentFunc() {
     commentContent.value,
     Number(post.PostID),
     userInfo.phone,
+    staffReplyAs.value,
   )
   if (res) {
     commentContent.value = ''
     commentButtonIsShow.value = false
+    staffReplyAs.value = 0
     return true
   }
   else {
@@ -254,6 +269,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', payload?: 
       </template>
     </CommentToolbar>
     <div v-if="commentButtonIsShow" class="comment-compose max-w-full">
+      <StaffReplyToggle v-model="staffReplyAs" :aliases="staffAliases" />
       <MarkdownEditor
         v-model="commentContent"
         compact
