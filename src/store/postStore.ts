@@ -5,7 +5,8 @@ import { reactive, ref, unref } from 'vue'
 import { getPosts, getPostsNum } from '@/api/browse/getPost'
 import { CONTENT_PARTITIONS } from '@/constants/partitions'
 
-export const Partitions = ['主页', '收藏', '历史', ...CONTENT_PARTITIONS.map(p => p.name)] as const
+// 精华帖=虚拟分区（后端 is_high_quality 过滤，不占内容分区导航），主页「只看精华」开关走这里
+export const Partitions = ['主页', '收藏', '历史', '精华帖', ...CONTENT_PARTITIONS.map(p => p.name)] as const
 export const SearchSort = ['home', 'save', 'history'] as const
 
 export type HomeOrderBy

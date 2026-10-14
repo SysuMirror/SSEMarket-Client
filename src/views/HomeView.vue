@@ -63,6 +63,16 @@ const sortOptions: { field: SortField, label: string, icon: string }[] = [
   { field: 'browse', label: '浏览', icon: 'tabler:eye' },
 ]
 
+// 只看精华：切到「精华帖」虚拟分区（后端 is_high_quality 过滤），排序重置为默认
+const featuredOnly = ref(false)
+
+async function toggleFeatured() {
+  featuredOnly.value = !featuredOnly.value
+  hasMore.value = true
+  await initialize(featuredOnly.value ? '精华帖' : '主页')
+  syncSortUiFromOrderBy('time_desc')
+}
+
 function toOrderBy(field: SortField, desc: boolean): HomeOrderBy {
   const dir = desc ? 'desc' : 'asc'
   if (field === 'time')
@@ -121,6 +131,7 @@ onActivated(async () => {
     isLoading.value = true
     await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition, cachePinnedPosts)
     syncSortUiFromOrderBy(cacheCondition.orderBy || 'time_desc')
+    featuredOnly.value = cacheCondition.partition === '精华帖'
     hasMore.value = cachePosts.length < cacheTotalNum.value
     isLoading.value = false
     await nextTick()
@@ -175,6 +186,16 @@ watch(() => route.query.refresh, async (newRefresh) => {
             class="home-page__sort-dir"
             aria-hidden="true"
           />
+        </button>
+        <button
+          type="button"
+          class="home-page__sort-btn home-page__featured-btn"
+          :class="{ 'home-page__sort-btn--active': featuredOnly }"
+          :aria-pressed="featuredOnly"
+          @click="toggleFeatured"
+        >
+          <Icon icon="tabler:star-filled" width="12" height="12" aria-hidden="true" />
+          <span>只看精华</span>
         </button>
       </div>
     </header>
@@ -249,5 +270,11 @@ watch(() => route.query.refresh, async (newRefresh) => {
 
 .home-page__sort-dir {
   opacity: 0.7;
+}
+
+.home-page__featured-btn {
+  gap: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--color-border, rgba(128, 128, 128, 0.25));
 }
 </style>
