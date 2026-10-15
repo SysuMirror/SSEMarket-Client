@@ -58,6 +58,15 @@ const { userInfo } = useUserStore()
 
 type CommentWithAuthorKeys = Comment & { authorID?: number, author_id?: number }
 
+/**
+ * 是否显示删除入口。
+ * 优先用服务端判定的 IsOwn：开发人员「以职位身份」发的评论对外署名是职位小号，
+ * 按 phone 比对判不出本人（那样开发人员删不掉自己的回复）。老响应没有该字段时退回 phone 比对。
+ */
+const canManageComment = computed(() =>
+  comment.IsOwn === true || userInfo.phone === comment.AuthorTelephone,
+)
+
 const commentAuthorProfileId = computed(() => {
   const c = comment as CommentWithAuthorKeys
   const n = Number(c.AuthorID ?? c.authorID ?? c.author_id)
@@ -233,7 +242,7 @@ async function like() {
         compact
         class="comment-row__actions"
         :no-save="true"
-        :is-self="userInfo.phone === comment.AuthorTelephone"
+        :is-self="canManageComment"
         :show-privacy="false"
         @user-action="deleteDebounced"
       />
