@@ -92,6 +92,7 @@ async function sendCommentFunc() {
       postID: postId,
       pcommentID: comment.PcommentID,
       asStaffUserID: staffReplyAs.value,
+      targetUserID: commentAuthorProfileId.value,
     }
 
     const res = await sendPComment(sendingData)

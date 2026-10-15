@@ -46,6 +46,8 @@ export interface sendPCommentObject {
   ccommentID?: number
   /** >0：以职位小号身份回复（开发人员匿名 @，仅被 @ 的开发人员可选） */
   asStaffUserID?: number
+  /** >0：被回复人 uid，正文 @昵称 同名时后端据此精确通知被回复人 */
+  targetUserID?: number
 }
 
 /**
