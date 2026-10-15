@@ -156,6 +156,8 @@ interface SharedStreamState {
   isStreaming: Ref<boolean>
   sessionId: Ref<string>
   holder: { abortController: AbortController | null }
+  streamElapsed: Ref<number>
+  streamElapsedTimer: { id: ReturnType<typeof setInterval> | null }
 }
 
 const sharedStates = new Map<string, SharedStreamState>()
@@ -166,6 +168,8 @@ export function useOpsAgentStream(shareKey?: string) {
   let isStreaming: Ref<boolean>
   let sessionId: Ref<string>
   let holder: { abortController: AbortController | null }
+  let streamElapsed: Ref<number>
+  let streamElapsedTimer: { id: ReturnType<typeof setInterval> | null }
 
   if (shareKey) {
     let st = sharedStates.get(shareKey)
@@ -176,6 +180,8 @@ export function useOpsAgentStream(shareKey?: string) {
         isStreaming: ref(false),
         sessionId: ref(''),
         holder: { abortController: null },
+        streamElapsed: ref(0),
+        streamElapsedTimer: { id: null },
       }
       sharedStates.set(shareKey, st)
     }
@@ -184,6 +190,8 @@ export function useOpsAgentStream(shareKey?: string) {
     isStreaming = st.isStreaming
     sessionId = st.sessionId
     holder = st.holder
+    streamElapsed = st.streamElapsed
+    streamElapsedTimer = st.streamElapsedTimer
   }
   else {
     timeline = shallowRef<TimelineItem[]>([])
@@ -191,6 +199,24 @@ export function useOpsAgentStream(shareKey?: string) {
     isStreaming = ref(false)
     sessionId = ref('')
     holder = { abortController: null }
+    streamElapsed = ref(0)
+    streamElapsedTimer = { id: null }
+  }
+
+  // 流已计时：首 token 前用户能从秒数判断"在算"还是"挂了"
+  function startStreamElapsed() {
+    streamElapsed.value = 0
+    stopStreamElapsed()
+    streamElapsedTimer.id = setInterval(() => {
+      streamElapsed.value++
+    }, 1000)
+  }
+
+  function stopStreamElapsed() {
+    if (streamElapsedTimer.id !== null) {
+      clearInterval(streamElapsedTimer.id)
+      streamElapsedTimer.id = null
+    }
   }
 
   function bump() {
@@ -355,7 +381,12 @@ export function useOpsAgentStream(shareKey?: string) {
     }
     isStreaming.value = true
     holder.abortController = new AbortController()
+    // 发送即出思考态气泡（打字动画），不等首 token——否则首 token 慢时页面对用户表现为"没反应"
+    ensureAssistantTail()
+    bump()
+    startStreamElapsed()
     let aborted = false
+    let gotStream = false
 
     const body: Record<string, unknown> = {
       session_id: sessionId,
@@ -390,8 +421,16 @@ export function useOpsAgentStream(shareKey?: string) {
       if (!res.ok || !res.body) {
         const t = await res.text()
         const p = parseOpsAgentJsonError(t)
-        throw new OpsAgentRequestError(res.status, p.msg || `请求失败（${res.status}）`, p.code)
+        const msg = p.msg || `请求失败（${res.status}）`
+        // 占位气泡直接变错误文案，别留一个空转的思考气泡
+        const assistant = ensureAssistantTail()
+        assistant.text = msg
+        assistant.status = 'error'
+        bump()
+        throw new OpsAgentRequestError(res.status, msg, p.code)
       }
+
+      gotStream = true
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder('utf-8')
@@ -481,12 +520,24 @@ export function useOpsAgentStream(shareKey?: string) {
       }
     }
     finally {
+      stopStreamElapsed()
       finalizeActiveSteps()
       const tail = timeline.value[timeline.value.length - 1]
       if (tail && tail.kind === 'assistant' && tail.status === 'streaming') {
-        if (!tail.text.trim())
-          tail.text = aborted ? '已停止生成。' : '当前没有生成有效回复，请稍后重试。'
-        tail.status = 'done'
+        if (!tail.text.trim()) {
+          if (aborted) {
+            tail.text = '已停止生成。'
+          }
+          else if (!gotStream) {
+            tail.text = '连接失败，请检查网络后重试。'
+            tail.status = 'error'
+          }
+          else {
+            tail.text = '当前没有生成有效回复，请稍后重试。'
+          }
+        }
+        if (tail.status === 'streaming')
+          tail.status = 'done'
         bump()
       }
       isStreaming.value = false
@@ -527,6 +578,7 @@ export function useOpsAgentStream(shareKey?: string) {
     timeline,
     globalError,
     isStreaming,
+    streamElapsed,
     sessionId,
     sendAgentMessage,
     pushUserMessage,

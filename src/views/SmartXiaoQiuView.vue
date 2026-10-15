@@ -50,6 +50,7 @@ const {
   timeline,
   globalError,
   isStreaming,
+  streamElapsed,
   sessionId,
   sendAgentMessage,
   pushUserMessage,
@@ -59,6 +60,16 @@ const {
 
 const showSuggestions = computed(() =>
   suggestions.value.length > 0 && !isStreaming.value && timeline.value.length <= 1)
+
+// 首 token 可能要等十几秒：秒数递增是"还在算"的活信号，让用户分得清慢和挂
+const streamingStatusText = computed(() => {
+  const s = streamElapsed.value
+  if (s >= 30)
+    return `已等待 ${s} 秒，小秋仍在处理…`
+  if (s >= 8)
+    return `正在思考与整理回复…（已等 ${s} 秒）`
+  return '正在思考与整理回复…'
+})
 
 const xiaoQiuAvatarUrl = `${import.meta.env.BASE_URL}xiaoqiu-avatar.png`
 const xiaoQiuChatBgUrl = `${import.meta.env.BASE_URL}xiaoqiu-chat-bg.webp`
@@ -107,10 +118,6 @@ function onComposerKeydown(e: KeyboardEvent) {
     e.preventDefault()
     void sendMessage()
   }
-}
-
-function fallbackAssistantText() {
-  return '服务暂时不可用，请稍后重试。若多次失败，可检查网络或稍后再打开本页。'
 }
 
 function formatTimeShort(d: Date) {
@@ -353,16 +360,6 @@ async function sendMessage() {
       return
     }
     showMsg('发送失败，请检查网络后重试。')
-    timeline.value = [
-      ...timeline.value,
-      {
-        kind: 'assistant',
-        id: `err-${Date.now()}`,
-        text: fallbackAssistantText(),
-        time: new Date().toLocaleTimeString().slice(0, 5),
-        status: 'done',
-      },
-    ]
     scrollToBottom()
   }
   finally {
@@ -488,7 +485,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
             <div class="brand-copy">
               <h1>小秋</h1>
               <p v-if="isStreaming" class="status live" aria-live="polite">
-                正在思考与整理回复…
+                {{ streamingStatusText }}
               </p>
               <p v-else-if="sessionReady" class="status">
                 论坛助手 · 检索帖子 · 整理要点
@@ -540,6 +537,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
               <SmartXiaoQiuTimeline
                 :items="timeline"
                 :ratings="ratings"
+                :streaming-elapsed="streamElapsed"
                 @draft-update="onDraftUpdate"
                 @feedback="onFeedback"
               />
@@ -848,6 +846,31 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 .status.live {
   color: var(--xq-accent-deep);
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status.live::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--xq-accent-deep);
+  animation: xq-status-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes xq-status-pulse {
+
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 .status.pending {

@@ -14,6 +14,8 @@ const props = defineProps<{
   items: TimelineItem[]
   /** runId → 用户已提交的评分（1 赞 / -1 踩），用于回显按钮态 */
   ratings?: Record<string, 1 | -1>
+  /** 当前流已进行的秒数，思考气泡里展示"还在等" */
+  streamingElapsed?: number
 }>()
 
 const emit = defineEmits<{
@@ -84,6 +86,11 @@ function stepExpanded(id: string, collapsed: boolean) {
 function isThinking(text: string, status: TimelineAssistant['status']) {
   return status === 'streaming' && (text === '小秋在想一下…' || text.trim() === '')
 }
+
+const thinkingLabel = computed(() => {
+  const s = props.streamingElapsed ?? 0
+  return s >= 15 ? `仍在等待回复（已等 ${s} 秒）` : '正在思考'
+})
 
 function onDraftUpdate(updated: TimelinePostDraft) {
   emit('draft-update', updated)
@@ -174,8 +181,9 @@ function canRate(a: TimelineAssistant | undefined): boolean {
               thinking: isThinking(turn.assistant.text, turn.assistant.status),
             }"
           >
-            <div v-if="isThinking(turn.assistant.text, turn.assistant.status)" class="typing">
-              <span /><span /><span />
+            <div v-if="isThinking(turn.assistant.text, turn.assistant.status)" class="typing" role="status">
+              <span class="typing-dots"><span /><span /><span /></span>
+              <span class="typing-label">{{ thinkingLabel }}</span>
             </div>
             <MarkdownContainer
               v-else-if="turn.assistant.text"
@@ -554,7 +562,13 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   height: 12px;
 }
 
-.typing span {
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.typing-dots span {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -563,11 +577,19 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   animation: typing 1.2s ease-in-out infinite;
 }
 
-.typing span:nth-child(2) {
+.typing-dots span:nth-child(2) {
   animation-delay: 0.15s;
 }
-.typing span:nth-child(3) {
+.typing-dots span:nth-child(3) {
   animation-delay: 0.3s;
+}
+
+.typing-label {
+  margin-left: 3px;
+  font-size: 13px;
+  color: var(--xq-text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes typing {
