@@ -20,13 +20,9 @@ import MarkdownContainer from './MarkdownContainer.vue'
 
 const props = withDefaults(
   defineProps<{
-    /** 提交请求进行中：禁用发送并显示「发送中」 */
     submitBusy?: boolean
-    /** 评论区等场景：更紧凑的工具栏与输入框 */
     compact?: boolean
-    /** 发帖页：占满父容器剩余高度 */
     fill?: boolean
-    /** 显示「插入音乐」按钮（发帖页），点击向父组件发 insert-music 事件 */
     musicEnabled?: boolean
     placeholder?: string
   }>(),
@@ -131,7 +127,7 @@ async function handlePaste(event: ClipboardEvent) {
   }
 }
 
-/* ---------------- 格式化:行内包裹 + 行级前缀 + 块级插入 ---------------- */
+/* ---------------- 格式化 ---------------- */
 
 type FormatKind
   = | 'heading'
@@ -145,7 +141,6 @@ type FormatKind
     | 'hr'
     | 'code'
 
-/** 行内包裹型:有选中→包裹选区;无选中→插入占位并选中占位文字 */
 const INLINE_WRAPPERS: Partial<Record<FormatKind, { token: string, placeholder: string }>> = {
   bold: { token: '**', placeholder: '粗体' },
   italic: { token: '*', placeholder: '斜体' },
@@ -153,7 +148,6 @@ const INLINE_WRAPPERS: Partial<Record<FormatKind, { token: string, placeholder: 
   code: { token: '`', placeholder: '代码' },
 }
 
-/** 行级前缀型:对选中区域涉及的每一行加/加不了就新起一行 */
 const LINE_PREFIXES: Partial<Record<FormatKind, { marker: string, placeholder: string }>> = {
   heading: { marker: '### ', placeholder: '标题' },
   quote: { marker: '> ', placeholder: '引用' },
@@ -178,7 +172,6 @@ function insertAtCursor(text: string, selectOffset?: [number, number]) {
 
 defineExpose({ insertAtCursor })
 
-/** 对选区涉及的行区间做前缀处理(GitHub 式:选中多行时逐行加前缀) */
 function prefixLines(marker: string, placeholder: string) {
   const el = textarea.value
   if (!el)
@@ -193,14 +186,12 @@ function prefixLines(marker: string, placeholder: string) {
   const isEmpty = s === e && block.trim() === ''
 
   if (isEmpty) {
-    // 空行:插入「marker 占位」并选中占位文字
     insertAtCursor(`${marker}${placeholder}`, [-placeholder.length, 0])
     return
   }
   const lines = block.split('\n')
   const prefixed = lines.map((ln, i) => {
     const mk = marker === LINE_PREFIXES.ol!.marker ? `${i + 1}. ` : marker
-    // 已有同名前缀的行不重复加(无序列表再点一次不加「- -」;撤销能力交给用户手删)
     return mk + ln
   })
   const next = prefixed.join('\n')
@@ -224,7 +215,6 @@ function applyFormat(kind: FormatKind) {
     const e = el.selectionEnd
     if (s !== e) {
       const sel = modelValue.value.slice(s, e)
-      // 已包裹则解开,否则包裹(GitHub 行为)
       if (sel.startsWith(inline.token) && sel.endsWith(inline.token) && sel.length >= inline.token.length * 2) {
         const inner = sel.slice(inline.token.length, -inline.token.length)
         modelValue.value = modelValue.value.slice(0, s) + inner + modelValue.value.slice(e)
@@ -264,7 +254,7 @@ function applyFormat(kind: FormatKind) {
   }
 }
 
-/* ---------------- @ 职位提及（开发人员匿名 @） ---------------- */
+/* ---------------- @ 职位提及（抽屉模式） ---------------- */
 
 const { staffAliases } = useStaffAliases()
 const mentionOpen = ref(false)
@@ -280,7 +270,6 @@ const filteredStaffAliases = computed(() => {
   )
 })
 
-/* ---------------- @ 职位分页 ---------------- */
 const MENTION_PAGE_SIZE = 5
 const mentionPage = ref(1)
 
@@ -303,26 +292,29 @@ function nextMentionPage() {
     mentionPage.value++
 }
 
-// 筛选变化 / 重新打开时回到第 1 页
 watch(mentionFilter, () => {
   mentionPage.value = 1
 })
 watch(mentionOpen, (open) => {
-  if (open)
+  if (open) {
     mentionPage.value = 1
+    if (isPreview.value)
+      isPreview.value = false
+    // 抽屉打开时，自动聚焦搜索框，方便用户快速筛选
+    nextTick(() => mentionInputRef.value?.focus())
+  }
 })
 
 function closeMention() {
   mentionOpen.value = false
+  // 关闭后重新聚焦到输入框，保持连贯体验
+  nextTick(() => textarea.value?.focus())
 }
 
 function toggleMention() {
   mentionOpen.value = !mentionOpen.value
   if (mentionOpen.value) {
     mentionFilter.value = ''
-    if (isPreview.value)
-      isPreview.value = false
-    nextTick(() => mentionInputRef.value?.focus())
   }
 }
 
@@ -332,40 +324,16 @@ function pickStaffAlias(a: StaffAlias) {
   closeMention()
 }
 
-function handleDocClick(event: MouseEvent) {
-  if (!mentionOpen.value)
-    return
-  if ((event.target as HTMLElement).closest('.md-editor__mention-anchor, .md-editor__mention'))
-    return
-  closeMention()
-}
+// 不需要再监听 document 的 click 事件，遮罩层直接搞定
+// 移除 handleDocClick, onMounted 里的监听, onBeforeUnmount 里的移除
 
-/* ---------------- 键盘:Ctrl+B/I/S、Ctrl+Enter 发送、回车续列表 ---------------- */
+/* ---------------- 键盘 ---------------- */
 
 function handleKeydown(event: KeyboardEvent) {
   const mod = event.ctrlKey || event.metaKey
 
-  // 中文输入法合成中的回车/快捷键不拦截
   if (event.isComposing)
     return
-
-  // @ 下拉打开时：Esc 关闭，Enter 选中当前第一项
-  if (mentionOpen.value) {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      closeMention()
-      textarea.value?.focus()
-      return
-    }
-    if (event.key === 'Enter' && !mod && !event.shiftKey) {
-      const first = filteredStaffAliases.value[0]
-      if (first) {
-        event.preventDefault()
-        pickStaffAlias(first)
-        return
-      }
-    }
-  }
 
   if (mod && event.key === 'Enter') {
     event.preventDefault()
@@ -382,7 +350,6 @@ function handleKeydown(event: KeyboardEvent) {
     }
   }
 
-  // 回车自动续列表(GitHub 式);Shift+Enter 交给软换行
   if (event.key === 'Enter' && !event.shiftKey) {
     const el = textarea.value
     if (!el)
@@ -399,7 +366,6 @@ function handleKeydown(event: KeyboardEvent) {
       return
     event.preventDefault()
     const rest = m[4]
-    // 空列表项上回车:退出列表(清掉当前行的标记)
     if (!rest) {
       modelValue.value = modelValue.value.slice(0, lineStart) + modelValue.value.slice(s)
       nextTick(() => {
@@ -422,7 +388,6 @@ function handleKeydown(event: KeyboardEvent) {
 
 /* ---------------- 自动增高 ---------------- */
 
-/** 评论区 compact：最少 4 行，最多 6 行，超出后框内滚动 */
 const COMPACT_MIN_LINES = 4
 const COMPACT_MAX_LINES = 6
 
@@ -450,7 +415,6 @@ function autoResize() {
     const maxH = Math.ceil(padding + lineHeight * COMPACT_MAX_LINES)
     el.style.minHeight = `${minH}px`
     el.style.maxHeight = `${maxH}px`
-    // 先重置高度再测量，避免 scrollHeight 被旧高度卡住
     el.style.height = 'auto'
     el.style.overflowY = 'hidden'
     const scrollH = el.scrollHeight
@@ -468,25 +432,16 @@ function autoResize() {
 }
 
 function handleInput(event: Event) {
-  const top = document.body.scrollTop
   const el = event.target as HTMLTextAreaElement
   modelValue.value = el.value
   autoResize()
-  nextTick(() => {
-    document.body.scrollTop = top
-  })
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleDocClick, true)
   nextTick(() => {
     autoResize()
     requestAnimationFrame(() => autoResize())
   })
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleDocClick, true)
 })
 
 watch(textarea, (el) => {
@@ -494,18 +449,9 @@ watch(textarea, (el) => {
     nextTick(() => autoResize())
 })
 
-watch(() => props.fill, () => {
-  nextTick(autoResize)
-})
-
-watch(() => props.compact, () => {
-  nextTick(autoResize)
-})
-
-watch(modelValue, () => {
-  nextTick(autoResize)
-})
-
+watch(() => props.fill, () => nextTick(autoResize))
+watch(() => props.compact, () => nextTick(autoResize))
+watch(modelValue, () => nextTick(autoResize))
 watch(isPreview, (preview) => {
   if (!preview)
     nextTick(autoResize)
@@ -519,66 +465,66 @@ watch(isPreview, (preview) => {
     :class="{ 'md-editor--compact': compact, 'md-editor--fill': fill }"
   >
     <div class="md-editor__toolbar">
-      <!-- 左侧:格式化图标组(窄屏横向滑动) -->
       <div class="md-editor__tools" role="toolbar" aria-label="格式化工具">
-        <button type="button" class="md-editor__tool" title="标题 (行首 ###)" @click="applyFormat('heading')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="标题 (行首 ###)" @click="applyFormat('heading')">
           <span class="md-editor__glyph md-editor__glyph--h">H</span>
         </button>
-        <button type="button" class="md-editor__tool" title="粗体 (Ctrl+B)" @click="applyFormat('bold')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="粗体 (Ctrl+B)" @click="applyFormat('bold')">
           <span class="md-editor__glyph md-editor__glyph--b">B</span>
         </button>
-        <button type="button" class="md-editor__tool" title="斜体 (Ctrl+I)" @click="applyFormat('italic')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="斜体 (Ctrl+I)" @click="applyFormat('italic')">
           <span class="md-editor__glyph md-editor__glyph--i">I</span>
         </button>
-        <button type="button" class="md-editor__tool" title="删除线 (Ctrl+S)" @click="applyFormat('strike')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="删除线 (Ctrl+S)" @click="applyFormat('strike')">
           <span class="md-editor__glyph md-editor__glyph--s">S</span>
         </button>
         <span class="md-editor__sep" aria-hidden="true" />
-        <button type="button" class="md-editor__tool" title="引用" @click="applyFormat('quote')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="引用" @click="applyFormat('quote')">
           <span class="md-editor__glyph">&ldquo;</span>
         </button>
-        <button type="button" class="md-editor__tool" title="无序列表" @click="applyFormat('ul')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="无序列表" @click="applyFormat('ul')">
           <span class="md-editor__glyph">&bull;</span>
         </button>
-        <button type="button" class="md-editor__tool" title="有序列表" @click="applyFormat('ol')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="有序列表" @click="applyFormat('ol')">
           <span class="md-editor__glyph md-editor__glyph--ol">1.</span>
         </button>
         <span class="md-editor__sep" aria-hidden="true" />
-        <button type="button" class="md-editor__tool" title="代码 (Ctrl+E 可用反引号)" @click="applyFormat('code')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="代码 (Ctrl+E 可用反引号)" @click="applyFormat('code')">
           <span class="md-editor__glyph md-editor__glyph--code">&lt;/&gt;</span>
         </button>
-        <button type="button" class="md-editor__tool" title="表格" @click="applyFormat('table')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="表格" @click="applyFormat('table')">
           <span class="md-editor__glyph md-editor__glyph--table">&#8865;</span>
         </button>
-        <button type="button" class="md-editor__tool" title="分割线" @click="applyFormat('hr')">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="分割线" @click="applyFormat('hr')">
           <span class="md-editor__glyph">&mdash;</span>
         </button>
       </div>
 
-      <!-- 右侧:@ 职位 / 图片 / 预览 -->
-      <div class="md-editor__tools-right md-editor__mention-anchor">
+      <div class="md-editor__tools-right">
         <button
           v-if="staffAliases.length > 0"
           type="button"
           class="md-editor__tool"
           :class="{ 'md-editor__tool--active': mentionOpen }"
-          title="@ 开发人员（职位）"
-          aria-haspopup="listbox"
+          @mousedown.prevent
+          title="@ 职位（匿名）"
+          aria-haspopup="dialog"
           :aria-expanded="mentionOpen"
           @click="toggleMention"
         >
           <span class="md-editor__glyph md-editor__glyph--at">@</span>
         </button>
-        <button type="button" class="md-editor__tool" title="插入图片(可直接粘贴)" @click="openImagePicker">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="插入图片(可直接粘贴)" @click="openImagePicker">
           <Icon icon="tabler:photo" width="17" height="17" aria-hidden="true" />
         </button>
-        <button type="button" class="md-editor__tool" title="上传文件" @click="openFilePicker">
+        <button type="button" class="md-editor__tool" @mousedown.prevent title="上传文件" @click="openFilePicker">
           <Icon icon="tabler:paperclip" width="17" height="17" aria-hidden="true" />
         </button>
         <button
           v-if="musicEnabled"
           type="button"
           class="md-editor__tool"
+          @mousedown.prevent
           title="插入音乐"
           @click="emit('insertMusic')"
         >
@@ -588,85 +534,63 @@ watch(isPreview, (preview) => {
           type="button"
           class="md-editor__tool md-editor__tool--toggle"
           :class="{ 'md-editor__tool--active': isPreview }"
+          @mousedown.prevent
           :title="isPreview ? '返回编辑' : '预览'"
           @click="isPreview = !isPreview"
         >
           <span class="md-editor__glyph md-editor__glyph--preview">{{ isPreview ? '编辑' : '预览' }}</span>
         </button>
-        <input
-          :id="fileInputId"
-          ref="fileInput"
-          type="file"
-          accept="image/*"
-          class="md-editor__file-input"
-          @input="handleImageUpload"
-        >
-        <input
-          :id="fileUploadId"
-          ref="fileUpload"
-          type="file"
-          class="md-editor__file-input"
-          @input="handleFileUpload"
-        >
+        <input :id="fileInputId" ref="fileInput" type="file" accept="image/*" class="md-editor__file-input" @input="handleImageUpload">
+        <input :id="fileUploadId" ref="fileUpload" type="file" class="md-editor__file-input" @input="handleFileUpload">
       </div>
     </div>
 
-    <!-- @ 职位下拉：仅配置了职位账号时出现（普通用户看不到，行为不变） -->
-    <div
-      v-if="mentionOpen && staffAliases.length > 0"
-      class="md-editor__mention"
-      role="listbox"
-      aria-label="选择要 @ 的开发人员职位"
-    >
-      <div class="md-editor__mention-head">
-        <span class="md-editor__mention-caption">要 @ 哪位开发人员？</span>
-        <input
-          v-if="staffAliases.length > 6"
-          ref="mentionInput"
-          v-model="mentionFilter"
-          class="md-editor__mention-search"
-          type="search"
-          placeholder="筛选职位…"
-          aria-label="筛选职位"
-        >
-      </div>
-      <ul class="md-editor__mention-list">
-        <li v-for="a in pagedStaffAliases" :key="a.aliasID" class="md-editor__mention-row">
-          <button type="button" class="md-editor__mention-item" role="option" @click="pickStaffAlias(a)">
-            <span class="md-editor__mention-alias">@{{ a.alias }}</span>
-            <span class="md-editor__mention-title">{{ a.title }}</span>
-          </button>
-        </li>
-        <li v-if="filteredStaffAliases.length === 0" class="md-editor__mention-empty">
-          没有匹配的职位
-        </li>
-      </ul>
+    <!-- @ 抽屉：使用 Teleport 传送到 body，彻底避免父容器裁剪和层级问题 -->
+    <Teleport to="body">
+      <div v-if="mentionOpen && staffAliases.length > 0" class="md-editor__mention-overlay" @click.self="closeMention">
+        <div class="md-editor__mention-drawer" role="dialog" aria-modal="true" aria-label="选择要 @ 的职位">
+          <div class="md-editor__mention-head">
+            <span class="md-editor__mention-caption">要 @ 哪个职位？</span>
+            <button type="button" class="md-editor__mention-close" @click="closeMention">
+              <Icon icon="tabler:x" width="20" height="20" />
+            </button>
+          </div>
+          
+          <div v-if="staffAliases.length > 6" class="md-editor__mention-search-wrap">
+            <input
+              ref="mentionInput"
+              v-model="mentionFilter"
+              class="md-editor__mention-search"
+              type="search"
+              placeholder="搜索职位或别名…"
+              aria-label="搜索职位"
+            >
+          </div>
 
-      <!-- 分页控件：超过 1 页才显示 -->
-      <div v-if="totalMentionPages > 1" class="md-editor__mention-pager">
-        <button
-          type="button"
-          class="md-editor__mention-page-btn"
-          :disabled="mentionPage <= 1"
-          @click="prevMentionPage"
-        >
-          上一页
-        </button>
-        <span class="md-editor__mention-page-info">{{ mentionPage }} / {{ totalMentionPages }}</span>
-        <button
-          type="button"
-          class="md-editor__mention-page-btn"
-          :disabled="mentionPage >= totalMentionPages"
-          @click="nextMentionPage"
-        >
-          下一页
-        </button>
-      </div>
+          <ul class="md-editor__mention-list">
+            <li v-for="a in pagedStaffAliases" :key="a.aliasID" class="md-editor__mention-row">
+              <button type="button" class="md-editor__mention-item" @click="pickStaffAlias(a)">
+                <span class="md-editor__mention-alias">@{{ a.alias }}</span>
+                <span class="md-editor__mention-title">{{ a.title }}</span>
+              </button>
+            </li>
+            <li v-if="filteredStaffAliases.length === 0" class="md-editor__mention-empty">
+              没有匹配的职位
+            </li>
+          </ul>
 
-      <div class="md-editor__mention-foot">
-        对外只显示职位，不显示真人 · Enter 选第一项 · Esc 关闭
+          <div v-if="totalMentionPages > 1" class="md-editor__mention-pager">
+            <button type="button" class="md-editor__mention-page-btn" :disabled="mentionPage <= 1" @click="prevMentionPage">
+              上一页
+            </button>
+            <span class="md-editor__mention-page-info">{{ mentionPage }} / {{ totalMentionPages }}</span>
+            <button type="button" class="md-editor__mention-page-btn" :disabled="mentionPage >= totalMentionPages" @click="nextMentionPage">
+              下一页
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <div class="md-editor__body" :class="{ 'md-editor__body--preview': isPreview }">
       <textarea
@@ -678,36 +602,18 @@ watch(isPreview, (preview) => {
         @paste="handlePaste"
         @keydown="handleKeydown"
       />
-      <MarkdownContainer
-        v-show="isPreview"
-        class="md-editor__preview-pane"
-        :markdown-content="modelValue || ''"
-      />
+      <MarkdownContainer v-show="isPreview" class="md-editor__preview-pane" :markdown-content="modelValue || ''" />
     </div>
 
     <div v-if="!fill" class="md-editor__actions">
       <span class="md-editor__hint">Markdown · 图片可粘贴 · Ctrl+Enter 发送</span>
-      <div
-        class="md-editor__action md-editor__action--primary"
-        :class="{ 'md-editor__action--busy': isBusy }"
-        role="button"
-        tabindex="0"
-        @click="emitSend"
-        @keydown.enter="emitSend"
-      >
+      <div class="md-editor__action md-editor__action--primary" :class="{ 'md-editor__action--busy': isBusy }" role="button" tabindex="0" @click="emitSend" @keydown.enter="emitSend">
         {{ isBusy ? '发送中…' : '发送' }}
       </div>
     </div>
     <div v-else class="md-editor__actions md-editor__actions--fill">
       <span class="md-editor__fill-hint">支持 Markdown · 图片可粘贴 · Ctrl+Enter 发送</span>
-      <div
-        class="md-editor__action md-editor__action--primary"
-        :class="{ 'md-editor__action--busy': isBusy }"
-        role="button"
-        tabindex="0"
-        @click="emitSend"
-        @keydown.enter="emitSend"
-      >
+      <div class="md-editor__action md-editor__action--primary" :class="{ 'md-editor__action--busy': isBusy }" role="button" tabindex="0" @click="emitSend" @keydown.enter="emitSend">
         {{ isBusy ? '发送中…' : '发送' }}
       </div>
     </div>
@@ -720,7 +626,7 @@ watch(isPreview, (preview) => {
   width: 100%;
 }
 
-/* ---------- 工具栏:单行,永不换行,窄屏横向滑动 ---------- */
+/* ---------- 工具栏 ---------- */
 
 .md-editor__toolbar {
   display: flex;
@@ -746,10 +652,7 @@ watch(isPreview, (preview) => {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 1px;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  &::-webkit-scrollbar { display: none; }
 }
 
 .md-editor__tools-right {
@@ -770,16 +673,12 @@ watch(isPreview, (preview) => {
   color: var(--chat-text-secondary);
   font-family: inherit;
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
   &:hover {
     background: var(--chat-accent-soft);
     color: var(--chat-accent);
   }
-
   &--active {
     background: var(--chat-accent-soft);
     border-color: var(--chat-border-strong);
@@ -792,38 +691,15 @@ watch(isPreview, (preview) => {
   font-weight: 600;
   line-height: 1;
   user-select: none;
-
-  &--h {
-    font-size: 13px;
-    letter-spacing: 0;
-  }
-  &--b {
-    font-weight: 700;
-  }
-  &--i {
-    font-style: italic;
-    font-family: Georgia, serif;
-  }
-  &--s {
-    text-decoration: line-through;
-  }
-  &--ol {
-    font-size: 12px;
-    font-weight: 600;
-  }
-  &--code {
-    font-size: 11px;
-    font-family: ui-monospace, monospace;
-    font-weight: 500;
-  }
-  &--table {
-    font-size: 13px;
-  }
-  &--preview {
-    font-size: 12px;
-    font-weight: 500;
-    padding: 0 2px;
-  }
+  &--h { font-size: 13px; }
+  &--b { font-weight: 700; }
+  &--i { font-style: italic; font-family: Georgia, serif; }
+  &--s { text-decoration: line-through; }
+  &--ol { font-size: 12px; }
+  &--code { font-size: 11px; font-family: ui-monospace, monospace; }
+  &--table { font-size: 13px; }
+  &--preview { font-size: 12px; font-weight: 500; padding: 0 2px; }
+  &--at { font-size: 15px; font-weight: 700; }
 }
 
 .md-editor__sep {
@@ -842,28 +718,30 @@ watch(isPreview, (preview) => {
   pointer-events: none;
 }
 
-/* ---------- @ 职位下拉（开发人员匿名 @） ---------- */
+/* ---------- @ 抽屉/弹窗样式（全新） ---------- */
 
-.md-editor__glyph--at {
-  font-size: 15px;
-  font-weight: 700;
+.md-editor__mention-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999; /* 极高的层级，确保覆盖所有内容 */
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
 }
 
-.md-editor__mention {
-  position: absolute;
-  z-index: 60;             /* ← 提高，避免被底部 Tab 栏 / 其它浮层压住 */
-  top: 40px;
-  right: 0;
+.md-editor__mention-drawer {
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  width: min(320px, calc(100vw - 32px));
-  max-height: 300px;
-  padding: 10px;
-  border: 1px solid var(--chat-border-strong);
-  border-radius: 10px;
   background: var(--chat-bg-main);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  padding: 16px;
   box-sizing: border-box;
 }
 
@@ -871,54 +749,72 @@ watch(isPreview, (preview) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .md-editor__mention-caption {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--chat-text-secondary);
+  color: var(--chat-text);
+}
+
+.md-editor__mention-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--chat-text-tips);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  &:hover {
+    background: var(--chat-bg-highlight);
+    color: var(--chat-text);
+  }
+}
+
+.md-editor__mention-search-wrap {
+  margin-bottom: 12px;
 }
 
 .md-editor__mention-search {
-  min-width: 0;
-  flex: 0 1 140px;
-  padding: 4px 8px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid var(--chat-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--chat-bg-highlight);
   color: var(--chat-text);
   font-family: inherit;
-  font-size: 12px;
-
+  font-size: 14px;
+  box-sizing: border-box;
   &:focus {
     outline: none;
     border-color: var(--chat-accent);
+    box-shadow: 0 0 0 2px var(--chat-accent-soft);
   }
 }
 
 .md-editor__mention-list {
-  display: block;          /* ← 强制块级，防止被外部样式改成 flex 导致"斜着" */
-  flex: 1 1 auto;
+  flex: 1;
   margin: 0;
   padding: 0;
   overflow-y: auto;
   list-style: none;
-  scrollbar-width: thin;
+  min-height: 0; /* 关键：允许 flex 子项正常滚动 */
+}
 
-  > .md-editor__mention-row {
-    display: block;        /* ← 每个 li 占满整行 */
-    width: 100%;
-  }
+.md-editor__mention-row {
+  width: 100%;
 }
 
 .md-editor__mention-item {
   display: flex;
-  align-items: baseline;
-  justify-content: flex-start;   /* ← 左对齐，避免被全局样式影响 */
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  padding: 7px 8px;
+  padding: 12px 10px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -932,55 +828,50 @@ watch(isPreview, (preview) => {
 }
 
 .md-editor__mention-alias {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--chat-accent);
 }
 
 .md-editor__mention-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--chat-text-tips);
 }
 
 .md-editor__mention-empty {
-  padding: 8px;
-  font-size: 12px;
+  padding: 20px;
+  text-align: center;
+  font-size: 14px;
   color: var(--chat-text-tips);
 }
-
-/* ---------- @ 职位分页 ---------- */
 
 .md-editor__mention-pager {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding-top: 6px;
+  gap: 16px;
+  padding-top: 12px;
+  margin-top: 4px;
   border-top: 1px solid var(--chat-border);
 }
 
 .md-editor__mention-page-btn {
-  min-width: 52px;
-  height: 24px;
-  padding: 0 8px;
+  min-width: 60px;
+  height: 32px;
+  padding: 0 12px;
   border: 1px solid var(--chat-border);
   border-radius: 6px;
   background: var(--chat-bg-main);
   color: var(--chat-text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: all 0.15s ease;
 
   &:hover:not(:disabled) {
     background: var(--chat-accent-soft);
     border-color: var(--chat-border-strong);
     color: var(--chat-accent);
   }
-
   &:disabled {
     opacity: 0.45;
     cursor: not-allowed;
@@ -988,19 +879,33 @@ watch(isPreview, (preview) => {
 }
 
 .md-editor__mention-page-info {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--chat-text-tips);
-  min-width: 44px;
-  text-align: center;
   user-select: none;
 }
 
-.md-editor__mention-foot {
-  padding-top: 6px;
-  border-top: 1px solid var(--chat-border);
-  font-size: 11px;
-  color: var(--chat-text-tips);
-  line-height: 1.4;
+/* 移动端适配：底部抽屉 */
+@media screen and (max-width: 768px) {
+  .md-editor__mention-overlay {
+    align-items: flex-end; /* 贴底 */
+  }
+  .md-editor__mention-drawer {
+    width: 100%;
+    max-width: none;
+    max-height: 75vh; /* 留出部分顶部空间 */
+    border-radius: 20px 20px 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)); /* 适配 iPhone 底部安全区 */
+    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .md-editor__mention-item {
+    padding: 14px 10px; /* 移动端点击区域更大 */
+  }
 }
 
 /* ---------- 输入区 ---------- */
@@ -1024,14 +929,9 @@ watch(isPreview, (preview) => {
     line-height: 1.5;
     resize: none;
     box-sizing: border-box;
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
-    &::placeholder {
-      color: var(--chat-text-tips);
-    }
-
+    &::placeholder { color: var(--chat-text-tips); }
     &:focus {
       outline: none;
       border-color: var(--chat-accent);
@@ -1040,24 +940,21 @@ watch(isPreview, (preview) => {
   }
 }
 
-/* 非 compact / 非 fill：默认约 3 行起 */
 .md-editor:not(.md-editor--compact):not(.md-editor--fill) .md-editor__body textarea {
   min-height: 96px;
   overflow: hidden;
 }
 
-.md-editor__body--preview {
-  .md-editor__preview-pane {
-    flex: 1 1 auto;
-    width: 100%;
-    min-height: 96px;
-    border-radius: 10px;
-    padding: 10px 12px;
-    background: var(--chat-bg-highlight);
-    border: 1px solid var(--chat-border);
-    box-sizing: border-box;
-    overflow: auto;
-  }
+.md-editor__body--preview .md-editor__preview-pane {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 96px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--chat-bg-highlight);
+  border: 1px solid var(--chat-border);
+  box-sizing: border-box;
+  overflow: auto;
 }
 
 .md-editor--fill .md-editor__body--preview .md-editor__preview-pane {
@@ -1097,30 +994,23 @@ watch(isPreview, (preview) => {
   color: var(--chat-text-secondary);
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 
   &:hover {
     background: var(--chat-accent-soft);
     border-color: var(--chat-border-strong);
     color: var(--chat-accent);
   }
-
   &--primary {
     background: var(--chat-accent);
     border-color: var(--chat-accent);
     color: var(--chat-bg-highlight);
-
     &:hover {
       opacity: 0.92;
       color: var(--chat-bg-highlight);
     }
   }
-
   &--busy {
     opacity: 0.7;
     cursor: wait;
@@ -1160,25 +1050,9 @@ watch(isPreview, (preview) => {
       padding: 12px 14px;
       border-radius: 10px 10px 0 0;
       border-bottom: none;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
-
-      &::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.06);
-        border-radius: 4px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.28);
-        border-radius: 4px;
-      }
     }
   }
-
+  
   .md-editor__body--preview .md-editor__preview-pane {
     flex: 1 1 auto;
     min-height: clamp(200px, 38vh, 480px);
@@ -1189,22 +1063,6 @@ watch(isPreview, (preview) => {
     padding: 12px 14px;
     border-radius: 10px 10px 0 0;
     border-bottom: none;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
-
-    &::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: rgba(0, 0, 0, 0.06);
-      border-radius: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.28);
-      border-radius: 4px;
-    }
   }
 }
 
@@ -1230,10 +1088,7 @@ watch(isPreview, (preview) => {
 /* ---------- 评论区 compact ---------- */
 
 .md-editor--compact {
-  .md-editor__toolbar {
-    margin-bottom: 6px;
-  }
-
+  .md-editor__toolbar { margin-bottom: 6px; }
   .md-editor__body textarea {
     min-height: calc(20px + 1.5em * 4);
     max-height: calc(20px + 1.5em * 6);
@@ -1241,34 +1096,13 @@ watch(isPreview, (preview) => {
     font-size: 14px;
     line-height: 1.5;
     overflow-y: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.28) rgba(0, 0, 0, 0.06);
-
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: rgba(0, 0, 0, 0.06);
-      border-radius: 3px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.28);
-      border-radius: 3px;
-    }
   }
-
   .md-editor__body--preview .md-editor__preview-pane {
     min-height: calc(20px + 1.5em * 4);
     max-height: calc(20px + 1.5em * 6);
     overflow-y: auto;
   }
-
-  .md-editor__actions {
-    margin-top: 6px;
-  }
-
+  .md-editor__actions { margin-top: 6px; }
   .md-editor__action {
     min-width: 72px;
     min-height: 32px;
@@ -1276,37 +1110,28 @@ watch(isPreview, (preview) => {
   }
 }
 
+/* 移动端适配：改为居中弹窗，彻底避开底部导航栏遮挡 */
 @media screen and (max-width: 768px) {
-  .md-editor__actions {
-    justify-content: stretch;
+  .md-editor__mention-overlay {
+    align-items: center; /* 核心修改：改为居中，不再贴底 */
   }
-
-  .md-editor__action {
-    flex: 1;
+  
+  .md-editor__mention-drawer {
+    width: 90%;
+    max-width: 360px;
+    max-height: 60vh; /* 限制最高高度，留出上下空间 */
+    border-radius: 16px; /* 恢复全圆角 */
+    padding-bottom: 16px; /* 移除底部的安全区额外留白 */
+    animation: fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
-
-  .md-editor__hint {
-    display: none;
-  }
-
-  /* 手机端：@ 下拉贴着工具栏展开，不遮输入框、不遮底部 Tab 栏 */
-  .md-editor__mention {
-    position: absolute;
-    top: calc(100% + 4px);   /* 紧贴工具栏下方 */
-    right: 0;
-    left: 0;
-    bottom: auto;
-    width: auto;
-    /* 给底部 Tab 栏预留空间：视口高度 - 顶栏 - 底部 Tab - 一些余量 */
-    max-height: min(45vh, 300px);
+  
+  @keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
   }
 
   .md-editor__mention-item {
-    padding: 10px 8px;
-  }
-
-  .md-editor__mention-search {
-    flex: 1 1 120px;
+    padding: 14px 10px;
   }
 }
 </style>
