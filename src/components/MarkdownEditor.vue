@@ -280,6 +280,38 @@ const filteredStaffAliases = computed(() => {
   )
 })
 
+/* ---------------- @ 职位分页 ---------------- */
+const MENTION_PAGE_SIZE = 5
+const mentionPage = ref(1)
+
+const totalMentionPages = computed(() =>
+  Math.max(1, Math.ceil(filteredStaffAliases.value.length / MENTION_PAGE_SIZE)),
+)
+
+const pagedStaffAliases = computed(() => {
+  const start = (mentionPage.value - 1) * MENTION_PAGE_SIZE
+  return filteredStaffAliases.value.slice(start, start + MENTION_PAGE_SIZE)
+})
+
+function prevMentionPage() {
+  if (mentionPage.value > 1)
+    mentionPage.value--
+}
+
+function nextMentionPage() {
+  if (mentionPage.value < totalMentionPages.value)
+    mentionPage.value++
+}
+
+// 筛选变化 / 重新打开时回到第 1 页
+watch(mentionFilter, () => {
+  mentionPage.value = 1
+})
+watch(mentionOpen, (open) => {
+  if (open)
+    mentionPage.value = 1
+})
+
 function closeMention() {
   mentionOpen.value = false
 }
@@ -599,7 +631,7 @@ watch(isPreview, (preview) => {
         >
       </div>
       <ul class="md-editor__mention-list">
-        <li v-for="a in filteredStaffAliases" :key="a.aliasID">
+        <li v-for="a in pagedStaffAliases" :key="a.aliasID" class="md-editor__mention-row">
           <button type="button" class="md-editor__mention-item" role="option" @click="pickStaffAlias(a)">
             <span class="md-editor__mention-alias">@{{ a.alias }}</span>
             <span class="md-editor__mention-title">{{ a.title }}</span>
@@ -609,6 +641,28 @@ watch(isPreview, (preview) => {
           没有匹配的职位
         </li>
       </ul>
+
+      <!-- 分页控件：超过 1 页才显示 -->
+      <div v-if="totalMentionPages > 1" class="md-editor__mention-pager">
+        <button
+          type="button"
+          class="md-editor__mention-page-btn"
+          :disabled="mentionPage <= 1"
+          @click="prevMentionPage"
+        >
+          上一页
+        </button>
+        <span class="md-editor__mention-page-info">{{ mentionPage }} / {{ totalMentionPages }}</span>
+        <button
+          type="button"
+          class="md-editor__mention-page-btn"
+          :disabled="mentionPage >= totalMentionPages"
+          @click="nextMentionPage"
+        >
+          下一页
+        </button>
+      </div>
+
       <div class="md-editor__mention-foot">
         对外只显示职位，不显示真人 · Enter 选第一项 · Esc 关闭
       </div>
@@ -797,7 +851,7 @@ watch(isPreview, (preview) => {
 
 .md-editor__mention {
   position: absolute;
-  z-index: 30;
+  z-index: 60;             /* ← 提高，避免被底部 Tab 栏 / 其它浮层压住 */
   top: 40px;
   right: 0;
   display: flex;
@@ -844,17 +898,24 @@ watch(isPreview, (preview) => {
 }
 
 .md-editor__mention-list {
+  display: block;          /* ← 强制块级，防止被外部样式改成 flex 导致"斜着" */
   flex: 1 1 auto;
   margin: 0;
   padding: 0;
   overflow-y: auto;
   list-style: none;
   scrollbar-width: thin;
+
+  > .md-editor__mention-row {
+    display: block;        /* ← 每个 li 占满整行 */
+    width: 100%;
+  }
 }
 
 .md-editor__mention-item {
   display: flex;
   align-items: baseline;
+  justify-content: flex-start;   /* ← 左对齐，避免被全局样式影响 */
   gap: 8px;
   width: 100%;
   padding: 7px 8px;
@@ -889,6 +950,49 @@ watch(isPreview, (preview) => {
   padding: 8px;
   font-size: 12px;
   color: var(--chat-text-tips);
+}
+
+/* ---------- @ 职位分页 ---------- */
+
+.md-editor__mention-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--chat-border);
+}
+
+.md-editor__mention-page-btn {
+  min-width: 52px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--chat-border);
+  border-radius: 6px;
+  background: var(--chat-bg-main);
+  color: var(--chat-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--chat-accent-soft);
+    border-color: var(--chat-border-strong);
+    color: var(--chat-accent);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.md-editor__mention-page-info {
+  font-size: 12px;
+  color: var(--chat-text-tips);
+  min-width: 44px;
+  text-align: center;
+  user-select: none;
 }
 
 .md-editor__mention-foot {
@@ -1185,15 +1289,16 @@ watch(isPreview, (preview) => {
     display: none;
   }
 
-  /* 手机端：@ 下拉改为底部抽屉，拇指可达、不被键盘遮挡 */
+  /* 手机端：@ 下拉贴着工具栏展开，不遮输入框、不遮底部 Tab 栏 */
   .md-editor__mention {
-    position: fixed;
-    top: auto;
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
+    position: absolute;
+    top: calc(100% + 4px);   /* 紧贴工具栏下方 */
+    right: 0;
+    left: 0;
+    bottom: auto;
     width: auto;
-    max-height: min(56vh, 340px);
+    /* 给底部 Tab 栏预留空间：视口高度 - 顶栏 - 底部 Tab - 一些余量 */
+    max-height: min(45vh, 300px);
   }
 
   .md-editor__mention-item {
