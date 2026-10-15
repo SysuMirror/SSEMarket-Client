@@ -48,6 +48,11 @@ watch(commentButtonIsShow, async (open) => {
 
 const { userInfo } = useUserStore()
 
+/** 是否显示删除入口：优先服务端 IsOwn（职位身份回复时 phone 判不出本人），否则退回 phone 比对 */
+const canManageSubComment = computed(() =>
+  subComment.isOwn === true || subComment.authorTelephone === userInfo.phone,
+)
+
 const subCommentAuthorProfileId = computed(() => {
   const s = subComment as SubComment & { AuthorID?: number, author_id?: number }
   const n = Number(s.authorID ?? s.AuthorID ?? s.author_id)
@@ -212,7 +217,7 @@ function toggleReply() {
       </div>
       <time class="comment-row__time" :datetime="String(subComment.commentTime)">{{ formattedTime }}</time>
       <UserButton
-        v-if="subComment.authorTelephone === userInfo.phone"
+        v-if="canManageSubComment"
         compact
         class="comment-row__actions"
         :no-save="true"
