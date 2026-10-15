@@ -10,6 +10,7 @@ import { getVideo } from '@/api/video/getVideos'
 import { showMsg } from '@/components/MessageBox'
 import VideoPlayer from '@/components/video/VideoPlayer.vue'
 import { primeMentionCache, useMentionResolve } from '@/composables/useMentionResolve'
+import { staffAliasNames } from '@/composables/useStaffAliases'
 import { musicCoverOrDefault, useMusicStore } from '@/store/musicStore'
 import { injectMentionsInRenderedHTML } from '@/utils/mention'
 import 'prismjs/plugins/autoloader/prism-autoloader'
@@ -184,7 +185,7 @@ const safeHTML = computed(() => {
   if (variant === 'chat')
     rendered = stripLeadingEmptyBlocks(rendered)
   else
-    rendered = injectMentionsInRenderedHTML(rendered, effectiveMentionMap.value)
+    rendered = injectMentionsInRenderedHTML(rendered, effectiveMentionMap.value, staffAliasNames.value)
   const finalHTML = DOMPurify.sanitize(rendered, {
     ADD_TAGS: [
       'math',
@@ -509,6 +510,15 @@ watch(safeHTML, () => {
     text-decoration: underline;
     text-underline-offset: 2px;
   }
+}
+
+/* 职位账号（开发人员匿名 @）：轻微描边药丸，和普通 @ 区分但不突兀 */
+.markdown-body :deep(.md-mention--staff) {
+  padding: 0 5px;
+  border: 1px solid rgba(9, 105, 218, 0.35);
+  border-radius: 6px;
+  background: rgba(9, 105, 218, 0.08);
+  font-weight: 600;
 }
 
 .markdown-body :deep(.md-code-block) {

@@ -10,6 +10,8 @@ async function sendComment(
   content: string,
   postID: number,
   userTelephone: string,
+  /** >0：以职位小号身份回复（开发人员匿名 @，仅被 @ 的开发人员可选） */
+  asStaffUserID = 0,
 ) {
   try {
     const res = await requestFunc(
@@ -23,6 +25,7 @@ async function sendComment(
           content,
           postID,
           userTelephone,
+          asStaffUserID,
         },
       },
       true,
@@ -41,6 +44,8 @@ export interface sendPCommentObject {
   postID: number
   pcommentID: number
   ccommentID?: number
+  /** >0：以职位小号身份回复（开发人员匿名 @，仅被 @ 的开发人员可选） */
+  asStaffUserID?: number
 }
 
 /**

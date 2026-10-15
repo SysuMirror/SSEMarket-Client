@@ -1,23 +1,24 @@
 <script setup lang="ts">
-import type { LotteryDetail } from '@/api/lottery/lottery'
-import type { Comment } from '@/types/comment'
-
-import type { Post } from '@/types/post'
 import type { AssistPostData } from '@/api/assist'
 import type { DigestPrefData } from '@/api/digestPref'
-import { fetchAssistPost } from '@/api/assist'
-import { getDigestPref } from '@/api/digestPref'
+
+import type { LotteryDetail } from '@/api/lottery/lottery'
+import type { Comment } from '@/types/comment'
+import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
+import { fetchAssistPost } from '@/api/assist'
 import { getCommentsByPostID } from '@/api/browse/getComment'
+
 import { getPostByID } from '@/api/browse/getPost'
+import { getDigestPref } from '@/api/digestPref'
 import { getLotteryDetail } from '@/api/lottery/lottery'
 import DetailCard from '@/components/card/DetailCard.vue'
 import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import { showImg } from '@/components/ImageShower'
 import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
 import { showMsg } from '@/components/MessageBox'
+import { loadStaffAliases } from '@/composables/useStaffAliases'
 import { isDigestPrefEnabled } from '@/config/digestPref'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { usePostStore } from '@/store/postStore'
@@ -192,6 +193,8 @@ onMounted(async () => {
     void resolveAssistForPost(post.value)
     // 白名单用户拉取日报倾向状态（决定「调整日报倾向」按钮可见性；静默失败）
     void refreshDigestPref()
+    // 预热职位账号缓存：已有评论里的 @iwiki开发人员 直接渲染成职位链接（静默失败）
+    void loadStaffAliases()
     await getCommentList()
     await loadLottery()
     removeNewPostId(ID)
