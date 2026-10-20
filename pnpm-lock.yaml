@@ -53,6 +53,9 @@ importers:
       tus-js-client:
         specifier: ^4.3.1
         version: 4.3.1
+      viewerjs:
+        specifier: ^1.11.7
+        version: 1.15.2
       vue:
         specifier: ^3.5.17
         version: 3.5.17(typescript@5.8.3)
@@ -3293,6 +3296,9 @@ packages:
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
+
+  viewerjs@1.15.2:
+    resolution: {integrity: sha512-CYEqSFfPUSnmn1PjrhYxXOScaUC7n8+NpSqI+MrOSM8wcKPe35MlwQYwksuD5rjFkYv/ePmY5NsUa51uRNN2jA==}
 
   vite-bundle-analyzer@1.2.3:
     resolution: {integrity: sha512-8nhwDGHWMKKgg6oegAOpDgTT7/yzTVzeYzLF4y8WBJoYu9gO7h29UpHiQnXD2rAvfQzDy5Wqe/Za5cgqhnxi5g==}
@@ -7025,6 +7031,8 @@ snapshots:
       requires-port: 1.0.0
 
   util-deprecate@1.0.2: {}
+
+  viewerjs@1.15.2: {}
 
   vite-bundle-analyzer@1.2.3: {}
 

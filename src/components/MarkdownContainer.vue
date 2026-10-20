@@ -3,7 +3,8 @@ import mk from '@vscode/markdown-it-katex'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import Prism from 'prismjs'
-import { computed, createApp, nextTick, ref, useTemplateRef, watch } from 'vue'
+import Viewer from 'viewerjs'
+import { computed, createApp, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMusicList } from '@/api/music/getMusicList'
 import { getVideo } from '@/api/video/getVideos'
@@ -16,6 +17,7 @@ import { injectMentionsInRenderedHTML } from '@/utils/mention'
 import 'prismjs/plugins/autoloader/prism-autoloader'
 import 'github-markdown-css'
 import 'prismjs/themes/prism-tomorrow.css'
+import 'viewerjs/dist/viewer.css'
 
 const { markdownContent, openLinksInNewTab = false, variant = 'default', extraMentionUsers = [] } = defineProps<{
   markdownContent: string
@@ -229,6 +231,46 @@ const safeHTML = computed(() => {
   return finalHTML
 })
 
+// ---------- 帖子图片预览（viewerjs）：点击放大，桌面滚轮缩放，移动端双指缩放 ----------
+// 排除音乐卡片封面与视频播放器内部图片，避免混入预览列表
+function isViewableImage(img: HTMLImageElement): boolean {
+  return !img.closest('.post-music, .post-video')
+}
+
+let imageViewer: Viewer | null = null
+
+function destroyImageViewer() {
+  // 先置空再销毁，防止 hidden 事件回调里重复触发
+  const viewer = imageViewer
+  if (!viewer)
+    return
+  imageViewer = null
+  viewer.destroy()
+}
+
+function openImageViewer(clicked: HTMLImageElement) {
+  const root = content.value
+  if (!root)
+    return
+  // 每次点击重建实例：内容可能已重新渲染，重建保证图片列表与初始索引正确
+  destroyImageViewer()
+  const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img')).filter(isViewableImage)
+  if (imgs.length === 0)
+    return
+  imageViewer = new Viewer(root, {
+    filter: isViewableImage,
+    navbar: imgs.length > 1,
+    title: false,
+    minZoomRatio: 0.2,
+    maxZoomRatio: 8,
+    // 关闭后销毁实例，避免 DOM 与监听器泄漏
+    hidden: () => destroyImageViewer(),
+  })
+  imageViewer.view(Math.max(0, imgs.indexOf(clicked)))
+}
+
+onBeforeUnmount(destroyImageViewer)
+
 async function handleMarkdownClick(event: MouseEvent) {
   const target = event.target as HTMLElement
 
@@ -249,6 +291,14 @@ async function handleMarkdownClick(event: MouseEvent) {
     const id = Number(mentionEl.dataset.userId)
     if (id > 0)
       await router.push({ name: 'UserProfile', params: { id: String(id) } })
+    return
+  }
+
+  const img = target.closest('img')
+  if (img && isViewableImage(img)) {
+    event.preventDefault()
+    event.stopPropagation()
+    openImageViewer(img)
     return
   }
 
@@ -338,6 +388,8 @@ async function hydrateVideoCards() {
 }
 
 watch(safeHTML, () => {
+  // 内容重新渲染后旧实例引用的图片节点已失效，先销毁
+  destroyImageViewer()
   nextTick(() => {
     Prism.highlightAllUnder(content.value!)
     hydrateMusicCards()
@@ -390,6 +442,16 @@ watch(safeHTML, () => {
 .markdown-body--chat :deep(p:empty) {
   display: none;
   margin: 0;
+}
+
+/* 正文图片可点击预览放大；音乐封面与视频播放器内的图不参与 */
+.markdown-body :deep(img) {
+  cursor: zoom-in;
+}
+
+.markdown-body :deep(.post-music img),
+.markdown-body :deep(.post-video img) {
+  cursor: default;
 }
 
 .markdown-body :deep(.post-music) {
