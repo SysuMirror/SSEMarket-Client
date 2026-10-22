@@ -322,8 +322,10 @@ function onStickerError(event: Event) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
   min-width: 0;
   padding: 0;
+  overflow: hidden;
   border: 0;
   background: none;
   color: inherit;
@@ -417,22 +419,29 @@ function onStickerError(event: Event) {
   }
 }
 
-.user-card__post-title {
+/* 三列网格里必须显式给宽度 + min-width:0，否则 iOS Safari 会把 nowrap
+   文字按内容宽度撑开，三个标题互相重叠。 */
+.user-card__post-title,
+.user-card__post-meta {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  color: var(--chat-text);
-  font-size: 0.8125rem;
-  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.user-card__post-title {
+  color: var(--chat-text);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
 .user-card__post-meta {
-  overflow: hidden;
   color: var(--chat-text-tips);
   font-size: 0.6875rem;
   line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .user-card__all {
