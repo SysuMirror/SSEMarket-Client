@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { UserSearchPostCard, UserSearchUser } from '@/api/search/searchUsers'
 import { Icon } from '@iconify/vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
 import { levelNameHandler } from '@/utils/level'
@@ -49,6 +49,70 @@ function onAvatarError(event: Event) {
 function coverOf(post: UserSearchPostCard): string {
   const first = (post.photos || '').split('|').map(s => s.trim()).find(Boolean)
   return first || ''
+}
+
+// 配图 404 时也退化成生成封面，而不是留一个破图。
+const failedPhotos = ref<Set<number>>(new Set())
+function hasCover(post: UserSearchPostCard): boolean {
+  return !!coverOf(post) && !failedPhotos.value.has(post.postID)
+}
+function onPhotoError(post: UserSearchPostCard) {
+  const next = new Set(failedPhotos.value)
+  next.add(post.postID)
+  failedPhotos.value = next
+}
+
+// ---------------------------------------------------------------------------
+// 无配图帖子的「小红书式」封面
+//
+// 用 /home/cloud/emoji 生成的一组轻量表情贴纸（public/search-covers/*.webp）
+// + 按帖子 ID 稳定映射的渐变底色，拼成一张装饰封面，避免空白灰块。
+// 全部在 CSS 里合成：每张卡片只额外加载一张约 10KB 的 WebP，不增加请求数。
+// ---------------------------------------------------------------------------
+
+const STICKER_COUNT = 18
+const STICKER_BASE = `${import.meta.env.BASE_URL}search-covers/emoji-`
+
+const COVER_PALETTES = [
+  { a: '#ffe4ec', b: '#ffc2d4' },
+  { a: '#fff3d6', b: '#ffd9a0' },
+  { a: '#e0f2ff', b: '#b8dcff' },
+  { a: '#e8ffea', b: '#c2f0cd' },
+  { a: '#f3e8ff', b: '#ddc4ff' },
+  { a: '#ffe9d6', b: '#ffc9a3' },
+  { a: '#e6fbf8', b: '#b8eee5' },
+  { a: '#fdf0f7', b: '#f6d0e4' },
+] as const
+
+/** 稳定哈希：同一帖子每次渲染都得到同一张封面。 */
+function seedOf(post: UserSearchPostCard): number {
+  const text = `${post.postID}|${post.title || ''}`
+  let hash = 0x811C9DC5
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return hash >>> 0
+}
+
+function coverStyle(post: UserSearchPostCard) {
+  const seed = seedOf(post)
+  const palette = COVER_PALETTES[seed % COVER_PALETTES.length]
+  return {
+    '--cover-a': palette.a,
+    '--cover-b': palette.b,
+    '--sticker-rotate': `${(seed % 11) - 5}deg`,
+  }
+}
+
+function stickerOf(post: UserSearchPostCard): string {
+  const index = (seedOf(post) % STICKER_COUNT) + 1
+  return `${STICKER_BASE}${String(index).padStart(2, '0')}.webp`
+}
+
+function onStickerError(event: Event) {
+  // 素材缺失时静默隐藏，封面退化为纯渐变，不出现破图图标。
+  (event.target as HTMLImageElement).style.display = 'none'
 }
 </script>
 
@@ -98,16 +162,30 @@ function coverOf(post: UserSearchPostCard): string {
           class="user-card__post"
           @click="goPost(post.postID)"
         >
-          <span class="user-card__thumb">
+          <span
+            class="user-card__thumb"
+            :class="{ 'user-card__thumb--generated': !hasCover(post) }"
+            :style="hasCover(post) ? undefined : coverStyle(post)"
+          >
             <img
-              v-if="coverOf(post)"
+              v-if="hasCover(post)"
+              class="user-card__thumb-photo"
               :src="coverOf(post)"
               alt=""
               loading="lazy"
+              @error="onPhotoError(post)"
             >
-            <span v-else class="user-card__thumb-fallback">
-              {{ post.title || post.partition || '帖子' }}
-            </span>
+            <template v-else>
+              <span class="user-card__thumb-title">{{ post.title || post.partition || '帖子' }}</span>
+              <span class="user-card__thumb-partition">{{ post.partition || '帖子' }}</span>
+              <img
+                class="user-card__thumb-sticker"
+                :src="stickerOf(post)"
+                alt=""
+                loading="lazy"
+                @error="onStickerError"
+              >
+            </template>
           </span>
           <span class="user-card__post-title">{{ post.title || '无标题' }}</span>
           <span class="user-card__post-meta">
@@ -263,24 +341,80 @@ function coverOf(post: UserSearchPostCard): string {
   overflow: hidden;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--chat-bg-elevated), var(--chat-bg-highlight));
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
 }
 
-.user-card__thumb-fallback {
+.user-card__thumb-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-card__thumb--generated {
+  position: relative;
+  display: block;
+  background:
+    radial-gradient(circle at 86% 12%, rgb(255 255 255 / 58%) 0 13%, transparent 13.5%),
+    radial-gradient(circle at 6% 94%, rgb(255 255 255 / 38%) 0 11%, transparent 11.5%),
+    linear-gradient(135deg, var(--cover-a, #ffe4ec), var(--cover-b, #ffc2d4));
+}
+
+.user-card__thumb-title {
+  position: absolute;
+  top: 8%;
+  right: 8%;
+  left: 8%;
   display: -webkit-box;
   overflow: hidden;
-  padding: 6px 8px;
-  color: var(--chat-text-tips);
-  font-size: 0.75rem;
-  line-height: 1.35;
-  text-align: center;
+  color: #42312f;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.32;
+  text-shadow: 0 1px 0 rgb(255 255 255 / 55%);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.user-card__thumb-partition {
+  position: absolute;
+  bottom: 8%;
+  left: 8%;
+  max-width: 46%;
+  padding: 1px 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+  color: rgb(66 49 47 / 78%);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card__thumb-sticker {
+  position: absolute;
+  right: 7%;
+  bottom: 8%;
+  width: 34%;
+  max-width: 64px;
+  aspect-ratio: 1;
+  padding: 3px;
+  object-fit: contain;
+  background: rgb(255 255 255 / 92%);
+  border: 1px solid rgb(255 255 255 / 92%);
+  border-radius: 15px;
+  box-shadow: 0 6px 14px rgb(120 80 80 / 18%);
+  transform: rotate(var(--sticker-rotate, -6deg));
+}
+
+@media screen and (min-width: 768px) {
+  .user-card__thumb-title {
+    font-size: 13px;
+  }
+
+  .user-card__thumb-partition {
+    font-size: 10px;
+  }
 }
 
 .user-card__post-title {
