@@ -18,6 +18,7 @@ import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import { showImg } from '@/components/ImageShower'
 import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
 import { showMsg } from '@/components/MessageBox'
+import PresenceBadge from '@/components/PresenceBadge.vue'
 import { loadStaffAliases } from '@/composables/useStaffAliases'
 import { isDigestPrefEnabled } from '@/config/digestPref'
 import { useNewPostsStore } from '@/store/newPostsStore'
@@ -217,6 +218,9 @@ onMounted(async () => {
       @info-change="infoChange"
       @watch-change="(w) => { if (post) post.IsWatched = w }"
     />
+    <div v-if="post" class="post-detail__presence">
+      <PresenceBadge scene="post" :target-id="post.PostID" label="正在看" />
+    </div>
     <section v-if="post && lottery" class="lottery-detail-wrap">
       <LotteryDetailBox
         :post-i-d="post.PostID"
@@ -263,6 +267,15 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
+.post-detail__presence {
+  display: flex;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  width: 93.75%;
+  max-width: 100%;
+  margin: 6px auto 2px;
+}
+
 .lottery-detail-wrap {
   box-sizing: border-box;
   width: 93.75%;

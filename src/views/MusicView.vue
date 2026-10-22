@@ -7,6 +7,7 @@ import { getMusicList } from '@/api/music/getMusicList'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import UploadDialog from '@/components/music/UploadDialog.vue'
+import PresenceBadge from '@/components/PresenceBadge.vue'
 import { formatDuration, musicCoverOrDefault, useMusicStore } from '@/store/musicStore'
 
 const PAGE_SIZE = 20
@@ -144,6 +145,14 @@ const emptyHint = computed(() =>
       </div>
     </div>
 
+    <div class="music-view__presence">
+      <PresenceBadge
+        scene="music"
+        :target-id="isPlaying && current ? current.musicID : 0"
+        label="正在听"
+      />
+    </div>
+
     <div
       v-if="isLoading"
       class="loading"
@@ -269,6 +278,11 @@ $accent: #ec4141;
   max-width: 960px;
   margin: 0 auto;
   padding: 16px 12px 32px;
+}
+
+.music-view__presence {
+  display: flex;
+  margin: -4px 0 12px;
 }
 
 .page-head {

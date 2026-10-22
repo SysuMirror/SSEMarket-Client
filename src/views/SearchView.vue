@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { UserSearchUser } from '@/api/search/searchUsers'
 import type { Partitions } from '@/store/postStore'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
@@ -10,9 +11,12 @@ import {
 
 import { useRoute } from 'vue-router'
 import { searchRagPosts } from '@/api/ragSearch'
+import { searchUsers } from '@/api/search/searchUsers'
 import AppDatetimePicker from '@/components/AppDatetimePicker.vue'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
+import PresenceBadge from '@/components/PresenceBadge.vue'
+import UserSearchCard from '@/components/search/UserSearchCard.vue'
 import { usePostView } from '@/composables/usePostView'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
@@ -31,6 +35,26 @@ const isSmartMode = ref(false)
 const smartLoading = ref(false)
 const smartError = ref('')
 const initialized = ref(false)
+const userResults = ref<UserSearchUser[]>([])
+const userLoading = ref(false)
+let userSearchSeq = 0
+
+/** 顶部「相关用户」卡片：与帖子搜索并行，失败不影响帖子结果。 */
+async function loadUserCards() {
+  const query = keyword.value.trim()
+  const seq = ++userSearchSeq
+  if (!query) {
+    userResults.value = []
+    userLoading.value = false
+    return
+  }
+  userLoading.value = true
+  const users = await searchUsers(query, 3)
+  if (seq !== userSearchSeq)
+    return
+  userResults.value = users
+  userLoading.value = false
+}
 
 async function runSearch() {
   isSmartMode.value = false
@@ -86,6 +110,7 @@ async function initializeFromRoute() {
     return showMsg('未知的搜索')
   const sinfo = query.sinfo as string
   keyword.value = sinfo
+  void loadUserCards()
   isDense.value = false
   timeFrom.value = ''
   timeTo.value = ''
@@ -145,10 +170,29 @@ watch(
       <h2 class="search-page__title">
         搜索
       </h2>
+      <PresenceBadge />
       <p v-if="keyword && !isSmartMode" class="search-page__keyword">
         关键词：<span>{{ keyword }}</span>
       </p>
     </header>
+
+    <section
+      v-if="userResults.length || userLoading"
+      class="search-page__users"
+      aria-label="相关用户"
+    >
+      <h3 class="search-page__section-title">
+        相关用户
+      </h3>
+      <p v-if="userLoading && !userResults.length" class="search-page__users-status">
+        正在查找相关用户...
+      </p>
+      <UserSearchCard
+        v-for="user in userResults"
+        :key="user.userID"
+        :user="user"
+      />
+    </section>
 
     <section v-if="!isSmartMode" class="search-page__filter" aria-label="发帖时间筛选">
       <p class="search-page__filter-label">
@@ -259,6 +303,29 @@ watch(
     color: var(--chat-accent);
     font-weight: 600;
   }
+}
+
+.search-page__users {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.search-page__section-title {
+  margin: 0;
+  color: var(--chat-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.search-page__users-status {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--chat-border);
+  border-radius: 10px;
+  color: var(--chat-text-tips);
+  font-size: 0.8125rem;
 }
 
 .search-page__filter {

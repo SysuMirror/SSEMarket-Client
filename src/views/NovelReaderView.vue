@@ -13,6 +13,7 @@ import {
 } from '@/api/novel'
 import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
+import PresenceBadge from '@/components/PresenceBadge.vue'
 import { useUserStore } from '@/store/userStore'
 import { novelBookPath } from '@/utils/novelRoute'
 import { formatNovelTime, formatWordCount, novelParagraphExcerpt, novelParagraphImage } from '@/utils/novelText'
@@ -745,6 +746,9 @@ onUnmounted(() => {
         <span class="novel-reader__dot">·</span>
         <span>{{ detail.chapter.commentNum }}条段评</span>
       </p>
+      <div class="novel-reader__presence">
+        <PresenceBadge scene="novel" :target-id="detail.novelID" label="正在读" compact />
+      </div>
 
       <p
         v-for="p in paragraphs"
@@ -1119,6 +1123,17 @@ onUnmounted(() => {
 .novel-reader__dot {
   margin: 0 4px;
   opacity: 0.6;
+}
+
+.novel-reader__presence {
+  /* 阅读器有褐/夜间主题，把徽标的 chat-* 变量映射到当前主题的 color-* 变量 */
+  --chat-bg-highlight: var(--color-bg);
+  --chat-border: var(--color-border);
+  --chat-text: var(--color-text);
+  --chat-text-secondary: var(--color-text-secondary);
+  --chat-text-tips: var(--color-text-muted);
+
+  margin: -8px 0 18px;
 }
 
 /* 正文只负责选中：拖选 / 长按出「复制 · 发段评」菜单，段落本身不再是按钮。 */

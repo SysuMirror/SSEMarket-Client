@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getResumes } from '@/api/resume/getResumes'
 import ResumeCard from '@/components/card/ResumeCard.vue'
+import PresenceBadge from '@/components/PresenceBadge.vue'
 
 defineOptions({ name: 'ResumeView' })
 
@@ -65,6 +66,7 @@ watch(() => route.path, (path) => {
           上传与分享简历，支持 PDF、Word、图片格式
         </p>
       </div>
+      <PresenceBadge class="resume-page__presence" />
     </header>
 
     <div class="resume-page__toolbar">
@@ -137,6 +139,11 @@ watch(() => route.path, (path) => {
   align-items: flex-start;
   gap: 0.65rem;
   margin-bottom: 1rem;
+}
+
+.resume-page__presence {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .resume-page__head-icon {

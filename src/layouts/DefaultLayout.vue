@@ -13,9 +13,11 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 
 import { useChat } from '@/composables/useChat'
+import { usePresence } from '@/composables/usePresence'
 import { usePWA } from '@/composables/usePWA'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { useNoticeStore } from '@/store/noticeStore'
+import { useUserStore } from '@/store/userStore'
 import { showSnackbar } from '@/utils/snackbar'
 import IWikiFloatingEntry from '@/components/IWikiFloatingEntry.vue'
 
@@ -39,6 +41,16 @@ const { startPolling, stopPolling, newPostsNotification, hideNotification } = us
 
 const { connect, disconnect, chatNum } = useChat()
 const { desktopExperienceEnabled } = usePWA()
+const { isLogin, refreshToken } = useUserStore()
+const { start: startPresence, stop: stopPresence } = usePresence()
+
+/** 只给已登录（或可用 refresh token 续期）的用户发在线心跳；公开视频页的游客不发请求。 */
+function syncPresence() {
+  if (isLogin.value || refreshToken.value)
+    startPresence()
+  else
+    stopPresence()
+}
 
 const windowWidth = ref(window.innerWidth)
 const isPC = computed(() => {
@@ -107,6 +119,8 @@ const layoutFill = computed(() => Boolean(route.meta.layoutFill))
 
 onMounted(() => {
   connect()
+  // 全站在线心跳：整站一个循环，页面里的 PresenceBadge 只切换场景。
+  syncPresence()
   refreshNoticeNum()
   window.addEventListener('resize', updateWidth)
 
@@ -126,8 +140,11 @@ onUnmounted(() => {
 
   // 停止新帖子轮询
   stopPolling()
+  stopPresence()
   disconnect()
 })
+
+watch([isLogin, refreshToken], syncPresence)
 
 // 监听新帖子通知变化，显示Snackbar
 watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
