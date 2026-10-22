@@ -28,7 +28,7 @@ let badgeTokenSeq = 0
 const token = ++badgeTokenSeq
 
 const hasViewers = computed(() => props.scene !== 'home' && Number(props.targetID) > 0)
-const viewersLabel = computed(() => props.label || '本页')
+const viewersLabel = computed(() => props.label || '正在看')
 
 function applyTarget() {
   if (hasViewers.value)
@@ -51,11 +51,12 @@ onBeforeUnmount(() => releaseTarget(token))
     title="最近 2.5 分钟内有心跳的登录用户"
   >
     <span class="presence-badge__dot" aria-hidden="true" />
-    <span class="presence-badge__online">{{ online }} 人在线</span>
     <template v-if="hasViewers">
+      <span class="presence-badge__viewers">{{ viewers }} 人{{ viewersLabel }}</span>
       <span class="presence-badge__sep" aria-hidden="true">·</span>
-      <span class="presence-badge__viewers">{{ viewersLabel }} {{ viewers }} 人</span>
+      <span class="presence-badge__online">全站 {{ online }} 人在线</span>
     </template>
+    <span v-else class="presence-badge__online">全站 {{ online }} 人在线</span>
   </span>
 </template>
 
@@ -92,16 +93,16 @@ onBeforeUnmount(() => releaseTarget(token))
 }
 
 .presence-badge__online {
+  color: var(--chat-text-secondary);
+}
+
+.presence-badge__viewers {
   color: var(--chat-text);
   font-weight: 600;
 }
 
 .presence-badge__sep {
   color: var(--chat-text-tips);
-}
-
-.presence-badge__viewers {
-  color: var(--chat-text-secondary);
 }
 
 @keyframes presence-pulse {

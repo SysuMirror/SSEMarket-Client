@@ -149,7 +149,7 @@ const emptyHint = computed(() =>
       <PresenceBadge
         scene="music"
         :target-id="isPlaying && current ? current.musicID : 0"
-        label="正在听"
+        label="正在听这首歌"
       />
     </div>
 

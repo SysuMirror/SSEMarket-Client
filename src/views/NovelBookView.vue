@@ -364,7 +364,7 @@ onMounted(async () => {
           <span v-if="novel.latestChapterAt"> · {{ formatNovelTime(novel.latestChapterAt) }}</span>
         </p>
         <div class="novel-book__presence">
-          <PresenceBadge scene="novel" :target-id="novel.novelID" label="正在读" />
+          <PresenceBadge scene="novel" :target-id="novel.novelID" label="正在读本书" />
         </div>
       </div>
     </header>

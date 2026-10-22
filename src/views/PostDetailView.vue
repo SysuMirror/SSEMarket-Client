@@ -219,7 +219,7 @@ onMounted(async () => {
       @watch-change="(w) => { if (post) post.IsWatched = w }"
     />
     <div v-if="post" class="post-detail__presence">
-      <PresenceBadge scene="post" :target-id="post.PostID" label="正在看" />
+      <PresenceBadge scene="post" :target-id="post.PostID" label="正在看本帖" />
     </div>
     <section v-if="post && lottery" class="lottery-detail-wrap">
       <LotteryDetailBox

@@ -330,7 +330,7 @@ watch(() => route.params.id, () => {
         </div>
 
         <div class="fr__presence">
-          <PresenceBadge scene="resume" :target-id="resume.resumeID" label="正在看" />
+          <PresenceBadge scene="resume" :target-id="resume.resumeID" label="正在看这份简历" />
         </div>
 
         <div v-if="!isEditing" class="fr__actions">

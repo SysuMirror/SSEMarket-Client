@@ -747,7 +747,7 @@ onUnmounted(() => {
         <span>{{ detail.chapter.commentNum }}条段评</span>
       </p>
       <div class="novel-reader__presence">
-        <PresenceBadge scene="novel" :target-id="detail.novelID" label="正在读" compact />
+        <PresenceBadge scene="novel" :target-id="detail.novelID" label="正在读本书" compact />
       </div>
 
       <p
