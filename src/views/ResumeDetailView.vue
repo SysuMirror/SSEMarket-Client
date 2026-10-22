@@ -10,6 +10,7 @@ import { isResumeImageExt, isWeChatBrowser } from '@/api/resume/previewResume'
 import { updateResume } from '@/api/resume/updateResume'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
+import PresenceBadge from '@/components/PresenceBadge.vue'
 import ResumeImagePreview from '@/components/ResumeImagePreview.vue'
 import ResumePdfPreview from '@/components/ResumePdfPreview.vue'
 
@@ -328,6 +329,10 @@ watch(() => route.params.id, () => {
           </div>
         </div>
 
+        <div class="fr__presence">
+          <PresenceBadge scene="resume" :target-id="resume.resumeID" label="正在看这份简历" />
+        </div>
+
         <div v-if="!isEditing" class="fr__actions">
           <button
             v-if="canPreview"
@@ -599,6 +604,11 @@ watch(() => route.params.id, () => {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 4px;
+}
+
+.fr__presence {
+  display: flex;
+  margin-top: 10px;
 }
 
 .fr__stats {

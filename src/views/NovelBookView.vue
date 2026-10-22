@@ -19,6 +19,7 @@ import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
 import NovelCover from '@/components/novel/NovelCover.vue'
+import PresenceBadge from '@/components/PresenceBadge.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/store/userStore'
 import { novelReadPath, novelWritePath } from '@/utils/novelRoute'
@@ -362,6 +363,9 @@ onMounted(async () => {
           最新 {{ novel.latestChapterTitle }}
           <span v-if="novel.latestChapterAt"> · {{ formatNovelTime(novel.latestChapterAt) }}</span>
         </p>
+        <div class="novel-book__presence">
+          <PresenceBadge scene="novel" :target-id="novel.novelID" label="正在读本书" />
+        </div>
       </div>
     </header>
 
@@ -731,6 +735,11 @@ onMounted(async () => {
 .novel-book__dot {
   margin: 0 3px;
   opacity: 0.6;
+}
+
+.novel-book__presence {
+  display: flex;
+  margin-top: 6px;
 }
 
 .novel-book__actions {

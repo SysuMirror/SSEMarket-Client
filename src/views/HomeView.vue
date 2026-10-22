@@ -14,6 +14,7 @@ import {
 } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import PostList from '@/components/PostList.vue'
+import PresenceBadge from '@/components/PresenceBadge.vue'
 import { usePostView } from '@/composables/usePostView'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { usePostStore } from '@/store/postStore'
@@ -167,7 +168,10 @@ watch(() => route.query.refresh, async (newRefresh) => {
 <template>
   <div class="home-page">
     <header class="home-page__toolbar" aria-label="主页与排序">
-      <h1 class="home-page__title">主页</h1>
+      <div class="home-page__title-row">
+        <h1 class="home-page__title">主页</h1>
+        <PresenceBadge />
+      </div>
       <div class="home-page__sort" role="group" aria-label="帖子排序">
         <button
           v-for="opt in sortOptions"
@@ -219,6 +223,14 @@ watch(() => route.query.refresh, async (newRefresh) => {
   padding: 0;
   box-sizing: border-box;
   color: var(--color-text);
+}
+
+.home-page__title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
 }
 
 .home-page__toolbar {
