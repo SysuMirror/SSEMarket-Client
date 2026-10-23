@@ -6,7 +6,7 @@ import type {
   TimelineStep,
   TimelineUser,
 } from '@/composables/useOpsAgentStream'
-import { computed, ref } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import MarkdownContainer from '@/components/MarkdownContainer.vue'
 import PostDraftCard from './PostDraftCard.vue'
 
@@ -91,6 +91,21 @@ const thinkingLabel = computed(() => {
   const s = props.streamingElapsed ?? 0
   return s >= 15 ? `仍在等待回复（已等 ${s} 秒）` : '正在思考'
 })
+
+const reasoningRef = ref<HTMLElement | null>(null)
+
+const latestReasoning = computed(() => {
+  const last = turns.value[turns.value.length - 1]
+  return last?.assistant?.reasoning ?? ''
+})
+
+// 推理文本流式增长时让思考区跟随到底部；flush: 'post' 保证量到更新后的高度
+watchEffect(() => {
+  const reasoning = latestReasoning.value
+  const el = reasoningRef.value
+  if (el && reasoning)
+    el.scrollTop = el.scrollHeight
+}, { flush: 'post' })
 
 function onDraftUpdate(updated: TimelinePostDraft) {
   emit('draft-update', updated)
@@ -181,16 +196,33 @@ function canRate(a: TimelineAssistant | undefined): boolean {
               thinking: isThinking(turn.assistant.text, turn.assistant.status),
             }"
           >
-            <div v-if="isThinking(turn.assistant.text, turn.assistant.status)" class="typing" role="status">
-              <span class="typing-dots"><span /><span /><span /></span>
-              <span class="typing-label">{{ thinkingLabel }}</span>
+            <div v-if="isThinking(turn.assistant.text, turn.assistant.status)" class="thinking-box" role="status">
+              <div
+                v-if="turn.assistant.reasoning"
+                ref="reasoningRef"
+                class="reasoning-live"
+              >
+                {{ turn.assistant.reasoning }}
+              </div>
+              <div class="typing">
+                <span class="typing-dots"><span /><span /><span /></span>
+                <span class="typing-label">{{ thinkingLabel }}</span>
+              </div>
             </div>
-            <MarkdownContainer
-              v-else-if="turn.assistant.text"
-              variant="chat"
-              :markdown-content="markdownForAssistant(turn.assistant.text)"
-              open-links-in-new-tab
-            />
+            <template v-else>
+              <details v-if="turn.assistant.reasoning && turn.assistant.text" class="reasoning-details">
+                <summary>已深度思考（{{ turn.assistant.reasoning.length }} 字）</summary>
+                <div class="reasoning-live folded">
+                  {{ turn.assistant.reasoning }}
+                </div>
+              </details>
+              <MarkdownContainer
+                v-if="turn.assistant.text"
+                variant="chat"
+                :markdown-content="markdownForAssistant(turn.assistant.text)"
+                open-links-in-new-tab
+              />
+            </template>
             <time v-if="turn.assistant.time" class="bubble-time">{{ turn.assistant.time }}</time>
           </div>
 
@@ -560,6 +592,43 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   align-items: center;
   gap: 5px;
   height: 12px;
+}
+
+.thinking-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.reasoning-live {
+  width: min(64vw, 420px);
+  max-height: 132px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--xq-text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-right: 4px;
+}
+
+.reasoning-details {
+  margin: 0 0 8px;
+}
+
+.reasoning-details summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--xq-text-muted);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.reasoning-details .reasoning-live {
+  width: 100%;
+  max-height: 240px;
+  margin-top: 8px;
 }
 
 .typing-dots {

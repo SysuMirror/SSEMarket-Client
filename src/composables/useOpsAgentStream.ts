@@ -22,6 +22,8 @@ export interface TimelineAssistant {
   status: AssistantStatus
   /** 服务端 run_id（final 事件携带），消息赞/踩反馈绑定用 */
   runId?: string
+  /** 模型深度思考过程（reasoning 事件累计） */
+  reasoning?: string
 }
 
 /** 子专家中间摘要（SSE 无 round，带【标签】前缀） */
@@ -451,6 +453,14 @@ export function useOpsAgentStream(shareKey?: string) {
 
           if (eventName === 'ping')
             continue
+
+          if (eventName === 'reasoning') {
+            const assistant = ensureAssistantTail()
+            assistant.reasoning = (assistant.reasoning || '') + str(payload.text)
+            bump()
+            onAfterUpdate?.()
+            continue
+          }
 
           if (eventName === 'content' && num(payload.schema_version) === 2) {
             applyContentV2(payload, onAfterUpdate)
