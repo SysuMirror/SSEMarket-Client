@@ -20,9 +20,13 @@ import MarkdownContainer from './MarkdownContainer.vue'
 
 const props = withDefaults(
   defineProps<{
+    /** 提交请求进行中：禁用发送并显示「发送中」 */
     submitBusy?: boolean
+    /** 评论区等场景：更紧凑的工具栏与输入框 */
     compact?: boolean
+    /** 发帖页：占满父容器剩余高度 */
     fill?: boolean
+    /** 显示「插入音乐」按钮（发帖页），点击向父组件发 insert-music 事件 */
     musicEnabled?: boolean
     placeholder?: string
   }>(),
@@ -170,8 +174,6 @@ function insertAtCursor(text: string, selectOffset?: [number, number]) {
   })
 }
 
-defineExpose({ insertAtCursor })
-
 function prefixLines(marker: string, placeholder: string) {
   const el = textarea.value
   if (!el)
@@ -254,7 +256,7 @@ function applyFormat(kind: FormatKind) {
   }
 }
 
-/* ---------------- @ 职位提及（抽屉模式） ---------------- */
+/* ---------------- @ 职位提及（居中/轻量弹窗） ---------------- */
 
 const { staffAliases } = useStaffAliases()
 const mentionOpen = ref(false)
@@ -295,20 +297,21 @@ function nextMentionPage() {
 watch(mentionFilter, () => {
   mentionPage.value = 1
 })
+
 watch(mentionOpen, (open) => {
   if (open) {
     mentionPage.value = 1
     if (isPreview.value)
       isPreview.value = false
-    // 抽屉打开时，自动聚焦搜索框，方便用户快速筛选
-    nextTick(() => mentionInputRef.value?.focus())
+    // 聚焦时防止页面滚动
+    nextTick(() => mentionInputRef.value?.focus({ preventScroll: true }))
   }
 })
 
 function closeMention() {
   mentionOpen.value = false
   // 关闭后重新聚焦到输入框，保持连贯体验
-  nextTick(() => textarea.value?.focus())
+  nextTick(() => textarea.value?.focus({ preventScroll: true }))
 }
 
 function toggleMention() {
@@ -324,8 +327,8 @@ function pickStaffAlias(a: StaffAlias) {
   closeMention()
 }
 
-// 不需要再监听 document 的 click 事件，遮罩层直接搞定
-// 移除 handleDocClick, onMounted 里的监听, onBeforeUnmount 里的移除
+// 暴露关闭方法给父组件，方便父组件“收起”时同步关闭弹窗
+defineExpose({ insertAtCursor, closeMention })
 
 /* ---------------- 键盘 ---------------- */
 
@@ -718,12 +721,12 @@ watch(isPreview, (preview) => {
   pointer-events: none;
 }
 
-/* ---------- @ 抽屉/弹窗样式（全新） ---------- */
+/* ---------- @ 弹窗样式（全新） ---------- */
 
 .md-editor__mention-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99999; /* 极高的层级，确保覆盖所有内容 */
+  z-index: 99999;
   background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
@@ -802,7 +805,7 @@ watch(isPreview, (preview) => {
   padding: 0;
   overflow-y: auto;
   list-style: none;
-  min-height: 0; /* 关键：允许 flex 子项正常滚动 */
+  min-height: 0;
 }
 
 .md-editor__mention-row {
@@ -884,27 +887,43 @@ watch(isPreview, (preview) => {
   user-select: none;
 }
 
-/* 移动端适配：底部抽屉 */
+/* ---------- 移动端适配：居中弹窗 ---------- */
 @media screen and (max-width: 768px) {
   .md-editor__mention-overlay {
-    align-items: flex-end; /* 贴底 */
-  }
-  .md-editor__mention-drawer {
-    width: 100%;
-    max-width: none;
-    max-height: 75vh; /* 留出部分顶部空间 */
-    border-radius: 20px 20px 0 0;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom)); /* 适配 iPhone 底部安全区 */
-    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    align-items: center;
   }
   
-  @keyframes slideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
+  .md-editor__mention-drawer {
+    width: 90%;
+    max-width: 360px;
+    max-height: 60vh;
+    border-radius: 16px;
+    padding-bottom: 16px;
+    animation: fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  @keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
   }
 
   .md-editor__mention-item {
-    padding: 14px 10px; /* 移动端点击区域更大 */
+    padding: 14px 10px;
+  }
+}
+
+/* ---------- 桌面端适配：透明点击层，避免遮挡输入框 ---------- */
+@media screen and (min-width: 769px) {
+  .md-editor__mention-overlay {
+    background: transparent; /* 桌面端去掉暗色遮罩 */
+    backdrop-filter: none; /* 去掉模糊，避免干扰视觉 */
+  }
+  
+  .md-editor__mention-drawer {
+    width: 360px;
+    max-height: 400px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); /* 加强阴影，突出浮层 */
+    border: 1px solid var(--chat-border);
   }
 }
 
@@ -1024,7 +1043,7 @@ watch(isPreview, (preview) => {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 300px; /* 增加防塌陷兜底 */
   height: 100%;
 
   .md-editor__toolbar {
@@ -1110,28 +1129,9 @@ watch(isPreview, (preview) => {
   }
 }
 
-/* 移动端适配：改为居中弹窗，彻底避开底部导航栏遮挡 */
 @media screen and (max-width: 768px) {
-  .md-editor__mention-overlay {
-    align-items: center; /* 核心修改：改为居中，不再贴底 */
-  }
-  
-  .md-editor__mention-drawer {
-    width: 90%;
-    max-width: 360px;
-    max-height: 60vh; /* 限制最高高度，留出上下空间 */
-    border-radius: 16px; /* 恢复全圆角 */
-    padding-bottom: 16px; /* 移除底部的安全区额外留白 */
-    animation: fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  
-  @keyframes fadeInScale {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
-  }
-
-  .md-editor__mention-item {
-    padding: 14px 10px;
-  }
+  .md-editor__actions { justify-content: stretch; }
+  .md-editor__action { flex: 1; }
+  .md-editor__hint { display: none; }
 }
 </style>

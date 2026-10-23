@@ -230,15 +230,17 @@ watch(() => route.query.refresh, async (newRefresh) => {
 .home-page__title-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .home-page__toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 8px 14px;
   background: transparent;
@@ -255,12 +257,15 @@ watch(() => route.query.refresh, async (newRefresh) => {
 .home-page__sort {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  flex: 0 0 auto;
 }
 
 .home-page__sort-btn {
   display: inline-flex;
   align-items: center;
+  flex: none;
   gap: 2px;
   padding: 2px 0;
   font-size: 13px;
@@ -270,6 +275,7 @@ watch(() => route.query.refresh, async (newRefresh) => {
   background: transparent;
   border: none;
   cursor: pointer;
+  white-space: nowrap;
   transition: color 0.15s ease;
 
   &:hover {
@@ -290,5 +296,14 @@ watch(() => route.query.refresh, async (newRefresh) => {
   gap: 4px;
   padding-left: 12px;
   border-left: 1px solid var(--color-border, rgba(128, 128, 128, 0.25));
+}
+
+/* 窄屏：标题 + 在线人数独占一行，排序选项换到下一行并撑满宽度 */
+@media (max-width: 560px) {
+  .home-page__sort {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
 }
 </style>
