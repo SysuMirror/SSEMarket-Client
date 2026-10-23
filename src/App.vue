@@ -13,8 +13,13 @@ import TitleCustomizeModal from '@/components/TitleCustomizeModal.vue'
 import NowPlayingOverlay from '@/components/music/NowPlayingOverlay.vue'
 import PlayerBar from '@/components/music/PlayerBar.vue'
 import PlaylistDrawer from '@/components/music/PlaylistDrawer.vue'
+import FestivalSplash from '@/components/skin/FestivalSplash.vue'
+import SkinBackground from '@/components/skin/SkinBackground.vue'
+import SkinDecorLayer from '@/components/skin/SkinDecorLayer.vue'
+import { useSkin } from '@/composables/useSkin'
 
 const { setUserInfo, userInfo, token, refreshToken, setToken, setRefreshToken } = useUserStore()
+const { refreshThemeState } = useSkin()
 
 const isUserReady = ref(false)
 const showTitleModal = ref(false)
@@ -103,6 +108,12 @@ onBeforeMount(async () => {
     }
   }
   finally {
+    // 先拿到皮肤/活动状态再放行首屏：活动皮肤的开场画面要覆盖在站点首帧之上，
+    // 避免先闪一下默认皮肤。接口异常最多等 0.9s，不会长时间阻塞进入。
+    await Promise.race([
+      refreshThemeState(),
+      new Promise(resolve => setTimeout(resolve, 900)),
+    ])
     isUserReady.value = true
     void checkCustomTitleModal()
   }
@@ -114,10 +125,13 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <SkinBackground />
+  <SkinDecorLayer />
   <router-view v-if="isUserReady" />
   <TitleCustomizeModal v-if="showTitleModal" @saved="onTitleSaved" />
   <!-- 全局音乐播放器：跨路由续播，挂在 router-view 之外 -->
   <PlayerBar />
   <NowPlayingOverlay />
   <PlaylistDrawer />
+  <FestivalSplash />
 </template>

@@ -1,0 +1,58 @@
+/*
+ * 全站皮肤基础层（与具体节日无关）。
+ *
+ * SkinBackground 组件在 body 下铺一张 fixed 背景图；body/#app 必须透明/半透明，
+ * 否则背景图会被默认的 --color-bg 挡住。这里只做「让背景可见 + 保证文字可读」，
+ * 具体配色在 skins/ 对应的主题 CSS 里。
+ *
+ * 关闭背景（用户设置里关掉）时不会加 .skin-bg-active，页面完全保持原样。
+ */
+
+body.skin-bg-active {
+  /* 让 fixed 背景层透出来；半透明底色同时给文字一层柔和的对比底 */
+  background-color: transparent !important;
+  --color-bg: rgba(245, 246, 247, 0.74);
+}
+
+body.skin-bg-active #app {
+  background-color: transparent !important;
+}
+
+body.dark-mode.skin-bg-active {
+  --color-bg: rgba(15, 23, 42, 0.78);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skin-decor,
+  .skin-decor * {
+    animation: none !important;
+  }
+}
+
+/* 背景层 z-index:0，内容根节点抬到 1，避免 fixed 背景盖住内容。
+   只在有背景时生效，关闭背景不改变任何既有层叠关系。 */
+body.skin-bg-active .root {
+  position: relative;
+  z-index: 1;
+}
+
+/* 皮肤生效时内容根节点自成层叠上下文：背景层与两侧贴纸都在内容之下，
+   不会压住任何按钮或文字（关闭皮肤时完全不改原有层叠关系）。 */
+body[data-skin]:not([data-skin='']) .root {
+  position: relative;
+  z-index: 1;
+}
+
+/* 登录/注册页自身有一层不透明渐变；有背景时让它半透明，节日背景能透出来。
+   卡片本身仍是实色，输入框与文字对比度不受影响。 */
+body.skin-bg-active .auth-shell {
+  background:
+    radial-gradient(120% 85% at 50% -25%, rgba(255, 255, 255, 0.46), transparent 52%),
+    linear-gradient(165deg, rgba(246, 250, 255, 0.56) 0%, rgba(243, 248, 255, 0.66) 38%, rgba(240, 246, 255, 0.7) 100%);
+}
+
+body.dark-mode.skin-bg-active .auth-shell {
+  background:
+    radial-gradient(120% 85% at 50% -25%, rgba(42, 71, 120, 0.28), transparent 52%),
+    linear-gradient(165deg, rgba(10, 19, 35, 0.7) 0%, rgba(10, 19, 35, 0.78) 38%, rgba(10, 19, 35, 0.82) 100%);
+}
