@@ -238,6 +238,13 @@ function dismiss() {
   }
 }
 
+/* 手机端首页空间紧张，横幅容易像系统通知；节日元素由开场画面/背景承载。 */
+@media (max-width: 768px) {
+  .festival-banner {
+    display: none;
+  }
+}
+
 @media (max-width: 380px) {
   .festival-banner {
     gap: 8px;
@@ -255,7 +262,7 @@ function dismiss() {
   }
 }
 
-:global(body.dark-mode) .festival-banner {
+body.dark-mode .festival-banner {
   border-color: rgba(122, 167, 255, 0.24);
   background:
     radial-gradient(120% 160% at 100% 0%, rgba(86, 126, 196, 0.24) 0%, rgba(86, 126, 196, 0) 55%),
@@ -264,21 +271,21 @@ function dismiss() {
   color: #dce8ff;
 }
 
-:global(body.dark-mode) .festival-banner__title {
+body.dark-mode .festival-banner__title {
   color: #e8f0ff;
 }
 
-:global(body.dark-mode) .festival-banner__eyebrow,
-:global(body.dark-mode) .festival-banner__link {
+body.dark-mode .festival-banner__eyebrow,
+body.dark-mode .festival-banner__link {
   color: #9cbcff;
 }
 
-:global(body.dark-mode) .festival-banner__hint,
-:global(body.dark-mode) .festival-banner__close {
+body.dark-mode .festival-banner__hint,
+body.dark-mode .festival-banner__close {
   color: #8fa8cc;
 }
 
-:global(body.dark-mode) .festival-banner__code {
+body.dark-mode .festival-banner__code {
   color: rgba(156, 188, 255, 0.08);
 }
 </style>

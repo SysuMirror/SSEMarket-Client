@@ -22,6 +22,37 @@ body.dark-mode.skin-bg-active {
   --color-bg: rgba(15, 23, 42, 0.78);
 }
 
+/*
+ * 全局卡片透出背景图：有全站背景时，所有用 --color-card 的卡片
+ * （帖子卡片、设置分组、弹窗等）统一使用同一个不透明度，用户可在
+ * 「设置 → 外观」里调（CSS 变量 --post-card-alpha 由 useSkin 下发）。
+ * 关闭背景时不生效，页面完全保持原样。
+ */
+:root {
+  --skin-card-rgb: 255 255 255;
+}
+
+body.dark-mode {
+  --skin-card-rgb: 30 41 59;
+}
+
+body.skin-bg-active {
+  --color-card: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
+}
+
+/*
+ * 主页工具栏（标题、在线人数、排序）原本是透明底，直接压在背景人物/文字上
+ * 会看不清。皮肤背景开启时补一层半透明面板 + 细边框，保证对比度。
+ */
+body.skin-bg-active .home-page__toolbar {
+  border: 1px solid rgb(var(--skin-card-rgb) / 0.6);
+  border-radius: 14px;
+  background: rgb(var(--skin-card-rgb) / 0.72);
+  box-shadow: 0 4px 16px rgba(47, 91, 184, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skin-decor,
   .skin-decor * {

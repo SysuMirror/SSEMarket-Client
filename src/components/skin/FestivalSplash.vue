@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSkin } from '@/composables/useSkin'
 
@@ -105,8 +104,12 @@ onBeforeUnmount(() => {
             SSE 集市 · 10.24
           </span>
           <button type="button" class="skin-splash__skip" @click="skip">
-            跳过
-            <Icon icon="tabler:player-skip-forward" width="16" height="16" aria-hidden="true" />
+            <span>跳过</span>
+            <!-- 内联图标：不依赖外部 icon 服务，避免加载失败后按钮里留空位 -->
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 5.6v12.8l9.2-6.4z" fill="currentColor" />
+              <path d="M17.8 5.5v13" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" />
+            </svg>
           </button>
         </div>
 
@@ -234,7 +237,9 @@ onBeforeUnmount(() => {
 .skin-splash__skip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  flex-shrink: 0;
   min-height: 40px;
   padding: 0 14px;
   border: 1px solid rgba(61, 111, 214, 0.22);
@@ -310,14 +315,22 @@ onBeforeUnmount(() => {
   to { transform: scaleX(1); }
 }
 
-.skin-splash-enter-active,
+/* 自动进入（不点跳过）时整层渐隐到站点，而不是瞬间消失。 */
+.skin-splash-enter-active {
+  transition: opacity 280ms ease;
+}
+
 .skin-splash-leave-active {
-  transition: opacity 260ms ease;
+  transition: opacity 480ms ease, transform 480ms ease;
 }
 
 .skin-splash-enter-from,
 .skin-splash-leave-to {
   opacity: 0;
+}
+
+.skin-splash-leave-to {
+  transform: scale(1.012);
 }
 
 @media (max-width: 768px) {

@@ -33,6 +33,8 @@ export interface ThemeSettings {
   backgroundEnabled: boolean
   backgroundSource: ThemeBackgroundSource
   customBackgroundUrl: string
+  /** 帖子卡片不透明度 0-100；仅在全站背景开启时生效，默认 70。 */
+  postCardOpacity: number
   updatedAt?: string
 }
 
@@ -50,6 +52,18 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   backgroundEnabled: true,
   backgroundSource: 'default',
   customBackgroundUrl: '',
+  postCardOpacity: 70,
+}
+
+/** 帖子卡片透明度允许范围（与后端校验保持一致）。 */
+export const POST_CARD_OPACITY_MIN = 30
+export const POST_CARD_OPACITY_MAX = 100
+
+export function clampPostCardOpacity(value: unknown, fallback = DEFAULT_THEME_SETTINGS.postCardOpacity): number {
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num))
+    return fallback
+  return Math.min(POST_CARD_OPACITY_MAX, Math.max(POST_CARD_OPACITY_MIN, Math.round(num)))
 }
 
 function bool(value: unknown, fallback: boolean): boolean {
@@ -69,6 +83,7 @@ export function normalizeThemeSettings(raw: unknown): ThemeSettings {
     backgroundEnabled: bool(d.backgroundEnabled, DEFAULT_THEME_SETTINGS.backgroundEnabled),
     backgroundSource: source === 'custom' ? 'custom' : 'default',
     customBackgroundUrl: text(d.customBackgroundUrl, ''),
+    postCardOpacity: clampPostCardOpacity(d.postCardOpacity),
     updatedAt: typeof d.updatedAt === 'string' ? d.updatedAt : undefined,
   }
 }
@@ -142,6 +157,7 @@ export async function saveThemeSettings(settings: ThemeSettings): Promise<SaveTh
         backgroundEnabled: settings.backgroundEnabled,
         backgroundSource: settings.backgroundSource,
         customBackgroundUrl: settings.customBackgroundUrl,
+        postCardOpacity: clampPostCardOpacity(settings.postCardOpacity),
       },
     }, true)
     if (!res)
@@ -152,7 +168,11 @@ export async function saveThemeSettings(settings: ThemeSettings): Promise<SaveTh
     return {
       ok: true,
       msg: json.msg || '已保存',
-      settings: json.data?.settings ? normalizeThemeSettings(json.data.settings) : null,
+      // 以提交值为底、服务端返回值为准：服务端暂未返回的字段（如灰度期的
+      // postCardOpacity）不会把用户刚拖好的值顶回默认。
+      settings: json.data?.settings
+        ? normalizeThemeSettings({ ...settings, ...(json.data.settings as Record<string, unknown>) })
+        : null,
     }
   }
   catch (e) {

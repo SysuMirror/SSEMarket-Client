@@ -53,11 +53,11 @@ const { backgroundSources } = useSkin()
     radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.24), transparent 62%);
 }
 
-:global(body.dark-mode) .skin-background {
+body.dark-mode .skin-background {
   background: #0b1424;
 }
 
-:global(body.dark-mode) .skin-background__scrim {
+body.dark-mode .skin-background__scrim {
   background:
     linear-gradient(180deg, rgba(8, 15, 30, 0.5) 0%, rgba(8, 15, 30, 0.62) 55%, rgba(8, 15, 30, 0.74) 100%),
     radial-gradient(120% 80% at 50% 0%, rgba(26, 45, 80, 0.2), transparent 62%);

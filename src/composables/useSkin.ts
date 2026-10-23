@@ -1,6 +1,7 @@
 import { computed, reactive, ref, watch, watchEffect } from 'vue'
 import type { ThemeEvent, ThemeSettings } from '@/api/theme/theme'
 import {
+  clampPostCardOpacity,
   DEFAULT_THEME_SETTINGS,
   fetchThemeState,
   normalizeThemeSettings,
@@ -299,6 +300,11 @@ function resetThemeModeToAuto(): Promise<UpdateResult> {
   return updatePrefs({ themeMode: 'auto' })
 }
 
+/** 帖子卡片不透明度（30-100）：调小让全站背景图更明显。 */
+function setPostCardOpacity(value: number): Promise<UpdateResult> {
+  return updatePrefs({ postCardOpacity: clampPostCardOpacity(value) })
+}
+
 let initialized = false
 
 /**
@@ -311,10 +317,15 @@ export function initSkin() {
   initialized = true
 
   // 背景层需要 body 透明 + 主题 class；data-skin 为空表示默认皮肤。
+  // 帖子卡片透明度以 CSS 变量下发，由 skin-base.css 在「有全站背景」时应用到帖子卡片。
   watchEffect(() => {
     const themeID = effectiveThemeId.value
     document.body.dataset.skin = themeID === DEFAULT_THEME_ID ? '' : themeID
     document.body.classList.toggle('skin-bg-active', hasBackground.value)
+    document.documentElement.style.setProperty(
+      '--post-card-alpha',
+      String(clampPostCardOpacity(state.prefs.postCardOpacity) / 100),
+    )
   })
 
   // 跨零点自动结束活动 / 跨零点自动开始活动：30s 推进一次时钟即可。
@@ -358,5 +369,6 @@ export function useSkin() {
     setCustomBackground,
     clearCustomBackground,
     resetThemeModeToAuto,
+    setPostCardOpacity,
   }
 }

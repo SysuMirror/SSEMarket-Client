@@ -3,7 +3,9 @@ import { Icon } from '@iconify/vue'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ModeButton from '@/components/ModeButton.vue'
+import SkinNavIcon from '@/components/skin/SkinNavIcon.vue'
 import { useHeaderSearch } from '@/composables/useHeaderSearch'
+import { useSkin } from '@/composables/useSkin'
 import { useUserStore } from '@/store/userStore'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
 
@@ -30,6 +32,10 @@ const {
 } = useHeaderSearch(sinfo)
 const defaultAvatar = computed(() => defaultAvatarFor(userInfo.userID))
 const headerAvatarSrc = ref('')
+
+// 程序员节皮肤生效时，侧边栏换成皮肤专属图标（贴纸风格）。
+const { activeSkin } = useSkin()
+const skinNavActive = computed(() => activeSkin.value?.id === 'programmers-day-2026')
 
 watch(
   () => userInfo.avatarURL,
@@ -74,63 +80,76 @@ function goBack() {
 
 <template>
   <!-- PWA模式下的常驻侧边栏菜单 -->
-  <div class="pwa-sidebar" :class="{ collapsed: !isMenuOpen }">
+  <div class="pwa-sidebar" :class="{ collapsed: !isMenuOpen, 'skin-nav': skinNavActive }">
     <div class="sidebar-header" />
     <div class="sidebar-links">
       <router-link to="/" :class="{ 'router-link-active': router.currentRoute.value.name === 'Home' }" active-class="">
-        <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=59809&format=png&color=000000);" />
+        <SkinNavIcon v-if="skinNavActive" name="home" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=59809&format=png&color=000000);" />
         <span>首页</span>
       </router-link>
       <router-link to="/post">
-        <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=89802&format=png&color=000000); background-size: 90% 90%;" />
+        <SkinNavIcon v-if="skinNavActive" name="post" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=89802&format=png&color=000000); background-size: 90% 90%;" />
         <span>发帖</span>
       </router-link>
       <router-link to="/partitions">
-        <div class="icon" style="background-image: url(https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/src/images/uploads/1729566876258317319_icons8-top-wide-sidebar-followed-by-partition-at-bottom-24.png); background-size: 80% 80%;" />
+        <SkinNavIcon v-if="skinNavActive" name="partitions" />
+        <div v-else class="icon" style="background-image: url(https://sse-market-source-1320172928.cos.ap-guangzhou.myqcloud.com/src/images/uploads/1729566876258317319_icons8-top-wide-sidebar-followed-by-partition-at-bottom-24.png); background-size: 80% 80%;" />
         <span>分区</span>
       </router-link>
       <router-link to="/course">
-        <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=85872&format=png&color=000000); background-size: 95% 95%;" />
+        <SkinNavIcon v-if="skinNavActive" name="course" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=85872&format=png&color=000000); background-size: 95% 95%;" />
         <span>课程专区</span>
       </router-link>
       <router-link to="/feedback">
-        <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=85500&format=png&color=000000);" />
+        <SkinNavIcon v-if="skinNavActive" name="feedback" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=85500&format=png&color=000000);" />
         <span>反馈</span>
       </router-link>
       <router-link to="/shop">
-        <div class="icon" style="background-image: url(https://img.icons8.com/ios-filled/100/shopping-bag.png);" />
+        <SkinNavIcon v-if="skinNavActive" name="shop" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/ios-filled/100/shopping-bag.png);" />
         <span>闲置</span>
       </router-link>
       <router-link to="/music">
-        <div class="icon" style="background-image: url(https://img.icons8.com/ios-filled/100/music.png);" />
+        <SkinNavIcon v-if="skinNavActive" name="music" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/ios-filled/100/music.png);" />
         <span>音乐</span>
       </router-link>
       <router-link to="/rating">
-        <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=60985&format=png&color=000000);" />
+        <SkinNavIcon v-if="skinNavActive" name="rating" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=60985&format=png&color=000000);" />
         <span>打分</span>
       </router-link>
       <router-link to="/novel">
         <div class="icon-wrapper">
-          <Icon icon="tabler:book-2" class="sidebar-novel-icon" width="22" height="22" aria-hidden="true" />
+          <SkinNavIcon v-if="skinNavActive" name="novel" />
+          <Icon v-else icon="tabler:book-2" class="sidebar-novel-icon" width="22" height="22" aria-hidden="true" />
         </div>
         <span>小说</span>
       </router-link>
       <router-link to="/smart-xiaoqiu">
+        <!-- 小秋是独立角色，保持原图标，不套用节日贴纸形象 -->
         <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=59695&format=png&color=000000); background-size: 90% 90%;" />
         <span>小秋</span>
       </router-link>
       <div class="sidebar-divider" />
       <router-link to="/save">
-        <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=85185&format=png&color=000000);" />
+        <SkinNavIcon v-if="skinNavActive" name="save" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=85185&format=png&color=000000);" />
         <span>收藏</span>
       </router-link>
       <router-link to="/history">
-        <div class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=83976&format=png&color=000000); background-size: 90% 90%;" />
+        <SkinNavIcon v-if="skinNavActive" name="history" />
+        <div v-else class="icon" style="background-image: url(https://img.icons8.com/?size=100&id=83976&format=png&color=000000); background-size: 90% 90%;" />
         <span>历史</span>
       </router-link>
       <router-link to="/messages">
         <div class="icon-wrapper">
-          <Icon icon="tabler:messages" class="sidebar-messages-icon" width="22" height="22" aria-hidden="true" />
+          <SkinNavIcon v-if="skinNavActive" name="messages" />
+          <Icon v-else icon="tabler:messages" class="sidebar-messages-icon" width="22" height="22" aria-hidden="true" />
           <div v-if="unreadNoticeNum + unreadChatNum > 0" class="notice-num">
             {{ unreadNoticeNum + unreadChatNum > 99 ? '99+' : unreadNoticeNum + unreadChatNum }}
           </div>
@@ -139,7 +158,8 @@ function goBack() {
       </router-link>
       <div class="sidebar-bottom">
         <router-link to="/resume" class="sidebar-link-resume">
-          <Icon icon="tabler:file-cv" class="sidebar-resume-icon" width="22" height="22" aria-hidden="true" />
+          <SkinNavIcon v-if="skinNavActive" name="resume" />
+          <Icon v-else icon="tabler:file-cv" class="sidebar-resume-icon" width="22" height="22" aria-hidden="true" />
           <span>简历专区</span>
         </router-link>
         <router-link to="/options">
@@ -559,6 +579,58 @@ body.dark-mode .sidebar-resume-icon {
   background-size: contain;
   background-position: 0px 3px;
   display: inline-block;
+}
+
+/* 皮肤专属侧边栏：贴纸风强调色、圆角高亮与左侧色条 */
+.pwa-sidebar.skin-nav {
+  background: rgba(244, 249, 255, 0.88);
+  border-right: 1px solid rgba(61, 111, 214, 0.12);
+  box-shadow: 2px 0 18px rgba(47, 91, 184, 0.14);
+}
+
+.pwa-sidebar.skin-nav .sidebar-links a:hover {
+  background: rgba(61, 111, 214, 0.08);
+}
+
+.pwa-sidebar.skin-nav .sidebar-links a.router-link-active:not([active-class='']) {
+  background: rgba(61, 111, 214, 0.13);
+}
+
+.pwa-sidebar.skin-nav .sidebar-links a.router-link-active:not([active-class=''])::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--skin-accent, #3d6fd6);
+}
+
+.pwa-sidebar.skin-nav .sidebar-links a span {
+  color: #1e335c;
+  font-weight: 500;
+}
+
+.pwa-sidebar.skin-nav .sidebar-divider {
+  background: rgba(61, 111, 214, 0.14);
+}
+
+.pwa-sidebar.skin-nav :deep(.skin-nav-icon) {
+  transition: transform 0.18s ease;
+}
+
+.pwa-sidebar.skin-nav .sidebar-links a:hover :deep(.skin-nav-icon) {
+  transform: translateY(-1px) rotate(-2deg);
+}
+
+.dark-mode .pwa-sidebar.skin-nav {
+  background: rgba(12, 22, 40, 0.9);
+  border-right-color: rgba(122, 167, 255, 0.16);
+}
+
+.dark-mode .pwa-sidebar.skin-nav .sidebar-links a span {
+  color: #dce8ff;
 }
 
 /* 暗色模式 */

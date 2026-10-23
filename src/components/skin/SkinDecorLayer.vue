@@ -101,7 +101,7 @@ const decor = computed(() => {
   }
 }
 
-:global(body.dark-mode) .skin-decor__item {
+body.dark-mode .skin-decor__item {
   background: rgba(30, 41, 59, 0.82);
   border-color: rgba(122, 167, 255, 0.18);
   box-shadow:
@@ -109,8 +109,8 @@ const decor = computed(() => {
     0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-:global(body.pwa-sidebar-open) .skin-decor__item--left-top,
-:global(body.pwa-sidebar-open) .skin-decor__item--left-bottom {
+body.pwa-sidebar-open .skin-decor__item--left-top,
+body.pwa-sidebar-open .skin-decor__item--left-bottom {
   display: none;
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { uploadPhoto } from '@/api/editPostAndComment/utils'
+import { clampPostCardOpacity, POST_CARD_OPACITY_MAX, POST_CARD_OPACITY_MIN } from '@/api/theme/theme'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import { SettingsToggle } from '@/components/settings'
@@ -35,10 +36,17 @@ const {
   setBackgroundSource,
   setCustomBackground,
   clearCustomBackground,
+  setPostCardOpacity,
 } = useSkin()
 
 const bgFileInput = useTemplateRef<HTMLInputElement>('bgFileInput')
 const uploading = ref(false)
+const opacityDraft = ref(clampPostCardOpacity(state.prefs.postCardOpacity))
+
+watch(
+  () => state.prefs.postCardOpacity,
+  value => (opacityDraft.value = clampPostCardOpacity(value)),
+)
 
 const skinCards = computed(() => SKIN_LIST)
 const saving = computed(() => state.saving || uploading.value)
@@ -154,6 +162,25 @@ function openFilePicker() {
   if (saving.value)
     return
   bgFileInput.value?.click()
+}
+
+/** 拖动时先改 CSS 变量做即时预览，松手后再写服务端。 */
+function previewPostCardOpacity(value: number) {
+  document.documentElement.style.setProperty('--post-card-alpha', String(value / 100))
+}
+
+function onOpacityInput(event: Event) {
+  opacityDraft.value = clampPostCardOpacity((event.target as HTMLInputElement).value)
+  previewPostCardOpacity(opacityDraft.value)
+}
+
+async function onOpacityCommit() {
+  if (saving.value)
+    return
+  const result = await run(setPostCardOpacity(opacityDraft.value))
+  if (!result.ok)
+    opacityDraft.value = clampPostCardOpacity(state.prefs.postCardOpacity)
+  previewPostCardOpacity(opacityDraft.value)
 }
 
 async function onBackgroundFileChange(event: Event) {
@@ -409,6 +436,28 @@ function previewSplashScreen() {
           class="skin-bg-file"
           @change="onBackgroundFileChange"
         >
+      </div>
+
+      <div class="skin-opacity" :class="{ 'skin-opacity--disabled': !state.prefs.backgroundEnabled }">
+        <div class="skin-opacity__head">
+          <span class="skin-opacity__label">全站卡片不透明度</span>
+          <span class="skin-opacity__value">{{ opacityDraft }}%</span>
+        </div>
+        <input
+          class="skin-opacity__range"
+          type="range"
+          :min="POST_CARD_OPACITY_MIN"
+          :max="POST_CARD_OPACITY_MAX"
+          step="1"
+          :value="opacityDraft"
+          :disabled="saving || !state.prefs.backgroundEnabled"
+          aria-label="全站卡片不透明度"
+          @input="onOpacityInput"
+          @change="onOpacityCommit"
+        >
+        <p class="skin-settings__hint">
+          只在开启全站背景时生效：拖动时全站卡片实时生效，数值越小卡片越透明、背景图越明显。
+        </p>
       </div>
     </div>
 
@@ -849,6 +898,50 @@ function previewSplashScreen() {
   pointer-events: none;
 }
 
+.skin-opacity {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+
+  &--disabled {
+    opacity: 0.6;
+  }
+}
+
+.skin-opacity__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.skin-opacity__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.skin-opacity__value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.skin-opacity__range {
+  display: block;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
 .skin-sticker-wall {
   display: flex;
   gap: 8px;
@@ -912,19 +1005,19 @@ function previewSplashScreen() {
   }
 }
 
-:global(body.dark-mode) .skin-theme-card__thumb--default {
+body.dark-mode .skin-theme-card__thumb--default {
   background: linear-gradient(135deg, #1e293b, #243044);
 }
 
-:global(body.dark-mode) .skin-theme-card__thumb-bar {
+body.dark-mode .skin-theme-card__thumb-bar {
   background: #94a3b8;
 }
 
-:global(body.dark-mode) .skin-theme-card__thumb-block {
+body.dark-mode .skin-theme-card__thumb-block {
   background: #334155;
 }
 
-:global(body.dark-mode) .skin-sticker img {
+body.dark-mode .skin-sticker img {
   background: #f8fafc;
 }
 
