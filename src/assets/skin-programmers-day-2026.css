@@ -1,0 +1,110 @@
+/*
+ * 2026 程序员节限定皮肤配色。
+ *
+ * 只覆盖设计 Token，不改任何组件布局：
+ * 皮肤关闭 / 默认皮肤时 body[data-skin] 不匹配，所有规则自动失效。
+ * 以后换节日：复制本文件改配色，并换 src/skins/<id>/ 下的图片即可。
+ */
+
+body[data-skin="programmers-day-2026"] {
+  --skin-accent: #3d6fd6;
+  --skin-accent-strong: #2f5bb8;
+  --skin-accent-soft: rgba(61, 111, 214, 0.1);
+  --skin-ink: #1e335c;
+  --skin-gradient: linear-gradient(135deg, #eaf3ff 0%, #dbeaff 45%, #cfe3ff 100%);
+
+  --accent: var(--skin-accent);
+  --accent-hover: var(--skin-accent-strong);
+  --accent-soft: var(--skin-accent-soft);
+  --color-link: var(--skin-accent);
+  --color-link-hover: var(--skin-accent-strong);
+  --color-button-bg: var(--skin-accent);
+  --color-button-bg-hover: var(--skin-accent-strong);
+  --color-to-post-bg: var(--skin-accent);
+  --color-nav-active: var(--skin-accent);
+  --color-title-selected: var(--skin-accent);
+  --color-title-bg: var(--skin-accent-soft);
+  --color-a-in-post: var(--skin-accent);
+  --color-a-hover-in-post: var(--skin-accent-strong);
+  --color-a-hover-bg-in-post: var(--skin-accent-soft);
+  --color-selected-shadow-first: rgba(61, 111, 214, 0.16);
+  --color-selected-shadow-second: rgba(61, 111, 214, 0.1);
+  --color-user-avatar-bg: #d4e4ff;
+  --shop-tag-bg: var(--skin-accent-soft);
+  --shop-tag-text: var(--skin-accent);
+  --chat-accent: var(--skin-accent);
+  --chat-accent-soft: var(--skin-accent-soft);
+  --color-scroll-thumb: rgba(61, 111, 214, 0.32);
+}
+
+/* 节日背景之上再铺一层冷白蓝，保证正文对比度（背景图本身很浅）。 */
+body[data-skin="programmers-day-2026"].skin-bg-active {
+  --color-bg: rgba(246, 249, 255, 0.72);
+}
+
+body.dark-mode[data-skin="programmers-day-2026"] {
+  --skin-accent: #7aa7ff;
+  --skin-accent-strong: #9cbcff;
+  --skin-accent-soft: rgba(122, 167, 255, 0.14);
+  --skin-ink: #dce8ff;
+
+  --accent: var(--skin-accent);
+  --accent-hover: var(--skin-accent-strong);
+  --accent-soft: var(--skin-accent-soft);
+  --color-link: var(--skin-accent);
+  --color-link-hover: var(--skin-accent-strong);
+  --color-button-bg: #4173cf;
+  --color-button-bg-hover: #4d82e2;
+  --color-button: #ffffff;
+  --color-button-hover: #ffffff;
+  --color-to-post-bg: #4173cf;
+  --color-nav-active: var(--skin-accent);
+  --color-title-selected: var(--skin-accent);
+  --color-title-bg: var(--skin-accent-soft);
+  --color-a-in-post: var(--skin-accent);
+  --color-a-hover-in-post: var(--skin-accent-strong);
+  --color-a-hover-bg-in-post: var(--skin-accent-soft);
+  --color-selected-shadow-first: rgba(122, 167, 255, 0.24);
+  --color-selected-shadow-second: rgba(0, 0, 0, 0.3);
+  --shop-tag-bg: var(--skin-accent-soft);
+  --shop-tag-text: var(--skin-accent);
+  --chat-accent: var(--skin-accent);
+  --chat-accent-soft: var(--skin-accent-soft);
+}
+
+body.dark-mode[data-skin="programmers-day-2026"].skin-bg-active {
+  --color-bg: rgba(15, 23, 42, 0.8);
+}
+
+/* 顶栏下沿一条很淡的节日渐变线：有节日感但不抢内容。 */
+body[data-skin="programmers-day-2026"] .site-header-stack {
+  border-bottom: 1px solid rgba(61, 111, 214, 0.12);
+}
+
+body[data-skin="programmers-day-2026"] .site-header-stack::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(125, 173, 255, 0.55) 18%,
+    rgba(61, 111, 214, 0.65) 50%,
+    rgba(125, 173, 255, 0.55) 82%,
+    transparent 100%
+  );
+}
+
+body.dark-mode[data-skin="programmers-day-2026"] .site-header-stack::after {
+  opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-skin="programmers-day-2026"] .site-header-stack::after {
+    display: none;
+  }
+}

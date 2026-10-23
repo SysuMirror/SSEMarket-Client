@@ -13,6 +13,7 @@ import ApiTokenPanel from '@/components/ApiTokenPanel.vue'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsToggle } from '@/components/settings'
+import SkinSettings from '@/components/skin/SkinSettings.vue'
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/store/userStore'
 import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
@@ -399,6 +400,8 @@ async function logout() {
   localStorage.removeItem('email')
   localStorage.removeItem('password')
   localStorage.removeItem('rememberMe')
+  // 外观设置是账号级数据：退出时清掉本地镜像，避免下一个账号短暂继承
+  localStorage.removeItem('sse-theme-prefs-v1')
   setToken('')
   setRefreshToken('')
   router.push('/')
@@ -646,7 +649,12 @@ onMounted(() => {
       </SettingsExpander>
     </SettingsGroup>
 
-    <!-- 分组 4: 通用 -->
+    <!-- 分组 4: 外观（皮肤 / 开场画面 / 全站背景） -->
+    <SettingsGroup title="外观">
+      <SkinSettings />
+    </SettingsGroup>
+
+    <!-- 分组 5: 通用 -->
     <SettingsGroup title="通用">
       <SettingsToggle
         :model-value="isPushDisabled"
@@ -663,7 +671,7 @@ onMounted(() => {
       />
     </SettingsGroup>
 
-    <!-- 分组 5: 开发者(默认折叠) -->
+    <!-- 分组 6: 开发者(默认折叠) -->
     <SettingsGroup title="开发者">
       <SettingsExpander v-model:open="patOpen" label="个人访问令牌(PAT)" hint="用于 MCP 等对外调用">
         <ApiTokenPanel v-if="patOpen" />

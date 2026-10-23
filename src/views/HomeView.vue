@@ -15,6 +15,7 @@ import {
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import PostList from '@/components/PostList.vue'
 import PresenceBadge from '@/components/PresenceBadge.vue'
+import FestivalBanner from '@/components/skin/FestivalBanner.vue'
 import { usePostView } from '@/composables/usePostView'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { usePostStore } from '@/store/postStore'
@@ -167,6 +168,7 @@ watch(() => route.query.refresh, async (newRefresh) => {
 
 <template>
   <div class="home-page">
+    <FestivalBanner />
     <header class="home-page__toolbar" aria-label="主页与排序">
       <div class="home-page__title-row">
         <h1 class="home-page__title">主页</h1>
