@@ -37,9 +37,10 @@ body[data-skin="programmers-day-2026"] {
   --color-scroll-thumb: rgba(61, 111, 214, 0.32);
 }
 
-/* 节日背景之上再铺一层冷白蓝，保证正文对比度（背景图本身很浅）。 */
+/* 页面底只留很薄一层冷白蓝（与 skin-base 的卡片透明度配合），
+   避免把背景人物/脸部整体糊住；对比度交给卡片本身。 */
 body[data-skin="programmers-day-2026"].skin-bg-active {
-  --color-bg: rgba(246, 249, 255, 0.72);
+  --color-bg: rgb(var(--skin-card-rgb) / 0.22);
 }
 
 body.dark-mode[data-skin="programmers-day-2026"] {
@@ -73,7 +74,7 @@ body.dark-mode[data-skin="programmers-day-2026"] {
 }
 
 body.dark-mode[data-skin="programmers-day-2026"].skin-bg-active {
-  --color-bg: rgba(15, 23, 42, 0.8);
+  --color-bg: rgb(var(--skin-card-rgb) / 0.3);
 }
 
 /* 顶栏下沿一条很淡的节日渐变线：有节日感但不抢内容。 */

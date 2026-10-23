@@ -9,9 +9,9 @@
  */
 
 body.skin-bg-active {
-  /* 让 fixed 背景层透出来；半透明底色同时给文字一层柔和的对比底 */
+  /* 让 fixed 背景层透出来；页面底只留很薄一层，避免把背景图整体糊掉 */
   background-color: transparent !important;
-  --color-bg: rgba(245, 246, 247, 0.74);
+  --color-bg: rgb(var(--skin-card-rgb) / 0.22);
 }
 
 body.skin-bg-active #app {
@@ -19,7 +19,25 @@ body.skin-bg-active #app {
 }
 
 body.dark-mode.skin-bg-active {
-  --color-bg: rgba(15, 23, 42, 0.78);
+  --color-bg: rgb(var(--skin-card-rgb) / 0.3);
+}
+
+/*
+ * 其它页面的表面令牌也统一到同一个卡片透明度：工作台、消息/搜索、商城。
+ * 这样无论哪个页面，卡片都能透出背景图，调滑块时处处一致。
+ */
+body.skin-bg-active {
+  --chat-bg-main: rgb(var(--skin-card-rgb) / 0.22);
+  --chat-bg-highlight: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
+  --chat-bg-elevated: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
+  --shop-card-bg: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
+  --shop-section-bg: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
+  --shop-filter-bg: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
+}
+
+body.skin-bg-active .workbench {
+  --wb-bg: transparent;
+  --wb-card: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
 }
 
 /*
@@ -42,15 +60,25 @@ body.skin-bg-active {
 
 /*
  * 主页工具栏（标题、在线人数、排序）原本是透明底，直接压在背景人物/文字上
- * 会看不清。皮肤背景开启时补一层半透明面板 + 细边框，保证对比度。
+ * 会看不清。皮肤背景开启时补一层面板 + 细边框；不透明度跟卡片设置保持一致，
+ * 避免出现「上面实、下面透」的割裂感。背景模糊负责可读性，而不是靠加白。
  */
 body.skin-bg-active .home-page__toolbar {
-  border: 1px solid rgb(var(--skin-card-rgb) / 0.6);
+  border: 1px solid rgb(var(--skin-card-rgb) / 0.5);
   border-radius: 14px;
-  background: rgb(var(--skin-card-rgb) / 0.72);
+  background: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
   box-shadow: 0 4px 16px rgba(47, 91, 184, 0.08);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  /* 不做毛玻璃：雾化会把背景人物/脸部糊掉，只保留半透明底色 */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 顶部分区横条（主页/小秋/分区…）与卡片使用同一不透明度，避免上下割裂。 */
+body.skin-bg-active .partition-strip-wrap {
+  background: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));
+  border-bottom-color: rgb(var(--skin-card-rgb) / 0.35);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

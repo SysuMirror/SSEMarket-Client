@@ -502,7 +502,7 @@ onMounted(() => {
   padding: 14px 10px 12px;
   text-decoration: none;
   color: inherit;
-  background: #fff;
+  background: var(--color-card, #fff);
   border-radius: var(--rank-card-radius);
   box-shadow: var(--rank-card-shadow);
   border: 1px solid rgba(0, 0, 0, 0.04);
@@ -674,7 +674,7 @@ onMounted(() => {
   padding: 12px 14px;
   text-decoration: none;
   color: inherit;
-  background: #fff;
+  background: var(--color-card, #fff);
   border-radius: 14px;
   box-shadow: var(--rank-card-shadow);
   border: 1px solid rgba(0, 0, 0, 0.04);
@@ -846,7 +846,7 @@ onMounted(() => {
   align-items: center;
   padding: 48px 24px;
   text-align: center;
-  background: #fff;
+  background: var(--color-card, #fff);
   border-radius: var(--rank-card-radius);
   box-shadow: var(--rank-card-shadow);
   border: 1px solid rgba(0, 0, 0, 0.04);

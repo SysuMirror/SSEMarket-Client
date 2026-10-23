@@ -58,7 +58,7 @@ const sourceLabel = computed(() =>
   overflow: hidden;
   color: inherit;
   text-decoration: none;
-  background: #fff;
+  background: var(--color-card, #fff);
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   transition:
