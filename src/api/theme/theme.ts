@@ -38,7 +38,8 @@ export interface ThemeSettings {
 
 export interface ThemeState {
   serverTime: string
-  event: ThemeEvent
+  /** 活动表里没有可展示的期次时为 null（仍可手动选皮肤）。 */
+  event: ThemeEvent | null
   /** 游客为 null；登录用户没有保存过时后端返回默认值（非 null）。 */
   settings: ThemeSettings | null
 }
@@ -111,10 +112,8 @@ export async function fetchThemeState(): Promise<ThemeState | null> {
     if (!data)
       return null
     const event = normalizeEvent(data.event)
-    if (!event)
-      return null
     return {
-      serverTime: text(data.serverTime, event.serverTime),
+      serverTime: text(data.serverTime, event?.serverTime ?? ''),
       event,
       settings: data.settings == null ? null : normalizeThemeSettings(data.settings),
     }

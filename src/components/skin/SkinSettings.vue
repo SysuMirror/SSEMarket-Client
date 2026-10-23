@@ -77,8 +77,11 @@ const eventRange = computed(() => {
 
 const eventStatus = computed(() => {
   const e = event.value
-  if (!e)
-    return { text: '正在读取活动时间…', tone: 'muted' as const }
+  if (!e) {
+    return state.loading
+      ? { text: '正在读取活动时间…', tone: 'muted' as const }
+      : { text: '当前没有配置节日活动 · 可手动使用限定皮肤', tone: 'muted' as const }
+  }
   if (eventActive.value)
     return { text: '活动进行中 · 节日皮肤自动启用', tone: 'active' as const }
   const now = Date.now()

@@ -24,8 +24,8 @@
 3. 在 `src/skins/index.ts` 的 `SKINS` 数组里加一行。
 4. 加配色：复制 `src/assets/skin-programmers-day-2026.css`，把
    `body[data-skin="..."]` 的配色改成新节日色，并在 `src/main.ts` import。
-5. 后端 `domain/theme.go` 的 `themeEvents` 加一条时间窗，`ThemeID` 与前端 `id` 完全一致。
-   新增皮肤 ID 会被 `IsKnownThemeMode` 自动接受（无需改校验逻辑）。
+5. 后端往 `theme_events` 表插一行活动时间窗（北京时间墙钟，一行一期），
+   `theme_id` 与前端 `id` 完全一致；不需要改代码，也不需要重新迁移。
 
 ## 关键约定
 
@@ -34,8 +34,9 @@
 - **用户上传背景**：只接受图床返回的绝对 `http(s)` 地址（`src/utils/imageSource.ts`
   校验），后端 `domain.NormalizeThemeBackgroundURL` 二次校验。相对路径、`data:`、
   `blob:`、`javascript:` 一律拒绝，绝不把 public 路径写进用户设置。
-- **活动时间**：后端 `domain/theme.go` 用北京时间 `[10-24 00:00, 10-25 00:00)`，
+- **活动时间**：后端从 `theme_events` 表读取（北京时间墙钟，左闭右开），
   前端不自己写死日期；页面跨零点会自动结束（30s 时钟 tick）。
+  表为空时 `event=null`，只能手动选皮肤，不会自动换肤。
 - **用户的三种选择**：`auto` 跟随活动、`default` 强制默认、`<skinID>` 强制保留。
   保存于后端 `user_theme_settings`，本地 localStorage 只做首帧缓存。
 - **开场画面**：每个浏览器会话每套皮肤只自动出现一次，右上角「跳过」始终可用，

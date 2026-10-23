@@ -197,7 +197,7 @@ async function refreshThemeState(): Promise<void> {
       const result = await fetchThemeState()
       if (result) {
         state.event = result.event
-        const serverNow = Date.parse(result.serverTime || result.event.serverTime)
+        const serverNow = Date.parse(result.serverTime || result.event?.serverTime || '')
         if (Number.isFinite(serverNow))
           state.serverOffsetMs = serverNow - Date.now()
         // 游客 settings=null：保留本地缓存（默认仍是 auto）；
