@@ -105,4 +105,43 @@ async function updateEmailPush(user_id: number) {
     console.error(e)
   }
 }
-export { setCustomTitle, updateEmailPush, updateUserInfo, uploadAvatar }
+export interface ProfileBannerResult {
+  ok: boolean
+  msg: string
+  profileBannerUrl: string
+  profileBannerOpacity: number
+}
+
+/**
+ * 保存个人主页顶部栏板背景。
+ * bannerUrl 为空表示恢复默认渐变；opacity 0-100，所有访问者都按这个值显示。
+ */
+async function saveProfileBanner(bannerUrl: string, bannerOpacity: number): Promise<ProfileBannerResult> {
+  try {
+    const res = await requestFunc('/auth/profile/banner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: { bannerUrl, bannerOpacity },
+    }, true)
+    if (!res)
+      return { ok: false, msg: '登录状态已失效，请重新登录', profileBannerUrl: '', profileBannerOpacity: 100 }
+    const json = await res.json() as {
+      code?: number
+      msg?: string
+      data?: { profileBannerUrl?: unknown, profileBannerOpacity?: unknown }
+    }
+    if (json.code !== 200) {
+      return { ok: false, msg: json.msg || '保存失败', profileBannerUrl: '', profileBannerOpacity: 100 }
+    }
+    const url = typeof json.data?.profileBannerUrl === 'string' ? json.data.profileBannerUrl : bannerUrl
+    const rawOpacity = Number(json.data?.profileBannerOpacity)
+    const opacity = Number.isFinite(rawOpacity) ? Math.min(100, Math.max(0, Math.round(rawOpacity))) : bannerOpacity
+    return { ok: true, msg: json.msg || '已保存', profileBannerUrl: url, profileBannerOpacity: opacity }
+  }
+  catch (e) {
+    console.error('[profile] save banner failed', e)
+    return { ok: false, msg: '网络异常，请稍后重试', profileBannerUrl: '', profileBannerOpacity: 100 }
+  }
+}
+
+export { saveProfileBanner, setCustomTitle, updateEmailPush, updateUserInfo, uploadAvatar }

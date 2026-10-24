@@ -64,6 +64,8 @@ body.skin-bg-active {
  * 避免出现「上面实、下面透」的割裂感。背景模糊负责可读性，而不是靠加白。
  */
 body.skin-bg-active .home-page__toolbar {
+  /* 与顶部分区条留出呼吸位，避免圆角和半透明背景压在分区条下沿。 */
+  margin-top: 8px;
   border: 1px solid rgb(var(--skin-card-rgb) / 0.5);
   border-radius: 14px;
   background: rgb(var(--skin-card-rgb) / var(--post-card-alpha, 0.7));

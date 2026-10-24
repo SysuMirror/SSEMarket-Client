@@ -7,7 +7,9 @@ import { computed, nextTick, onBeforeMount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { fetchMyBadges, fetchUserBadges, saveBadgePreferences } from '@/api/badge/badge'
 import { getUserProfilePostNum, getUserProfilePosts } from '@/api/browse/getUserProfilePosts'
+import { uploadPhoto } from '@/api/editPostAndComment/utils'
 import { getInfoById, normalizeAllInfo } from '@/api/info/getInfo'
+import { saveProfileBanner } from '@/api/info/updateInfo'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { primeWornBadge } from '@/composables/useWornBadge'
@@ -56,6 +58,97 @@ const isSelf = computed(() => userInfo.userID === user.value?.userID)
 // 币余额仅本人可见（后端只在本人查看时返回 coins）
 const showCoins = computed(() => isSelf.value && user.value?.coins !== undefined)
 const coinRulesOpen = ref(false)
+
+// —— 主页栏板背景（主人上传/调不透明度，访客共用） ——
+const bannerSettingsOpen = ref(false)
+const bannerDraftUrl = ref('')
+const bannerDraftOpacity = ref(100)
+const bannerUploading = ref(false)
+const bannerSaving = ref(false)
+
+const savedBannerUrl = computed(() => user.value?.profileBannerUrl?.trim() || '')
+
+/** 弹窗打开时用草稿实时预览，关闭时用服务端保存值。 */
+const profileBannerStyle = computed<Record<string, string>>(() => {
+  const url = bannerSettingsOpen.value ? bannerDraftUrl.value.trim() : savedBannerUrl.value
+  const rawOpacity = bannerSettingsOpen.value
+    ? bannerDraftOpacity.value
+    : (user.value?.profileBannerOpacity ?? 100)
+  const opacity = Math.min(100, Math.max(0, Math.round(rawOpacity)))
+  const style: Record<string, string> = { opacity: String(opacity / 100) }
+  if (url)
+    style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`
+  return style
+})
+
+function openBannerSettings() {
+  bannerDraftUrl.value = savedBannerUrl.value
+  bannerDraftOpacity.value = Math.min(100, Math.max(0, Math.round(user.value?.profileBannerOpacity ?? 100)))
+  bannerSettingsOpen.value = true
+}
+
+function closeBannerSettings() {
+  if (bannerUploading.value || bannerSaving.value)
+    return
+  bannerSettingsOpen.value = false
+}
+
+async function onBannerFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file)
+    return
+  if (!file.type.startsWith('image/')) {
+    showMsg('请选择图片文件')
+    input.value = ''
+    return
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    showMsg('图片不能超过 15MB')
+    input.value = ''
+    return
+  }
+  bannerUploading.value = true
+  try {
+    const data = await uploadPhoto(file)
+    const url = (data?.fileURL || '').trim()
+    if (!/^https?:\/\//i.test(url)) {
+      showMsg('上传成功但未拿到有效的图床地址，请重试')
+      return
+    }
+    bannerDraftUrl.value = url
+  }
+  catch (e) {
+    console.error('[profile] upload banner failed', e)
+    showMsg('上传失败，请稍后重试')
+  }
+  finally {
+    bannerUploading.value = false
+    input.value = ''
+  }
+}
+
+async function saveBannerSettings() {
+  if (bannerSaving.value || bannerUploading.value)
+    return
+  bannerSaving.value = true
+  try {
+    const res = await saveProfileBanner(bannerDraftUrl.value.trim(), bannerDraftOpacity.value)
+    if (!res.ok) {
+      showMsg(res.msg || '保存失败')
+      return
+    }
+    if (user.value) {
+      user.value.profileBannerUrl = res.profileBannerUrl
+      user.value.profileBannerOpacity = res.profileBannerOpacity
+    }
+    bannerSettingsOpen.value = false
+    showMsg('主页背景已保存')
+  }
+  finally {
+    bannerSaving.value = false
+  }
+}
 
 // —— 勋章墙 ——
 const myBadges = ref<MyBadges | null>(null)
@@ -192,6 +285,8 @@ watch(
     publicBadges.value = null
     if (badgeManageOpen.value)
       badgeManageOpen.value = false
+    if (bannerSettingsOpen.value)
+      bannerSettingsOpen.value = false
     void loadBadges()
   },
 )
@@ -311,8 +406,18 @@ function onAvatarError(e: Event) {
 
 <template>
   <div v-if="user" class="profile-page">
-    <!-- 企业微信风格：顶部藏青色色块 -->
-    <div class="profile-banner" />
+    <!-- 企业微信风格：顶部藏青色色块（主人可换成图床图片并调透明度） -->
+    <div class="profile-banner-wrap">
+      <div class="profile-banner" :style="profileBannerStyle" />
+      <button
+        v-if="isSelf"
+        type="button"
+        class="profile-banner__edit"
+        @click="openBannerSettings"
+      >
+        设置背景
+      </button>
+    </div>
 
     <!-- 头像 + 名称区域：半悬浮在 banner 上 -->
     <div class="profile-avatar-zone">
@@ -432,7 +537,7 @@ function onAvatarError(e: Event) {
         </div>
       </div>
       <p v-else class="profile-badges__empty">
-        {{ isSelf ? '当前主页不展示勋章，点右侧「管理」调整' : '暂无勋章' }}
+        {{ ownedBadges.length ? '当前主页不展示勋章，点右侧「管理」调整' : (isSelf ? '还没有获得勋章' : '暂无勋章') }}
       </p>
     </section>
 
@@ -469,6 +574,96 @@ function onAvatarError(e: Event) {
       <p class="profile-hidden__hint">
         该用户关闭了动态展示
       </p>
+    </div>
+
+    <!-- 主页背景设置弹窗 -->
+    <div v-if="bannerSettingsOpen" class="banner-modal-mask" @click.self="closeBannerSettings">
+      <section class="banner-modal" role="dialog" aria-modal="true" aria-label="设置主页背景">
+        <header class="banner-modal__head">
+          <div>
+            <h2 class="banner-modal__title">
+              主页背景
+            </h2>
+            <p class="banner-modal__hint">
+              上传图床上图片；拖动不透明度时上方栏板实时预览，访客看到的是同一效果。
+            </p>
+          </div>
+          <button type="button" class="banner-modal__close" aria-label="关闭" @click="closeBannerSettings">
+            ×
+          </button>
+        </header>
+
+        <div class="banner-modal__body">
+          <div class="banner-modal__preview" :style="profileBannerStyle">
+            <span v-if="!bannerDraftUrl">默认渐变背景</span>
+          </div>
+
+          <div class="banner-modal__actions">
+            <label class="banner-modal__upload" :class="{ 'banner-modal__upload--busy': bannerUploading }">
+              <input
+                type="file"
+                accept="image/*"
+                class="banner-modal__file"
+                :disabled="bannerUploading || bannerSaving"
+                @change="onBannerFileChange"
+              >
+              {{ bannerUploading ? '上传中…' : (bannerDraftUrl ? '更换图片' : '上传图片') }}
+            </label>
+            <button
+              v-if="bannerDraftUrl"
+              type="button"
+              class="banner-modal__remove"
+              :disabled="bannerUploading || bannerSaving"
+              @click="bannerDraftUrl = ''"
+            >
+              移除图片
+            </button>
+          </div>
+
+          <div class="banner-modal__opacity">
+            <div class="banner-modal__opacity-head">
+              <span>背景不透明度</span>
+              <span class="banner-modal__opacity-value">{{ bannerDraftOpacity }}%</span>
+            </div>
+            <input
+              v-model.number="bannerDraftOpacity"
+              class="banner-modal__range"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              aria-label="主页背景不透明度"
+              :disabled="bannerSaving"
+            >
+            <div class="banner-modal__scale">
+              <span>越透明，越能看见全站背景</span>
+              <span>100% 完全不透明</span>
+            </div>
+          </div>
+          <p class="banner-modal__note">
+            建议使用 16:9 或更宽的横图（JPG/PNG，≤15MB）。图片会上传到图床，以绝对地址保存。
+          </p>
+        </div>
+
+        <footer class="banner-modal__foot">
+          <button
+            type="button"
+            class="banner-modal__btn"
+            :disabled="bannerUploading || bannerSaving"
+            @click="closeBannerSettings"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="banner-modal__btn banner-modal__btn--primary"
+            :disabled="bannerUploading || bannerSaving"
+            @click="saveBannerSettings"
+          >
+            {{ bannerSaving ? '保存中…' : '保存' }}
+          </button>
+        </footer>
+      </section>
     </div>
 
     <!-- 勋章管理弹窗 -->
@@ -619,12 +814,262 @@ function onAvatarError(e: Event) {
   background: var(--color-bg);
 }
 
-/* —— 顶部藏青色 banner —— */
+/* —— 顶部 banner：默认藏青渐变，主人可换成图床图片并调透明度 —— */
+.profile-banner-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .profile-banner {
   width: 100%;
   height: 120px;
   background: linear-gradient(135deg, var(--accent) 0%, #1e293b 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: opacity 0.2s ease;
+}
+
+.profile-banner__edit {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.38);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: #fff;
+  }
+}
+
+/* —— 主页背景设置弹窗 —— */
+.banner-modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.banner-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  border-radius: 16px;
+  background: var(--color-card, #fff);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+}
+
+.banner-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+}
+
+.banner-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.banner-modal__hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.banner-modal__close {
   flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 22px;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-border, rgba(71, 85, 105, 0.12));
+    color: var(--color-text);
+  }
+}
+
+.banner-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 18px;
+}
+
+.banner-modal__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent) 0%, #1e293b 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  overflow: hidden;
+  transition: opacity 0.15s ease;
+}
+
+.banner-modal__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.banner-modal__upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  &--busy {
+    opacity: 0.65;
+    pointer-events: none;
+  }
+}
+
+.banner-modal__file {
+  display: none;
+}
+
+.banner-modal__remove {
+  padding: 7px 14px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.2));
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-text-secondary, #475569);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--color-error, #ef4444);
+    color: var(--color-error, #ef4444);
+  }
+}
+
+.banner-modal__opacity {
+  margin-top: 16px;
+}
+
+.banner-modal__opacity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.banner-modal__opacity-value {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.banner-modal__range {
+  width: 100%;
+  margin: 10px 0 2px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.banner-modal__scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.banner-modal__note {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-text-secondary, #475569);
+}
+
+.banner-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+}
+
+.banner-modal__btn {
+  padding: 8px 18px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-text-secondary, #475569);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  &--primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+
+    &:not(:disabled):hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+  }
 }
 
 /* —— 头像区域 —— */
@@ -1355,12 +1800,21 @@ function onAvatarError(e: Event) {
     height: 56px;
   }
 
-  .badge-modal-mask {
+  .profile-banner__edit {
+    top: 8px;
+    right: 10px;
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  .badge-modal-mask,
+  .banner-modal-mask {
     align-items: flex-end;
     padding: 10px;
   }
 
-  .badge-modal {
+  .badge-modal,
+  .banner-modal {
     max-height: 88vh;
     border-radius: 16px 16px 12px 12px;
   }

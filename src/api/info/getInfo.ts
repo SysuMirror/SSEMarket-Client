@@ -85,6 +85,10 @@ export interface AllInfo {
   hideProfilePosts?: boolean
   /** 站内币余额；后端只在本人查看自己主页时返回，他人主页为 undefined */
   coins?: number
+  /** 个人主页顶部栏板图床地址；空 = 默认渐变。所有访问者可见。 */
+  profileBannerUrl?: string
+  /** 栏板不透明度 0-100；主页主人设置，访问者共用。 */
+  profileBannerOpacity?: number
 }
 
 export function normalizeAllInfo(raw: Partial<AllInfo> | Record<string, unknown>): AllInfo {
@@ -107,7 +111,16 @@ export function normalizeAllInfo(raw: Partial<AllInfo> | Record<string, unknown>
     userID: Number(src.userID ?? 0),
     hideProfilePosts: coerceApiBool(src.hideProfilePosts),
     coins: src.coins === undefined || src.coins === null ? undefined : Number(src.coins),
+    profileBannerUrl: typeof src.profileBannerUrl === 'string' ? src.profileBannerUrl : '',
+    profileBannerOpacity: normalizeBannerOpacity(src.profileBannerOpacity),
   }
+}
+
+function normalizeBannerOpacity(value: unknown): number {
+  const n = Number(value)
+  if (!Number.isFinite(n))
+    return 100
+  return Math.min(100, Math.max(0, Math.round(n)))
 }
 
 /**
