@@ -1,3 +1,4 @@
+import { useUserStore } from '@/store/userStore'
 import { requestFunc } from '../req'
 
 /**
@@ -208,7 +209,11 @@ export async function fetchSharedSkin(token: string): Promise<UserSkin | null> {
   if (!token)
     return null
   try {
-    const res = await fetch(`${apiUrl}/skins/share/${encodeURIComponent(token)}`, { cache: 'no-store' })
+    const auth = useUserStore().token.value
+    const res = await fetch(`${apiUrl}/skins/share/${encodeURIComponent(token)}`, {
+      cache: 'no-store',
+      headers: auth ? { Authorization: `Bearer ${auth}` } : {},
+    })
     if (!res.ok)
       return null
     const json = await readJSON(res)
