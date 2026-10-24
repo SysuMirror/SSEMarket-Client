@@ -991,7 +991,13 @@ function onAvatarError(e: Event) {
 }
 
 .banner-modal__file {
-  display: none;
+  /* 不用 display:none：部分 iOS 会拒绝 programmatic click 隐藏的 file input */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .banner-modal__remove {
