@@ -51,6 +51,8 @@ async function uploadPhoto(photo: File): Promise<FileInfo> {
     throw new Error('Invalid file object')
   }
 
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 120000)
   try {
     const response = await fetch(`${apiUrl}/auth/uploadPhotos`, {
       method: 'POST',
@@ -58,6 +60,7 @@ async function uploadPhoto(photo: File): Promise<FileInfo> {
         Authorization: `Bearer ${token}`,
       },
       body: formData,
+      signal: controller.signal,
     })
 
     if (!response.ok) {
@@ -70,6 +73,9 @@ async function uploadPhoto(photo: File): Promise<FileInfo> {
   catch (error) {
     console.error('Error uploading photo:', error)
     throw error
+  }
+  finally {
+    clearTimeout(timer)
   }
 }
 

@@ -21,6 +21,22 @@ export function isRasterImageType(type: string): boolean {
   return RASTER_TYPES.has(type)
 }
 
+/** 给解码/加载加超时，避免某个坏图让上传按钮一直卡在“上传中”。 */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T | null): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    promise
+      .then((value) => {
+        clearTimeout(timer)
+        resolve(value)
+      })
+      .catch(() => {
+        clearTimeout(timer)
+        resolve(fallback)
+      })
+  })
+}
+
 function loadImageElement(file: File): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file)
@@ -54,13 +70,13 @@ export async function compressImageFile(file: File, options: CompressImageOption
   let width = 0
   let height = 0
 
-  try {
-    bitmap = await createImageBitmap(file)
+  bitmap = await withTimeout(createImageBitmap(file), 10000, null)
+  if (bitmap) {
     width = bitmap.width
     height = bitmap.height
   }
-  catch {
-    imageEl = await loadImageElement(file)
+  else {
+    imageEl = await withTimeout(loadImageElement(file), 10000, null)
     if (!imageEl)
       return file
     width = imageEl.naturalWidth

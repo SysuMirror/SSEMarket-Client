@@ -66,6 +66,7 @@ const bannerDraftUrl = ref('')
 const bannerDraftOpacity = ref(100)
 const bannerUploading = ref(false)
 const bannerSaving = ref(false)
+const bannerFileInput = ref<HTMLInputElement | null>(null)
 
 const savedBannerUrl = computed(() => user.value?.profileBannerUrl?.trim() || '')
 
@@ -603,16 +604,23 @@ function onAvatarError(e: Event) {
           </div>
 
           <div class="banner-modal__actions">
-            <label class="banner-modal__upload" :class="{ 'banner-modal__upload--busy': bannerUploading }">
-              <input
-                type="file"
-                accept="image/*"
-                class="banner-modal__file"
-                :disabled="bannerUploading || bannerSaving"
-                @change="onBannerFileChange"
-              >
+            <button
+              type="button"
+              class="banner-modal__upload"
+              :class="{ 'banner-modal__upload--busy': bannerUploading }"
+              :disabled="bannerUploading || bannerSaving"
+              @click="bannerFileInput?.click()"
+            >
               {{ bannerUploading ? '上传中…' : (bannerDraftUrl ? '更换图片' : '上传图片') }}
-            </label>
+            </button>
+            <input
+              ref="bannerFileInput"
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              class="banner-modal__file"
+              :disabled="bannerUploading || bannerSaving"
+              @change="onBannerFileChange"
+            >
             <button
               v-if="bannerDraftUrl"
               type="button"
@@ -959,6 +967,7 @@ function onAvatarError(e: Event) {
 
 .banner-modal__upload {
   display: inline-flex;
+  font-family: inherit;
   align-items: center;
   justify-content: center;
   padding: 7px 16px;
