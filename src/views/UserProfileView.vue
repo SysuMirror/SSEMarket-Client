@@ -576,7 +576,8 @@ function onAvatarError(e: Event) {
       </p>
     </div>
 
-    <!-- 主页背景设置弹窗 -->
+    <!-- 主页背景设置弹窗（Teleport 到 body：否则会被 .app-main 的 stacking context 压在底栏下面） -->
+    <Teleport to="body">
     <div v-if="bannerSettingsOpen" class="banner-modal-mask" @click.self="closeBannerSettings">
       <section class="banner-modal" role="dialog" aria-modal="true" aria-label="设置主页背景">
         <header class="banner-modal__head">
@@ -665,8 +666,10 @@ function onAvatarError(e: Event) {
         </footer>
       </section>
     </div>
+    </Teleport>
 
     <!-- 勋章管理弹窗 -->
+    <Teleport to="body">
     <div v-if="badgeManageOpen" class="badge-modal-mask" @click.self="closeBadgeManager">
       <section class="badge-modal" role="dialog" aria-modal="true" aria-label="管理我的勋章">
         <header class="badge-modal__head">
@@ -769,8 +772,10 @@ function onAvatarError(e: Event) {
         </footer>
       </section>
     </div>
+    </Teleport>
 
     <!-- 币发放规则弹窗 -->
+    <Teleport to="body">
     <div v-if="coinRulesOpen" class="coin-rules-mask" @click.self="coinRulesOpen = false">
       <div class="coin-rules" role="dialog" aria-modal="true" aria-label="币发放规则">
         <h2 class="coin-rules__title">
@@ -799,6 +804,7 @@ function onAvatarError(e: Event) {
         </div>
       </div>
     </div>
+    </Teleport>
   </div>
 </template>
 
@@ -856,7 +862,7 @@ function onAvatarError(e: Event) {
 .banner-modal-mask {
   position: fixed;
   inset: 0;
-  z-index: 2100;
+  z-index: 7000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1074,6 +1080,10 @@ function onAvatarError(e: Event) {
 
 /* —— 头像区域 —— */
 .profile-avatar-zone {
+  /* banner 现在自带 position:relative，头像区必须抬到它上面，
+     否则负 margin 上移的头像上半部分会被栏板盖住。 */
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1220,12 +1230,18 @@ function onAvatarError(e: Event) {
   position: fixed;
   inset: 0;
   /* 移动端底部导航 z-index 2000；弹窗必须盖在它上面，否则保存按钮点不到。 */
-  z-index: 2100;
+  z-index: 7000;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
   background: rgba(15, 23, 42, 0.5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .badge-modal {
@@ -1234,6 +1250,7 @@ function onAvatarError(e: Event) {
   width: 100%;
   max-width: 540px;
   max-height: min(84vh, 720px);
+  max-height: min(84dvh, 720px);
   border-radius: 16px;
   background: var(--color-card, #fff);
   box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
@@ -1283,9 +1300,11 @@ function onAvatarError(e: Event) {
 }
 
 .badge-modal__body {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 14px 18px;
 }
 
@@ -1425,10 +1444,11 @@ function onAvatarError(e: Event) {
 }
 
 .badge-modal__foot {
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 12px 18px 16px;
+  padding: 12px 18px calc(16px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
 }
 
@@ -1598,7 +1618,7 @@ function onAvatarError(e: Event) {
 .coin-rules-mask {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 7000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1815,7 +1835,7 @@ function onAvatarError(e: Event) {
 
   .badge-modal,
   .banner-modal {
-    max-height: 88vh;
+    max-height: calc(100dvh - 20px);
     border-radius: 16px 16px 12px 12px;
   }
 
