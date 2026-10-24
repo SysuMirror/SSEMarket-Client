@@ -98,7 +98,7 @@ onMounted(() => {
         <div class="coin-page__stat">
           <span class="coin-page__stat-label">累计收到</span>
           <strong class="coin-page__stat-value">{{ summary?.received ?? 0 }}</strong>
-          <span class="coin-page__stat-sub">发帖 / 阅读 / 写作 / 评分</span>
+          <span class="coin-page__stat-sub">发帖 / 阅读 / 写作 / 评分 / 投币分成</span>
         </div>
       </section>
 

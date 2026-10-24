@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useSlots, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useWornBadge } from '@/composables/useWornBadge'
 import { levelClassHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
 import UserIdentityIcon from './UserIdentityIcon.vue'
@@ -37,6 +38,16 @@ const resolvedUserId = computed(() => {
 const defaultAvatar = computed(() => defaultAvatarFor(resolvedUserId.value))
 
 const levelText = computed(() => titleNameHandler(props.userScore ?? 0, props.userTitle, props.userName))
+
+/** 对外挂载的勋章（帖子/评论等昵称旁只挂 1 枚，由用户在自己的主页设置）。 */
+const wornBadge = useWornBadge(resolvedUserId)
+const wornBadgeBroken = ref(false)
+watch(
+  () => wornBadge.value?.imageURL,
+  () => {
+    wornBadgeBroken.value = false
+  },
+)
 
 // Lv8 倒影文字经 CSS 变量注入,JSON.stringify 负责加引号并转义
 const level8Style = computed(() => {
@@ -122,8 +133,18 @@ function onProfileKeydown(event: KeyboardEvent) {
           :style="level8Style"
         >{{ levelText }}
         </span>
-        <span class="user-name w-fit whitespace-nowrap text-5">{{ props.userName
-        }}</span>
+        <span class="user-name-row">
+          <span class="user-name w-fit whitespace-nowrap text-5">{{ props.userName }}</span>
+          <img
+            v-if="wornBadge && !wornBadgeBroken"
+            class="user-worn-badge"
+            :src="wornBadge.imageURL"
+            :alt="wornBadge.name"
+            :title="wornBadge.name"
+            loading="lazy"
+            @error="wornBadgeBroken = true"
+          >
+        </span>
       </div>
     </div>
     <div v-if="hasReplySlot" class="user__reply">
@@ -214,8 +235,18 @@ function onProfileKeydown(event: KeyboardEvent) {
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
+    min-width: 0;
 
     color: var(--color-user-text);
+  }
+
+  /* 昵称 + 对外挂载勋章：勋章固定大小，昵称过长时只省略昵称。 */
+  .user-name-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .user-avatar {
@@ -248,6 +279,21 @@ function onProfileKeydown(event: KeyboardEvent) {
 .user--compact .user__cluster {
   align-items: center;
   gap: 0;
+}
+
+.user-worn-badge {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 1px rgba(30, 51, 92, 0.22));
+  user-select: none;
+  pointer-events: none;
+}
+
+.user--compact .user-worn-badge {
+  width: 16px;
+  height: 16px;
 }
 
 .user--compact .user-meta {

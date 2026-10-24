@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import type { Badge, MyBadges } from '@/api/badge/badge'
 import type { AllInfo } from '@/api/info/getInfo'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
 import { computed, nextTick, onBeforeMount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { fetchMyBadges, fetchUserBadges, saveBadgePreferences } from '@/api/badge/badge'
 import { getUserProfilePostNum, getUserProfilePosts } from '@/api/browse/getUserProfilePosts'
 import { getInfoById, normalizeAllInfo } from '@/api/info/getInfo'
 import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
+import { primeWornBadge } from '@/composables/useWornBadge'
 import { useUserStore } from '@/store/userStore'
 import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
@@ -53,6 +56,145 @@ const isSelf = computed(() => userInfo.userID === user.value?.userID)
 // 币余额仅本人可见（后端只在本人查看时返回 coins）
 const showCoins = computed(() => isSelf.value && user.value?.coins !== undefined)
 const coinRulesOpen = ref(false)
+
+// —— 勋章墙 ——
+const myBadges = ref<MyBadges | null>(null)
+const publicBadges = ref<MyBadges | null>(null)
+const badgesLoading = ref(false)
+const badgeManageOpen = ref(false)
+const badgeSaving = ref(false)
+const badgeDraftWorn = ref(0)
+const badgeDraftProfile = ref<number[] | null>(null)
+
+/** 本人：全部已获得；他人：服务端已按对方主页展示偏好过滤。 */
+const ownedBadges = computed<Badge[]>(() =>
+  isSelf.value
+    ? (myBadges.value?.badges ?? [])
+    : (publicBadges.value?.badges ?? []),
+)
+
+/** 主页勋章墙实际展示的勋章（本人也按自己的选择过滤，所见即所得）。 */
+const displayedBadges = computed<Badge[]>(() => {
+  const state = isSelf.value ? myBadges.value : publicBadges.value
+  if (!state)
+    return []
+  if (!isSelf.value)
+    return state.badges
+  const selected = state.profileBadgeIds
+  if (selected == null)
+    return state.badges
+  const keep = new Set(selected)
+  return state.badges.filter(badge => keep.has(badge.badgeID))
+})
+
+const showBadgeWall = computed(() => isSelf.value || displayedBadges.value.length > 0)
+
+function badgeToWorn(state: MyBadges, userID: number) {
+  const badge = state.badges.find(b => b.badgeID === state.wornBadgeId)
+  return badge
+    ? { userID, badgeID: badge.badgeID, name: badge.name, imageURL: badge.imageURL }
+    : null
+}
+
+async function loadBadges() {
+  const id = user.value?.userID ?? 0
+  if (id <= 0) {
+    myBadges.value = null
+    publicBadges.value = null
+    return
+  }
+  badgesLoading.value = true
+  try {
+    if (isSelf.value) {
+      myBadges.value = await fetchMyBadges()
+      // 个人主页也是「对外」的一个入口：顺手刷新自己昵称旁的挂载缓存。
+      if (myBadges.value)
+        primeWornBadge(id, badgeToWorn(myBadges.value, id))
+    }
+    else {
+      publicBadges.value = await fetchUserBadges(id)
+    }
+  }
+  finally {
+    badgesLoading.value = false
+  }
+}
+
+function isProfileBadgeSelected(id: number): boolean {
+  if (badgeDraftProfile.value === null)
+    return true
+  return badgeDraftProfile.value.includes(id)
+}
+
+function toggleProfileBadge(id: number) {
+  if (badgeDraftProfile.value === null) {
+    // 从「默认全部展示」里去掉这一枚。
+    badgeDraftProfile.value = ownedBadges.value.map(b => b.badgeID).filter(x => x !== id)
+    return
+  }
+  const next = new Set(badgeDraftProfile.value)
+  if (next.has(id))
+    next.delete(id)
+  else
+    next.add(id)
+  badgeDraftProfile.value = [...next]
+}
+
+function selectAllProfileBadges() {
+  badgeDraftProfile.value = null
+}
+
+function clearProfileBadges() {
+  badgeDraftProfile.value = []
+}
+
+function openBadgeManager() {
+  const state = myBadges.value
+  badgeDraftWorn.value = state?.wornBadgeId ?? 0
+  badgeDraftProfile.value = state?.profileBadgeIds == null ? null : [...state.profileBadgeIds]
+  badgeManageOpen.value = true
+}
+
+function closeBadgeManager() {
+  if (badgeSaving.value)
+    return
+  badgeManageOpen.value = false
+}
+
+async function saveBadgeSelection() {
+  if (badgeSaving.value)
+    return
+  badgeSaving.value = true
+  try {
+    const res = await saveBadgePreferences({
+      wornBadgeId: badgeDraftWorn.value,
+      profileBadgeIds: badgeDraftProfile.value,
+    })
+    if (!res.ok || !res.data) {
+      showMsg(res.msg || '保存失败')
+      return
+    }
+    myBadges.value = res.data
+    const id = user.value?.userID ?? 0
+    primeWornBadge(id, badgeToWorn(res.data, id))
+    badgeManageOpen.value = false
+    showMsg('勋章展示已保存')
+  }
+  finally {
+    badgeSaving.value = false
+  }
+}
+
+watch(
+  () => [user.value?.userID, isSelf.value] as const,
+  () => {
+    myBadges.value = null
+    publicBadges.value = null
+    if (badgeManageOpen.value)
+      badgeManageOpen.value = false
+    void loadBadges()
+  },
+)
 
 const expTarget = computed(() => {
   const s = user.value?.score ?? 0
@@ -257,6 +399,43 @@ function onAvatarError(e: Event) {
       </div>
     </div>
 
+    <!-- 勋章墙 -->
+    <section v-if="showBadgeWall" class="profile-badges">
+      <div class="profile-badges__head">
+        <h2 class="profile-badges__title">
+          <Icon icon="tabler:award" width="18" height="18" aria-hidden="true" />
+          勋章墙
+          <span v-if="ownedBadges.length" class="profile-badges__count">{{ ownedBadges.length }}</span>
+        </h2>
+        <button
+          v-if="isSelf"
+          type="button"
+          class="profile-badges__manage"
+          @click="openBadgeManager"
+        >
+          管理
+        </button>
+      </div>
+
+      <div v-if="badgesLoading && !ownedBadges.length" class="profile-badges__loading">
+        加载中…
+      </div>
+      <div v-else-if="displayedBadges.length" class="profile-badges__grid">
+        <div
+          v-for="badge in displayedBadges"
+          :key="badge.badgeID"
+          class="profile-badges__item"
+          :title="badge.description || badge.name"
+        >
+          <img class="profile-badges__img" :src="badge.imageURL" :alt="badge.name" loading="lazy">
+          <span class="profile-badges__name">{{ badge.name }}</span>
+        </div>
+      </div>
+      <p v-else class="profile-badges__empty">
+        {{ isSelf ? '当前主页不展示勋章，点右侧「管理」调整' : '暂无勋章' }}
+      </p>
+    </section>
+
     <!-- 动态列表 -->
     <div v-if="showPostHistory" class="profile-posts">
       <div class="profile-posts__head">
@@ -292,6 +471,110 @@ function onAvatarError(e: Event) {
       </p>
     </div>
 
+    <!-- 勋章管理弹窗 -->
+    <div v-if="badgeManageOpen" class="badge-modal-mask" @click.self="closeBadgeManager">
+      <section class="badge-modal" role="dialog" aria-modal="true" aria-label="管理我的勋章">
+        <header class="badge-modal__head">
+          <div>
+            <h2 class="badge-modal__title">
+              我的勋章
+            </h2>
+            <p class="badge-modal__hint">
+              对外只挂 1 枚；主页可多选，默认全部展示。
+            </p>
+          </div>
+          <button type="button" class="badge-modal__close" aria-label="关闭" @click="closeBadgeManager">
+            ×
+          </button>
+        </header>
+
+        <div v-if="ownedBadges.length" class="badge-modal__body">
+          <section class="badge-modal__section">
+            <div class="badge-modal__section-head">
+              <h3>对外展示</h3>
+              <button
+                type="button"
+                class="badge-modal__reset"
+                :class="{ 'badge-modal__reset--active': badgeDraftWorn === 0 }"
+                @click="badgeDraftWorn = 0"
+              >
+                不挂
+              </button>
+            </div>
+            <div class="badge-picker">
+              <button
+                v-for="badge in ownedBadges"
+                :key="`worn-${badge.badgeID}`"
+                type="button"
+                class="badge-picker__item"
+                :class="{ 'badge-picker__item--selected': badgeDraftWorn === badge.badgeID }"
+                @click="badgeDraftWorn = badge.badgeID"
+              >
+                <img class="badge-picker__img" :src="badge.imageURL" :alt="badge.name" loading="lazy">
+                <span class="badge-picker__name">{{ badge.name }}</span>
+                <span class="badge-picker__check" aria-hidden="true">✓</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="badge-modal__section">
+            <div class="badge-modal__section-head">
+              <h3>主页勋章墙</h3>
+              <div class="badge-modal__bulk">
+                <button
+                  type="button"
+                  class="badge-modal__reset"
+                  :class="{ 'badge-modal__reset--active': badgeDraftProfile === null }"
+                  @click="selectAllProfileBadges"
+                >
+                  全部
+                </button>
+                <button
+                  type="button"
+                  class="badge-modal__reset"
+                  :class="{ 'badge-modal__reset--active': badgeDraftProfile !== null && badgeDraftProfile.length === 0 }"
+                  @click="clearProfileBadges"
+                >
+                  不展示
+                </button>
+              </div>
+            </div>
+            <div class="badge-picker">
+              <button
+                v-for="badge in ownedBadges"
+                :key="`profile-${badge.badgeID}`"
+                type="button"
+                class="badge-picker__item"
+                :class="{ 'badge-picker__item--selected': isProfileBadgeSelected(badge.badgeID) }"
+                @click="toggleProfileBadge(badge.badgeID)"
+              >
+                <img class="badge-picker__img" :src="badge.imageURL" :alt="badge.name" loading="lazy">
+                <span class="badge-picker__name">{{ badge.name }}</span>
+                <span class="badge-picker__check" aria-hidden="true">✓</span>
+              </button>
+            </div>
+          </section>
+        </div>
+        <p v-else class="badge-modal__empty">
+          还没有获得勋章
+        </p>
+
+        <footer class="badge-modal__foot">
+          <button type="button" class="badge-modal__btn" :disabled="badgeSaving" @click="closeBadgeManager">
+            取消
+          </button>
+          <button
+            type="button"
+            class="badge-modal__btn badge-modal__btn--primary"
+            :disabled="badgeSaving"
+            @click="saveBadgeSelection"
+          >
+            {{ badgeSaving ? '保存中…' : '保存' }}
+          </button>
+        </footer>
+      </section>
+    </div>
+
     <!-- 币发放规则弹窗 -->
     <div v-if="coinRulesOpen" class="coin-rules-mask" @click.self="coinRulesOpen = false">
       <div class="coin-rules" role="dialog" aria-modal="true" aria-label="币发放规则">
@@ -306,6 +589,7 @@ function onAvatarError(e: Event) {
           <li>当天更新写作满 4000 字 <strong>+1 币</strong></li>
           <li>收到评分：作者 <strong>+1 币</strong>（同一读者对同一本书只算一次）</li>
           <li>投币：每人对每个帖子 / 小说最多 2 币；每投 1 币自己 +10 主页经验</li>
+          <li>帖子被投币：作者 <strong>+0.1 币 / 币</strong>（仅真实投币，不含旧投票折算）</li>
         </ul>
         <p class="coin-rules__note">
           币与小说的经验 / 积分是两条独立的线，不能互相兑换。
@@ -385,6 +669,350 @@ function onAvatarError(e: Event) {
   font-weight: 500;
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* —— 勋章墙 —— */
+.profile-badges {
+  margin: 0 12px 12px;
+  padding: 14px 16px 16px;
+  border-radius: var(--radius-lg, 8px);
+  background: var(--color-card, #fff);
+  box-shadow: var(--color-card-shadow);
+}
+
+.profile-badges__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-badges__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.profile-badges__count {
+  padding: 1px 7px;
+  border-radius: var(--radius-full, 999px);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.profile-badges__manage {
+  padding: 4px 12px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
+  border-radius: var(--radius-full, 999px);
+  background: transparent;
+  color: var(--color-text-secondary, #475569);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+}
+
+.profile-badges__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 10px 8px;
+  margin-top: 12px;
+}
+
+.profile-badges__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  text-align: center;
+}
+
+.profile-badges__img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 5px rgba(30, 51, 92, 0.16));
+}
+
+.profile-badges__name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--color-text-secondary, #475569);
+  word-break: break-word;
+}
+
+.profile-badges__empty,
+.profile-badges__loading {
+  margin: 12px 0 0;
+  padding: 10px 0 2px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* —— 勋章管理弹窗 —— */
+.badge-modal-mask {
+  position: fixed;
+  inset: 0;
+  /* 移动端底部导航 z-index 2000；弹窗必须盖在它上面，否则保存按钮点不到。 */
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.badge-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 540px;
+  max-height: min(84vh, 720px);
+  border-radius: 16px;
+  background: var(--color-card, #fff);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+}
+
+.badge-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+}
+
+.badge-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.badge-modal__hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.badge-modal__close {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 22px;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-border, rgba(71, 85, 105, 0.12));
+    color: var(--color-text);
+  }
+}
+
+.badge-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 18px;
+}
+
+.badge-modal__section + .badge-modal__section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--color-border, rgba(71, 85, 105, 0.16));
+}
+
+.badge-modal__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+
+  h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+}
+
+.badge-modal__bulk {
+  display: flex;
+  gap: 6px;
+}
+
+.badge-modal__reset {
+  padding: 3px 10px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
+  border-radius: var(--radius-full, 999px);
+  background: transparent;
+  color: var(--color-text-secondary, #475569);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  &--active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+}
+
+.badge-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.badge-picker__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px 7px;
+  border: 1.5px solid var(--color-border, rgba(71, 85, 105, 0.16));
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    background: var(--accent-soft);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &--selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
+
+.badge-picker__img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.badge-picker__name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--color-text-secondary, #475569);
+  text-align: center;
+  word-break: break-word;
+}
+
+.badge-picker__check {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.badge-picker__item--selected .badge-picker__check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.badge-modal__empty {
+  margin: 0;
+  padding: 28px 18px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.badge-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--color-border, rgba(71, 85, 105, 0.12));
+}
+
+.badge-modal__btn {
+  padding: 8px 18px;
+  border: 1px solid var(--color-border, rgba(71, 85, 105, 0.16));
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-text-secondary, #475569);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  &--primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+
+    &:not(:disabled):hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+  }
 }
 
 /* —— 操作栏 —— */
@@ -711,6 +1339,34 @@ function onAvatarError(e: Event) {
 
   .profile-avatar-zone__name {
     font-size: 1.125rem;
+  }
+
+  .profile-badges {
+    padding: 12px 12px 14px;
+  }
+
+  .profile-badges__grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 8px 6px;
+  }
+
+  .profile-badges__img {
+    width: 56px;
+    height: 56px;
+  }
+
+  .badge-modal-mask {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .badge-modal {
+    max-height: 88vh;
+    border-radius: 16px 16px 12px 12px;
+  }
+
+  .badge-picker {
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
   }
 }
 </style>

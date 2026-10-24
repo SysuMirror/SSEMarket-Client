@@ -12,7 +12,7 @@ import { ssoBindStart, ssoStatus, ssoUnbind } from '@/api/sso/sso'
 import ApiTokenPanel from '@/components/ApiTokenPanel.vue'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
-import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsToggle } from '@/components/settings'
+import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsRow, SettingsToggle } from '@/components/settings'
 import SkinSettings from '@/components/skin/SkinSettings.vue'
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/store/userStore'
@@ -164,6 +164,11 @@ function onEditProfile() {
   nextTick(() => {
     accountGroupRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
+}
+
+function openMyBadges() {
+  if (allInfo.value.userID > 0)
+    void router.push({ name: 'UserProfile', params: { id: String(allInfo.value.userID) } })
 }
 
 function onUserNameOpenChange(open: boolean) {
@@ -486,6 +491,15 @@ onMounted(() => {
       @avatar-error="onAvatarError"
       @edit-profile="onEditProfile"
     />
+
+    <SettingsGroup title="我的勋章">
+      <SettingsRow
+        label="勋章墙"
+        hint="查看已获得的勋章，选择对外挂载的 1 枚与主页展示范围"
+        clickable
+        @click="openMyBadges"
+      />
+    </SettingsGroup>
 
     <!-- 分组 1: 账号资料 -->
     <SettingsGroup title="账号资料">

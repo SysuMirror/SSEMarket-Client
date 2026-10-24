@@ -46,6 +46,10 @@ onUnmounted(() => {
 <style scoped lang="scss">
 /* 顶对齐 + 安全区：避免 flex 垂直居中 + 100vh 在移动浏览器里把底部按钮顶到工具栏/主页条后方且无法滚动到位 */
 .auth-shell {
+  /* 皮肤背景层是 fixed z-index:0，认证页不在 DefaultLayout 的 .root 里，
+     这里自己抬一层，避免背景/贴纸盖住卡片和按钮。 */
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   min-height: 100dvh;
   min-height: 100svh;

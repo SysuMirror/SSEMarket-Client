@@ -115,3 +115,94 @@ body.dark-mode.skin-bg-active .auth-shell {
     radial-gradient(120% 85% at 50% -25%, rgba(42, 71, 120, 0.28), transparent 52%),
     linear-gradient(165deg, rgba(10, 19, 35, 0.7) 0%, rgba(10, 19, 35, 0.78) 38%, rgba(10, 19, 35, 0.82) 100%);
 }
+
+/*
+ * 认证页（登录 / 注册 / 忘记密码 / SSO / OAuth 授权）在皮肤下必须保持
+ * 「看得见、点得到」。它们在 DefaultLayout 之外，不会命中 .root 的抬层规则；
+ * 同时半透明卡片令牌会让按钮和背景融为一体，这里统一给关键控件实底。
+ * 皮肤关闭时这些选择器不匹配，原样式完全不受影响。
+ */
+body.skin-bg-active .auth-shell,
+body[data-skin]:not([data-skin='']) .auth-shell,
+body.skin-bg-active .connect-page,
+body[data-skin]:not([data-skin='']) .connect-page {
+  position: relative;
+  z-index: 1;
+}
+
+body.skin-bg-active .auth-card,
+body[data-skin]:not([data-skin='']) .auth-card {
+  background: rgb(var(--skin-card-rgb) / 0.92);
+  border-color: rgb(var(--skin-card-rgb) / 0.85);
+  box-shadow: 0 12px 40px rgba(30, 51, 92, 0.14);
+}
+
+body.skin-bg-active .auth-btn--primary,
+body[data-skin]:not([data-skin='']) .auth-btn--primary {
+  background: var(--skin-accent, #3d6fd6) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 8px 20px rgba(47, 91, 184, 0.28) !important;
+  opacity: 1;
+}
+
+body.skin-bg-active .auth-btn--primary:disabled,
+body[data-skin]:not([data-skin='']) .auth-btn--primary:disabled {
+  background: #c3d4ee !important;
+  color: #42526b !important;
+  border-color: rgba(61, 111, 214, 0.2) !important;
+  box-shadow: none !important;
+}
+
+body.skin-bg-active .auth-btn-secondary,
+body[data-skin]:not([data-skin='']) .auth-btn-secondary {
+  background: rgb(var(--skin-card-rgb) / 0.9) !important;
+  border-color: rgba(61, 111, 214, 0.32) !important;
+  color: var(--color-text, #1e293b) !important;
+}
+
+body.skin-bg-active .auth-btn-secondary:disabled,
+body[data-skin]:not([data-skin='']) .auth-btn-secondary:disabled {
+  background: rgb(var(--skin-card-rgb) / 0.55) !important;
+  color: var(--color-text-muted, #64748b) !important;
+}
+
+body.skin-bg-active .auth-sso__btn,
+body[data-skin]:not([data-skin='']) .auth-sso__btn {
+  background: rgb(var(--skin-card-rgb) / 0.82) !important;
+  border-color: rgba(61, 111, 214, 0.4) !important;
+  color: var(--color-text, #1e293b) !important;
+}
+
+body.skin-bg-active .auth-link,
+body[data-skin]:not([data-skin='']) .auth-link {
+  color: var(--skin-accent, #2f5bb8) !important;
+}
+
+body.skin-bg-active .auth-link:hover,
+body[data-skin]:not([data-skin='']) .auth-link:hover {
+  color: var(--skin-accent-strong, #1e335c) !important;
+}
+
+body.skin-bg-active .auth-check__text,
+body[data-skin]:not([data-skin='']) .auth-check__text {
+  color: var(--color-text-secondary, #475569) !important;
+}
+
+/* OAuth 授权页：内容区给半透明底，取消按钮不能是透明的。 */
+body.skin-bg-active .connect-page .bg-gray-50,
+body[data-skin]:not([data-skin='']) .connect-page .bg-gray-50 {
+  background: rgb(var(--skin-card-rgb) / 0.72) !important;
+}
+
+body.skin-bg-active .connect-page .connect-cancel,
+body[data-skin]:not([data-skin='']) .connect-page .connect-cancel {
+  background: rgb(var(--skin-card-rgb) / 0.82) !important;
+  color: var(--color-text, #1e293b) !important;
+  border: 1px solid rgba(61, 111, 214, 0.35) !important;
+}
+
+body.skin-bg-active .connect-page .connect-allow,
+body[data-skin]:not([data-skin='']) .connect-page .connect-allow {
+  box-shadow: 0 8px 22px rgba(235, 107, 38, 0.32);
+}

@@ -191,7 +191,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center px-4" :class="{ 'min-h-screen': checking || error }">
+  <div class="connect-page flex flex-col items-center justify-center px-4" :class="{ 'min-h-screen': checking || error }">
     <!-- 加载状态 -->
     <div v-if="checking" class="flex flex-col items-center justify-center">
       <div class="text-gray-600">
@@ -269,13 +269,13 @@ onMounted(async () => {
       <div class="mt-6 space-y-3">
         <button
           :disabled="loading"
-          class="h-[48px] w-full flex cursor-pointer items-center justify-center border-0 rounded-[24px] bg-[#eb6b26] text-lg text-white transition-colors disabled:bg-zinc-600 hover:bg-[#ff7e3b]"
+          class="connect-allow h-[48px] w-full flex cursor-pointer items-center justify-center border-0 rounded-[24px] bg-[#eb6b26] text-lg text-white transition-colors disabled:bg-zinc-600 hover:bg-[#ff7e3b]"
           @click="handleAuthorize"
         >
           {{ loading ? '授权中...' : '允许' }}
         </button>
         <button
-          class="h-[48px] w-full flex cursor-pointer items-center justify-center border-0 rounded-[24px] bg-transparent text-lg transition-colors disabled:bg-zinc-600"
+          class="connect-cancel h-[48px] w-full flex cursor-pointer items-center justify-center border-0 rounded-[24px] bg-transparent text-lg transition-colors disabled:bg-zinc-600"
           @click="cancelAuthorize"
         >
           取消
