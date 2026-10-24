@@ -14,6 +14,7 @@ import { showMsg } from '@/components/MessageBox'
 import PostList from '@/components/PostList.vue'
 import { primeWornBadge } from '@/composables/useWornBadge'
 import { useUserStore } from '@/store/userStore'
+import { compressImageFile, isRasterImageType } from '@/utils/compressImage'
 import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
 import { setWindowScrollY } from '@/utils/windowScroll'
@@ -98,8 +99,8 @@ async function onBannerFileChange(event: Event) {
   const file = input.files?.[0]
   if (!file)
     return
-  if (!file.type.startsWith('image/')) {
-    showMsg('请选择图片文件')
+  if (!isRasterImageType(file.type)) {
+    showMsg('仅支持 JPG / PNG / GIF / WebP 图片')
     input.value = ''
     return
   }
@@ -110,7 +111,9 @@ async function onBannerFileChange(event: Event) {
   }
   bannerUploading.value = true
   try {
-    const data = await uploadPhoto(file)
+    // 上传前压缩，减少图床隧道传输时间。
+    const prepared = await compressImageFile(file, { maxEdge: 1920, quality: 0.85 })
+    const data = await uploadPhoto(prepared)
     const url = (data?.fileURL || '').trim()
     if (!/^https?:\/\//i.test(url)) {
       showMsg('上传成功但未拿到有效的图床地址，请重试')

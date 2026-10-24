@@ -16,6 +16,7 @@ import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import { useSkin } from '@/composables/useSkin'
 import { useUserStore } from '@/store/userStore'
+import { compressImageFile, isRasterImageType } from '@/utils/compressImage'
 import { isRemoteImageURL } from '@/utils/imageSource'
 
 /**
@@ -93,10 +94,8 @@ watch(
   },
 )
 
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-
 async function uploadImage(file: File, target: 'desktop' | 'mobile') {
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+  if (!isRasterImageType(file.type)) {
     showMsg('仅支持 JPG / PNG / GIF / WebP 图片')
     return
   }
@@ -109,7 +108,9 @@ async function uploadImage(file: File, target: 'desktop' | 'mobile') {
   else
     uploadingMobile.value = true
   try {
-    const data = await uploadPhoto(file)
+    // 先压到最长边 1920、WebP：图床经本机 frp 隧道，体积越小上传越快。
+    const prepared = await compressImageFile(file, { maxEdge: 1920, quality: 0.85 })
+    const data = await uploadPhoto(prepared)
     const url = (data?.fileURL || '').trim()
     if (!isRemoteImageURL(url)) {
       showMsg('上传成功但未拿到有效的图床地址，请重试')
