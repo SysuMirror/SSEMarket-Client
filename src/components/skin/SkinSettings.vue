@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef, watch } from 'vue'
-import { uploadPhoto } from '@/api/editPostAndComment/utils'
+import { computed, ref, watch } from 'vue'
 import { clampPostCardOpacity, POST_CARD_OPACITY_MAX, POST_CARD_OPACITY_MIN } from '@/api/theme/theme'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import { SettingsToggle } from '@/components/settings'
+import CustomSkinLibrary from '@/components/skin/CustomSkinLibrary.vue'
 import { useSkin } from '@/composables/useSkin'
 import { SKIN_LIST, skinAssetURL, skinStickerURL } from '@/skins'
-import { isRemoteImageURL, resolveUserImageURL } from '@/utils/imageSource'
+import { resolveUserImageURL } from '@/utils/imageSource'
 
 /**
  * 设置页「外观」分组：
@@ -27,20 +27,18 @@ const {
   eventActive,
   effectiveThemeId,
   activeSkin,
+  activeCustomSkin,
+  customSkinActive,
   splashSources,
   previewSplash,
   setThemeMode,
   resetThemeModeToAuto,
   setSplashEnabled,
   setBackgroundEnabled,
-  setBackgroundSource,
-  setCustomBackground,
   clearCustomBackground,
   setPostCardOpacity,
 } = useSkin()
 
-const bgFileInput = useTemplateRef<HTMLInputElement>('bgFileInput')
-const uploading = ref(false)
 const opacityDraft = ref(clampPostCardOpacity(state.prefs.postCardOpacity))
 
 watch(
@@ -49,15 +47,24 @@ watch(
 )
 
 const skinCards = computed(() => SKIN_LIST)
-const saving = computed(() => state.saving || uploading.value)
+const saving = computed(() => state.saving)
 const customPreview = computed(() => resolveUserImageURL(state.prefs.customBackgroundUrl))
 
-const isDefaultEffective = computed(() => effectiveThemeId.value === 'default')
-const isCustomSource = computed(() => state.prefs.backgroundSource === 'custom')
+const isDefaultEffective = computed(() => !customSkinActive.value && effectiveThemeId.value === 'default')
 
 const skinBackgroundPreview = computed(() => {
+  if (customSkinActive.value && activeCustomSkin.value)
+    return activeCustomSkin.value.desktopUrl
   const skin = activeSkin.value
   return skin ? skinAssetURL(skin.id, skin.background.desktop) : ''
+})
+
+const currentBackgroundLabel = computed(() => {
+  if (customSkinActive.value && activeCustomSkin.value)
+    return `自定义皮肤 · ${activeCustomSkin.value.name}`
+  if (state.prefs.backgroundSource === 'custom' && customPreview.value)
+    return '旧版自定义单图'
+  return activeSkin.value ? `${activeSkin.value.name}内置背景` : '默认底色'
 })
 
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
@@ -147,24 +154,6 @@ async function onBackgroundToggle(value: boolean) {
   await run(setBackgroundEnabled(value))
 }
 
-async function chooseBackgroundSource(source: 'default' | 'custom') {
-  if (saving.value || state.prefs.backgroundSource === source)
-    return
-  if (source === 'custom' && !customPreview.value) {
-    showMsg('请先上传一张自定义背景图片')
-    bgFileInput.value?.click()
-    return
-  }
-  await run(setBackgroundSource(source))
-}
-
-function openFilePicker() {
-  if (saving.value)
-    return
-  bgFileInput.value?.click()
-}
-
-/** 拖动时先改 CSS 变量做即时预览，松手后再写服务端。 */
 function previewPostCardOpacity(value: number) {
   document.documentElement.style.setProperty('--post-card-alpha', String(value / 100))
 }
@@ -183,57 +172,17 @@ async function onOpacityCommit() {
   previewPostCardOpacity(opacityDraft.value)
 }
 
-async function onBackgroundFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file)
-    return
-  if (!file.type.startsWith('image/')) {
-    showMsg('请选择图片文件')
-    input.value = ''
-    return
-  }
-  if (file.size > 15 * 1024 * 1024) {
-    showMsg('图片不能超过 15MB')
-    input.value = ''
-    return
-  }
-
-  uploading.value = true
-  try {
-    const data = await uploadPhoto(file)
-    // 图床必须返回绝对地址；相对路径/空地址一律不落库，避免换环境 404。
-    if (!isRemoteImageURL(data.fileURL)) {
-      showMsg('上传成功但未拿到有效的图床地址，请重试')
-      return
-    }
-    const result = await run(setCustomBackground(data.fileURL))
-    if (result.ok)
-      showMsg('背景已更新')
-  }
-  catch (e) {
-    console.error('[skin] upload background failed', e)
-    showMsg('上传失败，请稍后重试')
-  }
-  finally {
-    uploading.value = false
-    input.value = ''
-  }
-}
-
-async function removeCustomBackground() {
-  if (saving.value || !customPreview.value)
-    return
+async function removeLegacyCustomBackground() {
   const ok = await confirmDialog({
-    message: '移除已上传的背景图片？移除后会使用皮肤自带背景。',
-    confirmText: '移除',
+    message: '清除旧版单图背景？清除后会回到当前皮肤的背景。',
+    confirmText: '清除',
     danger: true,
   })
   if (!ok)
     return
   const result = await run(clearCustomBackground())
   if (result.ok)
-    showMsg('已移除自定义背景')
+    showMsg('旧版单图背景已清除')
 }
 
 function previewSplashScreen() {
@@ -295,8 +244,8 @@ function previewSplashScreen() {
           :key="skin.id"
           type="button"
           class="skin-theme-card"
-          :class="{ 'skin-theme-card--active': effectiveThemeId === skin.id }"
-          :aria-pressed="effectiveThemeId === skin.id"
+          :class="{ 'skin-theme-card--active': !customSkinActive && effectiveThemeId === skin.id }"
+          :aria-pressed="!customSkinActive && effectiveThemeId === skin.id"
           :disabled="saving"
           @click="chooseTheme(skin.id)"
         >
@@ -315,10 +264,13 @@ function previewSplashScreen() {
             <span v-if="state.prefs.themeMode === 'auto' && eventActive" class="skin-theme-card__badge">活动期间自动</span>
             <span v-else-if="state.prefs.themeMode === skin.id" class="skin-theme-card__badge skin-theme-card__badge--manual">已手动保留</span>
           </span>
-          <span v-if="effectiveThemeId === skin.id" class="skin-theme-card__check" aria-hidden="true">✓</span>
+          <span v-if="!customSkinActive && effectiveThemeId === skin.id" class="skin-theme-card__check" aria-hidden="true">✓</span>
         </button>
       </div>
-      <p class="skin-settings__hint">
+      <p v-if="customSkinActive && activeCustomSkin" class="skin-settings__hint">
+        当前使用自定义皮肤：{{ activeCustomSkin.name }}（可在下方「我的自定义皮肤」切换或关闭）
+      </p>
+      <p v-else class="skin-settings__hint">
         活动当天默认全员自动使用{{ eventLabel }}；活动结束后自动回到默认皮肤，手动选择过的皮肤会保留。
       </p>
     </div>
@@ -353,90 +305,41 @@ function previewSplashScreen() {
         @update:model-value="onBackgroundToggle"
       />
 
-      <div class="skin-bg-source" :class="{ 'skin-bg-source--disabled': !state.prefs.backgroundEnabled }">
-        <div class="skin-bg-source__segmented" role="group" aria-label="背景来源">
-          <button
-            type="button"
-            class="skin-bg-source__option"
-            :class="{ 'skin-bg-source__option--active': !isCustomSource }"
-            :aria-pressed="!isCustomSource"
-            :disabled="saving || !state.prefs.backgroundEnabled"
-            @click="chooseBackgroundSource('default')"
-          >
-            皮肤背景
-          </button>
-          <button
-            type="button"
-            class="skin-bg-source__option"
-            :class="{ 'skin-bg-source__option--active': isCustomSource }"
-            :aria-pressed="isCustomSource"
-            :disabled="saving || !state.prefs.backgroundEnabled"
-            @click="chooseBackgroundSource('custom')"
-          >
-            自定义图片
-          </button>
-        </div>
-
+      <div class="skin-bg-current" :class="{ 'skin-bg-current--disabled': !state.prefs.backgroundEnabled }">
         <div class="skin-bg-preview" :class="{ 'skin-bg-preview--empty': !state.prefs.backgroundEnabled }">
           <template v-if="state.prefs.backgroundEnabled">
             <img
-              v-if="isCustomSource && customPreview"
-              :src="customPreview"
-              alt="自定义背景预览"
-              loading="lazy"
-              decoding="async"
-              draggable="false"
-            >
-            <img
-              v-else-if="!isCustomSource && skinBackgroundPreview"
+              v-if="skinBackgroundPreview"
               :src="skinBackgroundPreview"
-              :alt="`${eventLabel}自带背景预览`"
+              :alt="currentBackgroundLabel"
               loading="lazy"
               decoding="async"
               draggable="false"
             >
             <div v-else class="skin-bg-preview__placeholder">
-              {{ isCustomSource ? '尚未上传自定义图片' : '当前皮肤没有内置背景' }}
+              默认底色
             </div>
-            <span class="skin-bg-preview__badge">
-              {{ isCustomSource ? (customPreview ? '图床图片' : '待上传') : (skinBackgroundPreview ? '皮肤内置资源' : '默认底色') }}
-            </span>
+            <span class="skin-bg-preview__badge">{{ currentBackgroundLabel }}</span>
           </template>
           <div v-else class="skin-bg-preview__placeholder">
             背景已关闭
           </div>
         </div>
-
-        <div class="skin-bg-actions">
-          <button
-            type="button"
-            class="skin-settings__btn skin-settings__btn--primary"
-            :disabled="saving || !state.prefs.backgroundEnabled"
-            @click="openFilePicker"
-          >
-            {{ uploading ? '上传中…' : (customPreview ? '更换图片' : '上传图片') }}
-          </button>
-          <button
-            v-if="customPreview"
-            type="button"
-            class="skin-settings__btn"
-            :disabled="saving || !state.prefs.backgroundEnabled"
-            @click="removeCustomBackground"
-          >
-            移除
-          </button>
-        </div>
         <p class="skin-settings__hint">
-          建议使用 16:9 横图（JPG/PNG，至少 1280px 宽，≤15MB）。自定义图片会上传到图床并以绝对地址保存；皮肤内置背景来自前端 public 资源，两者互不混用。
+          上方「网站皮肤」提供内置背景；想用自己的图，在下面的自定义皮肤库里分别上传电脑图和手机图。
         </p>
-        <input
-          ref="bgFileInput"
-          type="file"
-          accept="image/jpeg,image/png,image/gif"
-          class="skin-bg-file"
-          @change="onBackgroundFileChange"
+        <button
+          v-if="state.prefs.backgroundSource === 'custom' && customPreview"
+          type="button"
+          class="skin-settings__text-btn"
+          :disabled="saving"
+          @click="removeLegacyCustomBackground"
         >
+          清除旧版单图背景
+        </button>
       </div>
+
+      <CustomSkinLibrary />
 
       <div class="skin-opacity" :class="{ 'skin-opacity--disabled': !state.prefs.backgroundEnabled }">
         <div class="skin-opacity__head">
@@ -764,6 +667,15 @@ function previewSplashScreen() {
   font-size: 11px;
   line-height: 1.6;
   color: var(--color-text-muted);
+}
+
+.skin-bg-current {
+  position: relative;
+  padding: 0 16px 4px;
+
+  &--disabled {
+    opacity: 0.62;
+  }
 }
 
 .skin-bg-source {

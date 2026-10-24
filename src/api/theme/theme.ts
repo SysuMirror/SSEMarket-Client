@@ -1,4 +1,6 @@
+import type { ActiveCustomSkin } from '@/api/skin/userSkin'
 import { useUserStore } from '@/store/userStore'
+import { normalizeActiveCustomSkin } from '@/api/skin/userSkin'
 import { requestFunc } from '../req'
 
 /**
@@ -33,6 +35,8 @@ export interface ThemeSettings {
   backgroundEnabled: boolean
   backgroundSource: ThemeBackgroundSource
   customBackgroundUrl: string
+  /** 当前选中的用户自定义皮肤 ID（皮肤库中）；0 = 不覆盖。 */
+  customSkinId: number
   /** 帖子卡片不透明度 0-100；仅在全站背景开启时生效，默认 70。 */
   postCardOpacity: number
   updatedAt?: string
@@ -44,6 +48,8 @@ export interface ThemeState {
   event: ThemeEvent | null
   /** 游客为 null；登录用户没有保存过时后端返回默认值（非 null）。 */
   settings: ThemeSettings | null
+  /** 已选中的自定义皮肤（后端解析好的桌面/手机图）；未选或已失效为 null。 */
+  customSkin: ActiveCustomSkin | null
 }
 
 export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
@@ -52,6 +58,7 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   backgroundEnabled: true,
   backgroundSource: 'default',
   customBackgroundUrl: '',
+  customSkinId: 0,
   postCardOpacity: 70,
 }
 
@@ -83,6 +90,7 @@ export function normalizeThemeSettings(raw: unknown): ThemeSettings {
     backgroundEnabled: bool(d.backgroundEnabled, DEFAULT_THEME_SETTINGS.backgroundEnabled),
     backgroundSource: source === 'custom' ? 'custom' : 'default',
     customBackgroundUrl: text(d.customBackgroundUrl, ''),
+    customSkinId: Math.max(0, Math.round(Number(d.customSkinId) || 0)),
     postCardOpacity: clampPostCardOpacity(d.postCardOpacity),
     updatedAt: typeof d.updatedAt === 'string' ? d.updatedAt : undefined,
   }
@@ -131,6 +139,7 @@ export async function fetchThemeState(): Promise<ThemeState | null> {
       serverTime: text(data.serverTime, event?.serverTime ?? ''),
       event,
       settings: data.settings == null ? null : normalizeThemeSettings(data.settings),
+      customSkin: normalizeActiveCustomSkin(data.customSkin),
     }
   }
   catch (e) {
@@ -157,6 +166,7 @@ export async function saveThemeSettings(settings: ThemeSettings): Promise<SaveTh
         backgroundEnabled: settings.backgroundEnabled,
         backgroundSource: settings.backgroundSource,
         customBackgroundUrl: settings.customBackgroundUrl,
+        customSkinId: Math.max(0, Math.round(settings.customSkinId || 0)),
         postCardOpacity: clampPostCardOpacity(settings.postCardOpacity),
       },
     }, true)

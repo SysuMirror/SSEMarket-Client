@@ -14,6 +14,7 @@ import NowPlayingOverlay from '@/components/music/NowPlayingOverlay.vue'
 import PlayerBar from '@/components/music/PlayerBar.vue'
 import PlaylistDrawer from '@/components/music/PlaylistDrawer.vue'
 import FestivalSplash from '@/components/skin/FestivalSplash.vue'
+import SkinShareAddDialog from '@/components/skin/SkinShareAddDialog.vue'
 import SkinBackground from '@/components/skin/SkinBackground.vue'
 import SkinDecorLayer from '@/components/skin/SkinDecorLayer.vue'
 import { useSkin } from '@/composables/useSkin'
@@ -134,4 +135,5 @@ onUnmounted(() => {
   <NowPlayingOverlay />
   <PlaylistDrawer />
   <FestivalSplash />
+  <SkinShareAddDialog />
 </template>

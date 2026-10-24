@@ -1,4 +1,5 @@
 import { computed, reactive, ref, watch, watchEffect } from 'vue'
+import type { ActiveCustomSkin } from '@/api/skin/userSkin'
 import type { ThemeEvent, ThemeSettings } from '@/api/theme/theme'
 import {
   clampPostCardOpacity,
@@ -36,6 +37,8 @@ interface SkinRuntimeState {
   event: ThemeEvent | null
   /** 本地缓存先上屏，登录后由服务端设置覆盖 */
   prefs: ThemeSettings
+  /** 服务端解析好的当前自定义皮肤图片；未选/失效为 null */
+  customSkin: ActiveCustomSkin | null
   /** 服务端时间 - 本地时间，用于跨零点自动结束活动 */
   serverOffsetMs: number
   /** 每 30s 推进一次，让活动结束不依赖刷新页面 */
@@ -60,6 +63,7 @@ const state = reactive<SkinRuntimeState>({
   saving: false,
   event: null,
   prefs: loadCachedPrefs(),
+  customSkin: null,
   serverOffsetMs: 0,
   tick: Date.now(),
 })
@@ -96,6 +100,12 @@ const isSkinActive = computed(() => !!activeSkin.value)
 /** 用户上传背景：只接受图床 http(s) 绝对地址，非法/相对路径一律视为空。 */
 const customBackgroundUrl = computed(() => resolveUserImageURL(state.prefs.customBackgroundUrl))
 
+/** 当前生效的用户自定义皮肤（皮肤库中的一套双图皮肤）。 */
+const activeCustomSkin = computed<ActiveCustomSkin | null>(() =>
+  state.prefs.customSkinId > 0 ? state.customSkin : null,
+)
+const customSkinActive = computed(() => !!activeCustomSkin.value)
+
 /**
  * 当前应展示的背景（mobile/desktop 两套）。
  * - 背景关闭 → null；
@@ -105,6 +115,13 @@ const customBackgroundUrl = computed(() => resolveUserImageURL(state.prefs.custo
 const backgroundSources = computed<{ mobile: string, desktop: string } | null>(() => {
   if (!state.prefs.backgroundEnabled)
     return null
+  // 自定义皮肤（桌面/手机两张图）优先级最高；后台已校验仍在皮肤库中。
+  if (activeCustomSkin.value) {
+    return {
+      mobile: activeCustomSkin.value.mobileUrl,
+      desktop: activeCustomSkin.value.desktopUrl,
+    }
+  }
   if (state.prefs.backgroundSource === 'custom') {
     // 选了自定义但还没上传/地址非法：不显示背景，避免误以为用的是皮肤内置图。
     if (!customBackgroundUrl.value)
@@ -205,7 +222,11 @@ async function refreshThemeState(): Promise<void> {
         // 登录用户以后端设置为准（跨设备一致）。
         if (result.settings) {
           state.prefs = { ...result.settings }
+          state.customSkin = result.customSkin
           persistCachedPrefs()
+        }
+        else {
+          state.customSkin = null
         }
       }
     }
@@ -232,6 +253,7 @@ async function updatePrefs(patch: Partial<ThemeSettings>): Promise<UpdateResult>
     return { ok: false, msg: '正在保存，请稍候' }
 
   const previous: ThemeSettings = { ...state.prefs }
+  const previousCustomSkin = state.customSkin
   const next: ThemeSettings = { ...state.prefs, ...patch }
 
   if ('customBackgroundUrl' in patch) {
@@ -241,6 +263,8 @@ async function updatePrefs(patch: Partial<ThemeSettings>): Promise<UpdateResult>
     next.customBackgroundUrl = normalized
   }
 
+  if ('customSkinId' in patch && !next.customSkinId)
+    state.customSkin = null
   state.prefs = next
   persistCachedPrefs()
 
@@ -252,6 +276,7 @@ async function updatePrefs(patch: Partial<ThemeSettings>): Promise<UpdateResult>
     const result = await saveThemeSettings(next)
     if (!result.ok) {
       state.prefs = previous
+      state.customSkin = previousCustomSkin
       persistCachedPrefs()
       return { ok: false, msg: result.msg }
     }
@@ -267,7 +292,8 @@ async function updatePrefs(patch: Partial<ThemeSettings>): Promise<UpdateResult>
 }
 
 function setThemeMode(themeMode: string): Promise<UpdateResult> {
-  return updatePrefs({ themeMode })
+  // 选择内置/默认皮肤时退出自定义皮肤，避免背景仍被自定义皮肤覆盖。
+  return updatePrefs({ themeMode, customSkinId: 0 })
 }
 
 function setSplashEnabled(splashEnabled: boolean): Promise<UpdateResult> {
@@ -279,7 +305,7 @@ function setBackgroundEnabled(backgroundEnabled: boolean): Promise<UpdateResult>
 }
 
 function setBackgroundSource(backgroundSource: 'default' | 'custom'): Promise<UpdateResult> {
-  return updatePrefs({ backgroundSource })
+  return updatePrefs({ backgroundSource, customSkinId: 0 })
 }
 
 /** 保存刚上传到图床的背景：同时切到 custom 并打开背景。 */
@@ -288,16 +314,33 @@ function setCustomBackground(customBackgroundUrl: string): Promise<UpdateResult>
     customBackgroundUrl,
     backgroundSource: 'custom',
     backgroundEnabled: true,
+    customSkinId: 0,
   })
 }
 
 function clearCustomBackground(): Promise<UpdateResult> {
-  return updatePrefs({ customBackgroundUrl: '', backgroundSource: 'default' })
+  return updatePrefs({ customBackgroundUrl: '', backgroundSource: 'default', customSkinId: 0 })
 }
 
 /** 恢复「跟随活动」：活动期间自动用节日皮肤，结束后自动回默认。 */
 function resetThemeModeToAuto(): Promise<UpdateResult> {
-  return updatePrefs({ themeMode: 'auto' })
+  return updatePrefs({ themeMode: 'auto', customSkinId: 0 })
+}
+
+/** 应用皮肤库中的一套自定义皮肤；失败时回滚内存里的预览图。 */
+async function applyUserSkin(skin: ActiveCustomSkin): Promise<UpdateResult> {
+  const previous = state.customSkin
+  state.customSkin = { ...skin }
+  const result = await updatePrefs({ customSkinId: skin.skinID, backgroundEnabled: true })
+  if (!result.ok)
+    state.customSkin = previous
+  return result
+}
+
+/** 退出自定义皮肤，回到当前内置皮肤的背景。 */
+function clearUserSkin(): Promise<UpdateResult> {
+  state.customSkin = null
+  return updatePrefs({ customSkinId: 0 })
 }
 
 /** 帖子卡片不透明度（30-100）：调小让全站背景图更明显。 */
@@ -352,6 +395,8 @@ export function useSkin() {
     effectiveThemeId,
     activeSkin,
     isSkinActive,
+    activeCustomSkin,
+    customSkinActive,
     hasBackground,
     backgroundSources,
     splashSources,
@@ -368,6 +413,8 @@ export function useSkin() {
     setBackgroundSource,
     setCustomBackground,
     clearCustomBackground,
+    applyUserSkin,
+    clearUserSkin,
     resetThemeModeToAuto,
     setPostCardOpacity,
   }
