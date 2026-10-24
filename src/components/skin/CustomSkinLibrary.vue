@@ -93,9 +93,11 @@ watch(
   },
 )
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
 async function uploadImage(file: File, target: 'desktop' | 'mobile') {
-  if (!file.type.startsWith('image/')) {
-    showMsg('请选择图片文件')
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    showMsg('仅支持 JPG / PNG / GIF / WebP 图片')
     return
   }
   if (file.size > 15 * 1024 * 1024) {
@@ -373,7 +375,7 @@ async function addFromSearch(skin: UserSkin) {
             <span v-else>电脑端横图<br>建议 16:9</span>
           </div>
           <label class="cs__upload-btn">
-            <input type="file" accept="image/*" @change="onPickFile($event, 'desktop')">
+            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="onPickFile($event, 'desktop')">
             <span>{{ uploadingDesktop ? '上传中…' : (draftDesktopUrl ? '更换电脑图' : '上传电脑图') }}</span>
           </label>
         </div>
@@ -383,7 +385,7 @@ async function addFromSearch(skin: UserSkin) {
             <span v-else>手机端竖图<br>建议 9:16</span>
           </div>
           <label class="cs__upload-btn">
-            <input type="file" accept="image/*" @change="onPickFile($event, 'mobile')">
+            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="onPickFile($event, 'mobile')">
             <span>{{ uploadingMobile ? '上传中…' : (draftMobileUrl ? '更换手机图' : '上传手机图') }}</span>
           </label>
         </div>
