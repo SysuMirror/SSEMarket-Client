@@ -13,6 +13,7 @@ import {
 } from '@/api/opsagent/conversation'
 import { OpsAgentRequestError, shouldRebootstrapAfterTaskError } from '@/api/opsagent/errors'
 import { fetchSuggestions, submitMessageFeedback } from '@/api/opsagent/suggestions'
+import { uploadDraftImage } from '@/api/post/draft'
 import { showMsg } from '@/components/MessageBox'
 import BanBanner from '@/components/smart-xiaoqiu/BanBanner.vue'
 import ConversationSidebar from '@/components/smart-xiaoqiu/ConversationSidebar.vue'
@@ -43,6 +44,51 @@ const modeMenuOpen = ref(false)
 function pickMode(m: 'chat' | 'image') {
   currentMode.value = m
   modeMenuOpen.value = false
+}
+
+// 参考图上传（2026-11-01 用户要求）：图走站内图床 uploadPhotos 得公网 URL，
+// 发送时以「参考图：<url>」行拼进消息文本——agent 拿 URL 直接 edit_image 垫图
+const attachInput = useTemplateRef<HTMLInputElement>('attachInput')
+const attachUrls = ref<string[]>([])
+const attaching = ref(false)
+const attachError = ref('')
+const ATTACH_MAX = 3
+const ATTACH_MAX_BYTES = 10 * 1024 * 1024 // 与 edit_image 底图 10MB 上限对齐
+
+async function onAttachFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // 允许重选同一文件
+  if (!file)
+    return
+  attachError.value = ''
+  if (!file.type.startsWith('image/')) {
+    attachError.value = '只能上传图片文件'
+    return
+  }
+  if (file.size > ATTACH_MAX_BYTES) {
+    attachError.value = '图片超过 10MB，压缩一下再传'
+    return
+  }
+  if (attachUrls.value.length >= ATTACH_MAX) {
+    attachError.value = `最多附 ${ATTACH_MAX} 张参考图`
+    return
+  }
+  attaching.value = true
+  try {
+    const url = await uploadDraftImage(file)
+    if (url)
+      attachUrls.value = [...attachUrls.value, url]
+    else
+      attachError.value = '上传失败，稍后重试'
+  }
+  finally {
+    attaching.value = false
+  }
+}
+
+function removeAttach(url: string) {
+  attachUrls.value = attachUrls.value.filter(u => u !== url)
 }
 const sidebarOpen = ref(false)
 const memoryOpen = ref(false)
@@ -156,13 +202,40 @@ function bootstrapMessagesToTimeline(messages: BootstrapMessage[]): TimelineItem
       })
     }
     else if (role === 'assistant') {
-      out.push({
-        kind: 'assistant',
-        id: newId('as'),
-        text: m.content,
-        time: now,
-        status: 'done',
-      })
+      // 后端 checkpoint 重建的工具步骤/生图卡（2026-11-01：重进会话不再丢调用历史）
+      for (const s of m.steps ?? []) {
+        out.push({
+          kind: 'step',
+          id: newId('step'),
+          label: s.label,
+          text: s.text,
+          time: now,
+          status: 'done',
+          collapsed: true,
+        })
+      }
+      for (const im of m.images ?? []) {
+        out.push({
+          kind: 'image',
+          id: im.id || newId('img'),
+          status: im.status,
+          percent: im.status === 'done' ? 100 : 0,
+          stage: '',
+          url: im.url || undefined,
+          seed: im.seed ?? undefined,
+          error: im.error,
+          time: now,
+        })
+      }
+      if (m.content) {
+        out.push({
+          kind: 'assistant',
+          id: newId('as'),
+          text: m.content,
+          time: now,
+          status: 'done',
+        })
+      }
     }
   }
   return out
@@ -361,12 +434,18 @@ function schedulePostSendRefresh() {
 }
 
 async function sendMessage() {
-  const content = draft.value.trim()
-  if (!content || isStreaming.value || !sessionReady.value)
+  const text = draft.value.trim()
+  const urls = attachUrls.value
+  if (isStreaming.value || !sessionReady.value || attaching.value)
     return
+  if (!text && !urls.length)
+    return
+  // 参考图行拼进消息：agent 按提示词纪律识别「参考图：<url>」并 edit_image 垫图
+  const content = text + urls.map(u => `\n参考图：${u}`).join('')
 
   pushUserMessage(content)
   draft.value = ''
+  attachUrls.value = []
   suggestions.value = []
   scrollToBottom(true)
 
@@ -615,6 +694,17 @@ function onDraftUpdate(updated: TimelinePostDraft) {
         </div>
 
         <footer class="composer-shell">
+          <input ref="attachInput" type="file" accept="image/*" class="attach-file" aria-hidden="true" @change="onAttachFile">
+          <div v-if="attachUrls.length || attachError" class="attach-row">
+            <div v-for="u in attachUrls" :key="u" class="attach-chip">
+              <img :src="u" alt="参考图缩略图">
+              <button type="button" class="attach-del" aria-label="移除该参考图" @click="removeAttach(u)">
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <span v-if="attaching" class="attach-pending">上传中…</span>
+            <span v-if="attachError" class="attach-error" role="alert">{{ attachError }}</span>
+          </div>
           <div class="composer">
             <textarea
               ref="composerInput"
@@ -682,6 +772,19 @@ function onDraftUpdate(updated: TimelinePostDraft) {
                 </ul>
               </div>
               <button
+                type="button"
+                class="icon-btn"
+                :class="{ 'attach-busy': attaching }"
+                :disabled="attaching || isStreaming || !sessionReady"
+                aria-label="上传参考图"
+                title="上传参考图（改图/垫图用）"
+                @click="attachInput?.click()"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M20 12.5 12.4 20a5 5 0 0 1-7-7l7.5-7.6a3.3 3.3 0 0 1 4.7 4.7L10 17a1.7 1.7 0 0 1-2.4-2.3l6.9-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <button
                 v-if="isStreaming"
                 type="button"
                 class="icon-btn stop"
@@ -698,7 +801,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
                 class="send-btn"
                 aria-label="发送"
                 title="发送"
-                :disabled="!sessionReady || isStreaming || !draft.trim()"
+                :disabled="!sessionReady || isStreaming || attaching || (!draft.trim() && !attachUrls.length)"
                 @click="sendMessage"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1210,6 +1313,68 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 .mode-check {
   margin-left: auto;
   flex: none;
+}
+
+/* 参考图上传：隐藏 input + 缩略芯片行（宽度对齐 680 输入列） */
+.attach-file {
+  display: none;
+}
+
+.attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 680px);
+  margin: 0 auto;
+  padding: 10px 4px 0;
+}
+
+.attach-chip {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--xq-border);
+  background: var(--xq-surface-muted, #f1f5f9);
+}
+
+.attach-chip img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attach-del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(15 23 42 / 65%);
+  color: #fff;
+  font-size: 14px;
+  line-height: 17px;
+  cursor: pointer;
+}
+
+.attach-pending {
+  font-size: 12px;
+  color: var(--xq-text-muted);
+}
+
+.attach-error {
+  font-size: 12px;
+  color: var(--color-error, #ef5350);
+}
+
+.attach-busy {
+  opacity: 0.55;
 }
 
 .composer {

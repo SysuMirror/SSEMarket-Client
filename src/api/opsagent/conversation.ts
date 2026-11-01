@@ -3,9 +3,27 @@ import { OpsAgentRequestError } from '@/api/opsagent/errors'
 import { opsagentAuthHeaders } from '@/api/opsagent/headers'
 import { ensureAccessToken } from '@/api/req'
 
+/** 重进会话时后端从 checkpoint 重建的工具步骤（与直播 status 事件同款形态，默认折叠） */
+export interface BootstrapStep {
+  label: string
+  text: string
+  status: string
+}
+
+/** 重进会话时后端解析出的生图卡片（done 带 url/seed；failed 带 error） */
+export interface BootstrapImage {
+  id: string
+  status: 'done' | 'failed'
+  url: string
+  seed: number | null
+  error?: string
+}
+
 export interface BootstrapMessage {
   role: string
   content: string
+  steps?: BootstrapStep[]
+  images?: BootstrapImage[]
 }
 
 /** 与 OpsAgent `GET /api/v1/agent/conversation/bootstrap` 的 `data` 对齐（`segment_seq`、`archived`；不再使用 `closed`）。 */
