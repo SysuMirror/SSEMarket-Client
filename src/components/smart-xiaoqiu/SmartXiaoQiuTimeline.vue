@@ -125,7 +125,9 @@ const turns = computed(() => {
 const openStep = ref<Record<string, boolean>>({})
 
 function toggleStep(id: string, collapsed: boolean) {
-  openStep.value = { ...openStep.value, [id]: collapsed ? true : !openStep.value[id] }
+  // 以"当前生效展开态"取反——旧写法 collapsed=false 首次点击写 !undefined=true，
+  // 永远收不回（2026-11-01 用户实测 bug）
+  openStep.value = { ...openStep.value, [id]: !stepExpanded(id, collapsed) }
 }
 
 function stepExpanded(id: string, collapsed: boolean) {
@@ -143,18 +145,19 @@ const thinkingLabel = computed(() => {
   return s >= 15 ? `仍在等待回复（已等 ${s} 秒）` : '正在思考'
 })
 
-// 思考区受控折叠：默认关，展开状态按 turn 记（原 ref="reasoningRef" 在 v-for 里
-// 后者覆盖前者、只滚最后一个的问题，改为 root 内 querySelector 定位最后一段）
+// 思考区/目标条受控折叠：**不用原生 details**——流式高频 patch 会把用户点开状态
+// 按 vnode 的 open=false 拉回（2026-11-01 用户实测"thinking 展不开/直接铺在背景"），
+// 改 button + v-show，状态源唯一
 const rootRef = ref<HTMLElement | null>(null)
 const openReasoning = ref<Record<string, boolean>>({})
 const openGoal = ref<Record<string, boolean>>({})
 
-function onReasoningToggle(id: string, e: Event) {
-  openReasoning.value[id] = (e.target as HTMLDetailsElement).open
+function toggleReasoning(id: string) {
+  openReasoning.value = { ...openReasoning.value, [id]: !(openReasoning.value[id] === true) }
 }
 
-function onGoalToggle(id: string, e: Event) {
-  openGoal.value[id] = (e.target as HTMLDetailsElement).open
+function toggleGoal(id: string) {
+  openGoal.value = { ...openGoal.value, [id]: !(openGoal.value[id] === true) }
 }
 
 function reasoningSummary(turn: TimelineTurn) {
@@ -220,21 +223,21 @@ function canRate(a: TimelineAssistant | undefined): boolean {
             </span>
           </div>
 
-          <!-- 任务目标汇总条：默认隐藏，展开后是本目标下的工具调用序列 -->
-          <details
-            v-if="turn.steps.length"
-            class="goal-box"
-            :open="openGoal[turn.id] === true"
-            @toggle="onGoalToggle(turn.id, $event)"
-          >
-            <summary class="goal-summary">
-              <svg class="goal-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <!-- 任务目标汇总条：默认收起，展开后是本目标下的工具调用序列 -->
+          <div v-if="turn.steps.length" class="goal-box">
+            <button
+              type="button"
+              class="goal-summary"
+              :aria-expanded="openGoal[turn.id] === true"
+              @click="toggleGoal(turn.id)"
+            >
+              <svg class="goal-chev" :class="{ 'is-open': openGoal[turn.id] === true }" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
               </svg>
               <span class="goal-text">{{ goalFor(turn) }}</span>
               <span v-if="turnHasLive(turn)" class="goal-live">处理中</span>
-            </summary>
-            <div class="goal-steps">
+            </button>
+            <div v-show="openGoal[turn.id] === true" class="goal-steps">
               <div
                 v-for="step in turn.steps"
                 :key="step.id"
@@ -274,7 +277,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
                 </div>
               </div>
             </div>
-          </details>
+          </div>
 
           <!-- 中间轮封存文本：淡色旁白行（WorkBuddy 分步感；final 不再整段覆盖它） -->
           <p
@@ -296,30 +299,35 @@ function canRate(a: TimelineAssistant | undefined): boolean {
           <div
             v-if="turn.assistant"
             class="assistant-bubble"
-            :class="{
-              streaming: turn.assistant.status === 'streaming',
-              error: turn.assistant.status === 'error',
-              thinking: isThinking(turn.assistant.text, turn.assistant.status),
-            }"
+            :class="{ error: turn.assistant.status === 'error' }"
           >
-            <!-- 思考区：流式/完成共用受控 details，默认折叠 -->
-            <details
-              v-if="turn.assistant.reasoning"
-              class="reasoning-details"
-              :open="openReasoning[turn.id] === true"
-              @toggle="onReasoningToggle(turn.id, $event)"
-            >
-              <summary>{{ reasoningSummary(turn) }}</summary>
+            <!-- 思考区：受控 button+v-show（原生 details 在流式 patch 下会被拉回） -->
+            <div v-if="turn.assistant.reasoning" class="reasoning-box">
+              <button
+                type="button"
+                class="reasoning-head"
+                :aria-expanded="openReasoning[turn.id] === true"
+                @click="toggleReasoning(turn.id)"
+              >
+                <svg class="reasoning-chev" :class="{ 'is-open': openReasoning[turn.id] === true }" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                {{ reasoningSummary(turn) }}
+              </button>
               <div
+                v-show="openReasoning[turn.id] === true"
                 class="reasoning-live"
                 :data-live="turn.id === lastTurnId ? '' : undefined"
               >
                 {{ turn.assistant.reasoning }}
               </div>
-            </details>
-            <div v-if="isThinking(turn.assistant.text, turn.assistant.status)" class="typing" role="status">
-              <span class="typing-dots"><span /><span /><span /></span>
-              <span class="typing-label">{{ thinkingLabel }}</span>
+            </div>
+            <!-- 首 token 等待动画：星芒+流光字，透明无卡（2026-11-01 重设计） -->
+            <div v-if="isThinking(turn.assistant.text, turn.assistant.status)" class="thinking-line" role="status">
+              <svg class="thinking-spark" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 2.5l1.9 6q.3.95 1.25 1.25l6 1.9-6 1.9q-.95.3-1.25 1.25l-1.9 6-1.9-6q-.3-.95-1.25-1.25l-6-1.9 6-1.9q.95-.3 1.25-1.25Z" />
+              </svg>
+              <span class="thinking-shimmer">{{ thinkingLabel }}</span>
             </div>
             <MarkdownContainer
               v-if="turn.assistant.text"
@@ -523,8 +531,12 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   cursor: pointer;
-  list-style: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
   padding: 2px;
   font-size: 12px;
   color: var(--xq-text-muted);
@@ -532,16 +544,12 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   user-select: none;
 }
 
-.goal-summary::-webkit-details-marker {
-  display: none;
-}
-
 .goal-chev {
   flex: none;
   transition: transform 0.15s ease;
 }
 
-.goal-box[open] .goal-chev {
+.goal-chev.is-open {
   transform: rotate(90deg);
 }
 
@@ -660,8 +668,6 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   align-items: center;
   gap: 6px 12px;
   margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--xq-border);
 }
 
 .sources-head {
@@ -687,33 +693,20 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   text-decoration: underline;
 }
 
-/* —— 主回复气泡 —— */
+/* —— 主回复区：正文透明直出（2026-11-01 用户要求：与步骤行一致，去白卡）。
+   error 态保留淡红底是功能性标识，不算装饰卡 */
 .assistant-bubble {
   position: relative;
   width: 100%;
   max-width: var(--xq-bubble-max);
-  padding: 14px 16px;
-  border-radius: 4px 18px 18px 18px;
-  background: var(--xq-surface);
-  border: 1px solid var(--xq-border);
-  box-shadow: var(--xq-shadow);
   color: var(--xq-text);
   word-break: break-word;
 }
 
-.assistant-bubble.streaming {
-  border-color: var(--xq-accent-border);
-}
-
 .assistant-bubble.error {
-  border-color: var(--color-error, #ef5350);
-  background: color-mix(in srgb, var(--color-error, #ef5350) 6%, var(--xq-surface));
-}
-
-.assistant-bubble.thinking {
-  padding: 16px 18px;
-  width: fit-content;
-  min-width: 72px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-error, #ef5350) 7%, transparent);
 }
 
 .assistant-bubble :deep(.markdown-body) {
@@ -745,9 +738,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
 
 .bubble-time {
   display: block;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--xq-border);
+  margin-top: 8px;
 }
 
 /* —— 消息反馈 —— */
@@ -791,84 +782,94 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   opacity: 1;
 }
 
-/* 打字动画 */
-.typing {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 12px;
-}
-
-.typing + .reasoning-details,
-.reasoning-details + .typing {
-  margin-top: 8px;
-}
-
-.reasoning-details {
+/* —— 思考区：引用条样式（透明底时代的层级区分，2026-11-01）—— */
+.reasoning-box {
   margin: 0 0 8px;
 }
 
-.reasoning-details summary {
-  cursor: pointer;
+.reasoning-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  font: inherit;
   font-size: 12.5px;
   color: var(--xq-text-muted);
+  cursor: pointer;
+  text-align: left;
   -webkit-user-select: none;
   user-select: none;
 }
 
-.reasoning-details .reasoning-live {
+.reasoning-chev {
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.reasoning-chev.is-open {
+  transform: rotate(90deg);
+}
+
+.reasoning-live {
   width: 100%;
   max-height: 240px;
-  margin-top: 8px;
+  margin-top: 6px;
   overflow-y: auto;
   font-size: 13px;
   line-height: 1.55;
   color: var(--xq-text-muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  padding-right: 4px;
+  padding: 2px 4px 2px 10px;
+  border-left: 2px solid color-mix(in srgb, var(--xq-accent) 35%, transparent);
+  border-radius: 2px;
 }
 
-.typing-dots {
-  display: inline-flex;
+/* —— 首 token 等待动画：星芒呼吸 + 流光字，透明无卡 —— */
+.thinking-line {
+  display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
+  padding: 3px 0;
 }
 
-.typing-dots span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--xq-accent);
-  opacity: 0.35;
-  animation: typing 1.2s ease-in-out infinite;
+.thinking-spark {
+  flex: none;
+  color: var(--xq-accent);
+  animation: xq-spark 1.6s ease-in-out infinite;
 }
 
-.typing-dots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.typing-dots span:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.typing-label {
-  margin-left: 3px;
-  font-size: 13px;
-  color: var(--xq-text-muted);
-  white-space: nowrap;
+.thinking-shimmer {
+  font-size: 13.5px;
   font-variant-numeric: tabular-nums;
+  background: linear-gradient(90deg, var(--xq-text-muted) 20%, var(--xq-accent-deep) 50%, var(--xq-text-muted) 80%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: xq-shimmer 2.4s linear infinite;
 }
 
-@keyframes typing {
+@keyframes xq-spark {
   0%,
-  60%,
   100% {
-    opacity: 0.35;
-    transform: translateY(0);
+    opacity: 0.45;
+    transform: scale(0.82) rotate(0deg);
   }
-  30% {
+  50% {
     opacity: 1;
-    transform: translateY(-3px);
+    transform: scale(1.08) rotate(28deg);
+  }
+}
+
+@keyframes xq-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
   }
 }
 

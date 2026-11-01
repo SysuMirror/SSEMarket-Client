@@ -34,9 +34,16 @@ const bootstrapError = ref('')
 
 const conversations = ref<ConversationSummary[]>([])
 const convLoading = ref(false)
-// 工作模式 pill（A5）：会话级——bootstrap/messages 响应带回初值，发送随 body.mode
-// 上送，agent 自主切换经 mode 事件回填（reason=agent 时用户无感知、pill 跟随）
+// 工作模式（A5）：会话级——bootstrap/messages 响应带回初值，发送随 body.mode
+// 上送，agent 自主切换经 mode 事件回填（reason=agent 时用户无感知、选择器跟随）
 const currentMode = ref<'chat' | 'image'>('chat')
+// 2026-11-01 用户要求：pill 改下拉列表，放发送键左侧
+const modeMenuOpen = ref(false)
+
+function pickMode(m: 'chat' | 'image') {
+  currentMode.value = m
+  modeMenuOpen.value = false
+}
 const sidebarOpen = ref(false)
 const memoryOpen = ref(false)
 const rpsOpen = ref(false)
@@ -608,34 +615,6 @@ function onDraftUpdate(updated: TimelinePostDraft) {
         </div>
 
         <footer class="composer-shell">
-          <div class="mode-seg" role="group" aria-label="小秋工作模式">
-            <button
-              type="button"
-              class="mode-seg-btn"
-              :class="{ 'is-active': currentMode === 'chat' }"
-              :aria-pressed="currentMode === 'chat'"
-              @click="currentMode = 'chat'"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-              </svg>
-              对话
-            </button>
-            <button
-              type="button"
-              class="mode-seg-btn"
-              :class="{ 'is-active': currentMode === 'image' }"
-              :aria-pressed="currentMode === 'image'"
-              @click="currentMode = 'image'"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8" />
-                <circle cx="9" cy="10" r="1.6" fill="currentColor" />
-                <path d="m5 18 5-5 3 3 3-3 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              生图
-            </button>
-          </div>
           <div class="composer">
             <textarea
               ref="composerInput"
@@ -651,6 +630,57 @@ function onDraftUpdate(updated: TimelinePostDraft) {
               @input="autoResizeComposer"
             />
             <div class="composer-actions">
+              <div class="mode-select">
+                <button
+                  type="button"
+                  class="mode-select-btn"
+                  :aria-expanded="modeMenuOpen"
+                  aria-haspopup="listbox"
+                  aria-label="小秋工作模式"
+                  :title="currentMode === 'image' ? '生图模式' : '对话模式'"
+                  @click="modeMenuOpen = !modeMenuOpen"
+                >
+                  <svg v-if="currentMode === 'image'" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8" />
+                    <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+                    <path d="m5 18 5-5 3 3 3-3 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                  </svg>
+                  <span class="mode-select-label">{{ currentMode === 'image' ? '生图' : '对话' }}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <div v-if="modeMenuOpen" class="mode-menu-backdrop" @click="modeMenuOpen = false" />
+                <ul v-if="modeMenuOpen" class="mode-menu" role="listbox" aria-label="选择工作模式">
+                  <li>
+                    <button type="button" role="option" :aria-selected="currentMode === 'chat'" :class="{ on: currentMode === 'chat' }" @click="pickMode('chat')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                      </svg>
+                      对话
+                      <svg v-if="currentMode === 'chat'" class="mode-check" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 12.5l5 5L20 6.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" role="option" :aria-selected="currentMode === 'image'" :class="{ on: currentMode === 'image' }" @click="pickMode('image')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="3" y="4" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8" />
+                        <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+                        <path d="m5 18 5-5 3 3 3-3 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      生图
+                      <svg v-if="currentMode === 'image'" class="mode-check" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 12.5l5 5L20 6.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                  </li>
+                </ul>
+              </div>
               <button
                 v-if="isStreaming"
                 type="button"
@@ -1100,45 +1130,86 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   border-top: 1px solid var(--xq-border);
 }
 
-/* 模式 pill（A5）：composer-shell 顶部左对齐 segmented；agent 切换/服务端回声靠
-   mode 事件驱动，本地点选只改本地意图、随下一条消息 body.mode 同步 */
-.mode-seg {
-  width: fit-content;
-  margin: 0 auto 8px;
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 999px;
-  background: var(--xq-surface-muted);
-  border: 1px solid var(--xq-border);
+/* 模式下拉（A5→2026-11-01 用户改）：发送键左侧；agent 切换/服务端回声靠 mode 事件
+   驱动 currentMode，下拉标签跟随。菜单必须实底高对比——皮肤页浮层透明会看不清 */
+.mode-select {
+  position: relative;
 }
 
-.mode-seg-btn {
+.mode-select-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 14px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--xq-text-muted, #94a3b8);
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--xq-border);
+  border-radius: 10px;
+  background: var(--xq-surface-muted, #f1f5f9);
+  color: var(--xq-text-secondary, #475569);
   font-size: 13px;
   cursor: pointer;
   transition:
-    background 0.15s,
+    border-color 0.15s,
     color 0.15s;
 }
 
-.mode-seg-btn.is-active {
-  background: var(--xq-surface);
+.mode-select-btn:hover {
+  border-color: var(--xq-accent);
   color: var(--xq-accent-deep);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgb(15 23 42 / 10%);
 }
 
-.mode-seg-btn:focus-visible {
-  outline: 2px solid var(--xq-accent);
-  outline-offset: 1px;
+.mode-select-label {
+  font-weight: 500;
+}
+
+.mode-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.mode-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 41;
+  min-width: 116px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--xq-surface, #fff);
+  border: 1px solid var(--xq-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgb(15 23 42 / 18%);
+}
+
+.mode-menu button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--xq-text, #0f172a);
+  font-size: 13.5px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mode-menu button:hover {
+  background: var(--xq-surface-muted, #f1f5f9);
+}
+
+.mode-menu button.on {
+  color: var(--xq-accent-deep);
+  font-weight: 600;
+}
+
+.mode-check {
+  margin-left: auto;
+  flex: none;
 }
 
 .composer {
