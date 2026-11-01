@@ -530,6 +530,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
 .goal-summary {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   width: 100%;
   cursor: pointer;
@@ -583,6 +584,8 @@ function canRate(a: TimelineAssistant | undefined): boolean {
 .step-toggle {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  /* ↑站级 main.css 给所有 button 塞了 justify-content:center，行内折叠钮必须显式左对齐 */
   gap: 8px;
   width: 100%;
   padding: 7px 2px;
@@ -790,6 +793,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
 .reasoning-head {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   border: none;
   background: transparent;

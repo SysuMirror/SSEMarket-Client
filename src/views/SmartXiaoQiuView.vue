@@ -234,6 +234,7 @@ function bootstrapMessagesToTimeline(messages: BootstrapMessage[]): TimelineItem
           text: m.content,
           time: now,
           status: 'done',
+          reasoning: m.reasoning || undefined,
         })
       }
     }
@@ -1289,6 +1290,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 .mode-menu button {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 7px;
   width: 100%;
   padding: 8px 10px;

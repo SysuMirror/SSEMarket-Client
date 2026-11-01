@@ -24,6 +24,8 @@ export interface BootstrapMessage {
   content: string
   steps?: BootstrapStep[]
   images?: BootstrapImage[]
+  /** 深度思考限幅摘录（后端只存前 2000 字，2026-11-01 用户要求刷新后也可见） */
+  reasoning?: string
 }
 
 /** 与 OpsAgent `GET /api/v1/agent/conversation/bootstrap` 的 `data` 对齐（`segment_seq`、`archived`；不再使用 `closed`）。 */
