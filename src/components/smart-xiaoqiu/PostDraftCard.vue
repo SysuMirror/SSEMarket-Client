@@ -2,6 +2,7 @@
 import type { PostDraftPayload, TimelinePostDraft } from '@/composables/useOpsAgentStream'
 import { computed, ref } from 'vue'
 import { submitDraft, uploadDraftImage } from '@/api/post/draft'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
 import { POST_PARTITION_OPTIONS } from '@/constants/partitions'
 
@@ -24,6 +25,8 @@ const isPrivate = ref(props.item.draft.is_private ?? false)
 const photos = ref<string[]>([])
 const photoFiles = ref<File[]>([])
 const submitting = ref(false)
+// 逐张传图进度：按钮显示「传图 i/N」，失败张数会中止发帖
+const uploadingPhotoCount = ref(0)
 const errorMsg = ref('')
 const successUrl = ref('')
 
@@ -97,10 +100,20 @@ async function handleConfirm() {
 
   try {
     const uploadedUrls: string[] = []
-    for (const f of photoFiles.value) {
-      const url = await uploadDraftImage(f)
+    let failedCount = 0
+    for (let i = 0; i < photoFiles.value.length; ++i) {
+      uploadingPhotoCount.value = i + 1
+      const url = await uploadDraftImage(photoFiles.value[i])
       if (url)
         uploadedUrls.push(url)
+      else
+        failedCount += 1
+    }
+    // 图片上传失败不再静默丢弃：中止发帖并明确告知，让用户重试
+    if (failedCount > 0) {
+      errorMsg.value = `有 ${failedCount} 张图片上传失败，已取消发帖，请重新提交`
+      patch({ status: 'error', error: errorMsg.value })
+      return
     }
 
     const result = await submitDraft(buildDraft(), uploadedUrls)
@@ -127,6 +140,7 @@ async function handleConfirm() {
   }
   finally {
     submitting.value = false
+    uploadingPhotoCount.value = 0
   }
 }
 
@@ -140,7 +154,7 @@ function handleCancel() {
     <header class="draft-card__head">
       <span class="draft-card__badge">{{ isProduct ? '商城商品' : '普通帖子' }}</span>
       <span class="draft-card__title">发帖草稿</span>
-      <span v-if="props.item.status === 'submitting'" class="draft-card__status">提交中…</span>
+      <span v-if="props.item.status === 'submitting'" class="draft-card__status"><LoadingSpinner :size="13" style="margin-right: 4px;" />{{ photoFiles.length ? `传图 ${uploadingPhotoCount}/${photoFiles.length}…` : '提交中…' }}</span>
       <span v-else-if="props.item.status === 'success'" class="draft-card__status draft-card__status--ok">已发布</span>
       <span v-else-if="props.item.status === 'error'" class="draft-card__status draft-card__status--err">失败</span>
     </header>
@@ -269,6 +283,7 @@ function handleCancel() {
           取消
         </button>
         <button type="button" class="draft-btn draft-btn--confirm" :disabled="submitting" @click="handleConfirm">
+          <LoadingSpinner v-if="submitting" :size="14" style="margin-right: 5px;" />
           {{ submitting ? '提交中…' : '确认发帖' }}
         </button>
       </div>

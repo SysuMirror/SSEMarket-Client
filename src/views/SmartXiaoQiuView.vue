@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BootstrapMessage, ConversationSummary } from '@/api/opsagent/conversation'
 import type { Suggestion } from '@/api/opsagent/suggestions'
-import type { TimelineItem, TimelinePostDraft } from '@/composables/useOpsAgentStream'
+import type { TimelineImage, TimelineItem, TimelinePostDraft } from '@/composables/useOpsAgentStream'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -12,10 +12,10 @@ import {
   renameConversation,
 } from '@/api/opsagent/conversation'
 import { OpsAgentRequestError, shouldRebootstrapAfterTaskError } from '@/api/opsagent/errors'
-import { submitMessageFeedback, fetchSuggestions } from '@/api/opsagent/suggestions'
+import { fetchSuggestions, submitMessageFeedback } from '@/api/opsagent/suggestions'
 import { showMsg } from '@/components/MessageBox'
-import ConversationSidebar from '@/components/smart-xiaoqiu/ConversationSidebar.vue'
 import BanBanner from '@/components/smart-xiaoqiu/BanBanner.vue'
+import ConversationSidebar from '@/components/smart-xiaoqiu/ConversationSidebar.vue'
 import MemoryDrawer from '@/components/smart-xiaoqiu/MemoryDrawer.vue'
 import RpsGame from '@/components/smart-xiaoqiu/RpsGame.vue'
 import SmartXiaoQiuTimeline from '@/components/smart-xiaoqiu/SmartXiaoQiuTimeline.vue'
@@ -34,6 +34,9 @@ const bootstrapError = ref('')
 
 const conversations = ref<ConversationSummary[]>([])
 const convLoading = ref(false)
+// 工作模式 pill（A5）：会话级——bootstrap/messages 响应带回初值，发送随 body.mode
+// 上送，agent 自主切换经 mode 事件回填（reason=agent 时用户无感知、pill 跟随）
+const currentMode = ref<'chat' | 'image'>('chat')
 const sidebarOpen = ref(false)
 const memoryOpen = ref(false)
 const rpsOpen = ref(false)
@@ -202,6 +205,7 @@ async function runBootstrap(initialId?: string) {
       data = await fetchConversationBootstrap()
     }
     sessionId.value = data.session_id
+    currentMode.value = data.mode === 'image' ? 'image' : 'chat'
     const msgs = data.messages ?? []
     if (msgs.length > 0)
       timeline.value = bootstrapMessagesToTimeline(msgs)
@@ -225,8 +229,9 @@ async function startNewChat() {
   }
   try {
     const freshId = newSessionId()
-    await fetchConversationBootstrap(freshId)
+    const data = await fetchConversationBootstrap(freshId)
     sessionId.value = freshId
+    currentMode.value = data.mode === 'image' ? 'image' : 'chat'
     timeline.value = []
     ratings.value = {}
     seedWelcomeMessages()
@@ -253,6 +258,7 @@ async function switchTo(id: string) {
   try {
     const data = await fetchConversationMessages(id)
     sessionId.value = data.session_id
+    currentMode.value = data.mode === 'image' ? 'image' : 'chat'
     ratings.value = {}
     const msgs = data.messages ?? []
     timeline.value = msgs.length > 0 ? bootstrapMessagesToTimeline(msgs) : []
@@ -309,6 +315,30 @@ async function onFeedback(runId: string, rating: 1 | -1) {
   }
 }
 
+/**
+ * 生图卡按钮（B2）：redo=预填原提示词直接发送（不传 seed=随机新图）；
+ *  tweak=预填底图 URL 的一句话，聚焦等用户补要改什么。
+ */
+function onImageAction(action: 'redo' | 'tweak', item: TimelineImage) {
+  if (action === 'redo') {
+    draft.value = item.prompt
+      ? `再画一张：${item.prompt}`
+      : '再画一张上面那个感觉的图'
+    void sendMessage()
+    return
+  }
+  const base = item.url ? `以这张为底图（${item.url}）继续调整：` : '继续调整刚才那张图：'
+  draft.value = item.prompt ? `${base}保持「${item.prompt.slice(0, 60)}」的整体感觉，我要改成` : `${base}我要改成`
+  nextTick(() => {
+    const el = composerInput.value
+    if (el) {
+      el.focus()
+      el.selectionStart = el.value.length
+      autoResizeComposer()
+    }
+  })
+}
+
 function onSuggestion(s: Suggestion) {
   if (isStreaming.value || !sessionReady.value)
     return
@@ -337,6 +367,9 @@ async function sendMessage() {
     await sendAgentMessage({
       sessionId: sessionId.value,
       task: content,
+      mode: currentMode.value,
+      // agent 自主切换（hidden switch_mode）→ pill 跟随，用户无感知动作可见化
+      onMode: (m) => { currentMode.value = m === 'image' ? 'image' : 'chat' },
       onAfterUpdate: () => scrollToBottom(),
     })
     schedulePostSendRefresh()
@@ -540,6 +573,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
                 :streaming-elapsed="streamElapsed"
                 @draft-update="onDraftUpdate"
                 @feedback="onFeedback"
+                @image-action="onImageAction"
               />
             </div>
           </main>
@@ -561,7 +595,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
           {{ bootstrapError || globalError }}
         </div>
 
-        <div v-if="showSuggestions" class="sug-row lite-scrollbar" aria-label="你可以试试">
+        <div v-if="showSuggestions" class="lite-scrollbar sug-row" aria-label="你可以试试">
           <button
             v-for="s in suggestions"
             :key="s.text"
@@ -574,6 +608,34 @@ function onDraftUpdate(updated: TimelinePostDraft) {
         </div>
 
         <footer class="composer-shell">
+          <div class="mode-seg" role="group" aria-label="小秋工作模式">
+            <button
+              type="button"
+              class="mode-seg-btn"
+              :class="{ 'is-active': currentMode === 'chat' }"
+              :aria-pressed="currentMode === 'chat'"
+              @click="currentMode = 'chat'"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+              </svg>
+              对话
+            </button>
+            <button
+              type="button"
+              class="mode-seg-btn"
+              :class="{ 'is-active': currentMode === 'image' }"
+              :aria-pressed="currentMode === 'image'"
+              @click="currentMode = 'image'"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8" />
+                <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+                <path d="m5 18 5-5 3 3 3-3 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              生图
+            </button>
+          </div>
           <div class="composer">
             <textarea
               ref="composerInput"
@@ -581,7 +643,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
               class="composer-input"
               name="message"
               rows="1"
-              placeholder="问我任何与论坛相关的问题…"
+              :placeholder="currentMode === 'image' ? '描述你想画的图：主体、风格、构图、光线…' : '问我任何与论坛相关的问题…'"
               autocomplete="off"
               :disabled="!sessionReady"
               aria-label="向小秋提问"
@@ -759,7 +821,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 .side-mobile-mask {
   position: fixed;
   inset: 0;
-  z-index: 2600;   /* 高于站点 MobileHeader(2100)/BottomNavbar(2000) */
+  z-index: 2600; /* 高于站点 MobileHeader(2100)/BottomNavbar(2000) */
   display: flex;
   background: rgba(15, 23, 42, 0.5);
 }
@@ -862,7 +924,6 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 }
 
 @keyframes xq-status-pulse {
-
   0%,
   100% {
     opacity: 0.3;
@@ -1037,6 +1098,47 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   background: color-mix(in srgb, var(--xq-surface) 90%, transparent);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--xq-border);
+}
+
+/* 模式 pill（A5）：composer-shell 顶部左对齐 segmented；agent 切换/服务端回声靠
+   mode 事件驱动，本地点选只改本地意图、随下一条消息 body.mode 同步 */
+.mode-seg {
+  width: fit-content;
+  margin: 0 auto 8px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--xq-surface-muted);
+  border: 1px solid var(--xq-border);
+}
+
+.mode-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--xq-text-muted, #94a3b8);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.mode-seg-btn.is-active {
+  background: var(--xq-surface);
+  color: var(--xq-accent-deep);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 10%);
+}
+
+.mode-seg-btn:focus-visible {
+  outline: 2px solid var(--xq-accent);
+  outline-offset: 1px;
 }
 
 .composer {

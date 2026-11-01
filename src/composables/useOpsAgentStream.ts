@@ -24,6 +24,31 @@ export interface TimelineAssistant {
   runId?: string
   /** 模型深度思考过程（reasoning 事件累计） */
   reasoning?: string
+  /** 联网搜索结果（sources 事件累计；与站内帖子严格区分的"网页来源"小组） */
+  sources?: WebSource[]
+}
+
+export interface WebSource {
+  kind: string
+  via: string
+  title: string
+  url: string
+  snippet: string
+}
+
+/** 生图卡片（image 事件状态机：running/progress 占位 → done/failed 收敛） */
+export interface TimelineImage {
+  kind: 'image'
+  id: string
+  status: 'running' | 'progress' | 'done' | 'failed'
+  percent: number
+  stage: string
+  url?: string
+  prompt?: string
+  size?: string
+  seed?: number
+  error?: string
+  time: string
 }
 
 /** 子专家中间摘要（SSE 无 round，带【标签】前缀） */
@@ -65,7 +90,7 @@ export interface TimelinePostDraft {
   error?: string
 }
 
-export type TimelineItem = TimelineUser | TimelineAssistant | TimelineStep | TimelineMeta | TimelinePostDraft
+export type TimelineItem = TimelineUser | TimelineAssistant | TimelineStep | TimelineMeta | TimelinePostDraft | TimelineImage
 
 const SPECIALIST_PREFIX_RE = /^【[^】]+】/
 
@@ -143,6 +168,10 @@ export interface SendAgentOptions {
   sessionId: string
   task: string
   onAfterUpdate?: () => void
+  /** 生图模式：随 body 上送 threads.mode 覆盖意图（后端不同步改库并发 mode 事件） */
+  mode?: 'chat' | 'image'
+  /** 后端 mode 事件（agent 自主切换/同步确认）→ 外层 pill 跟随 */
+  onMode?: (mode: string, reason: string) => void
 }
 
 /**
@@ -157,7 +186,7 @@ interface SharedStreamState {
   globalError: Ref<string>
   isStreaming: Ref<boolean>
   sessionId: Ref<string>
-  holder: { abortController: AbortController | null }
+  holder: { abortController: AbortController | null, segId: string }
   streamElapsed: Ref<number>
   streamElapsedTimer: { id: ReturnType<typeof setInterval> | null }
 }
@@ -169,7 +198,7 @@ export function useOpsAgentStream(shareKey?: string) {
   let globalError: Ref<string>
   let isStreaming: Ref<boolean>
   let sessionId: Ref<string>
-  let holder: { abortController: AbortController | null }
+  let holder: { abortController: AbortController | null, segId: string }
   let streamElapsed: Ref<number>
   let streamElapsedTimer: { id: ReturnType<typeof setInterval> | null }
 
@@ -181,7 +210,7 @@ export function useOpsAgentStream(shareKey?: string) {
         globalError: ref(''),
         isStreaming: ref(false),
         sessionId: ref(''),
-        holder: { abortController: null },
+        holder: { abortController: null, segId: '' },
         streamElapsed: ref(0),
         streamElapsedTimer: { id: null },
       }
@@ -200,7 +229,7 @@ export function useOpsAgentStream(shareKey?: string) {
     globalError = ref('')
     isStreaming = ref(false)
     sessionId = ref('')
-    holder = { abortController: null }
+    holder = { abortController: null, segId: '' }
     streamElapsed = ref(0)
     streamElapsedTimer = { id: null }
   }
@@ -287,12 +316,106 @@ export function useOpsAgentStream(shareKey?: string) {
     })
   }
 
+  /**
+   * msg_id 切段（A1 协议）：一次 LLM 调用=一个段落；id 变化或工具调用=本轮模型说完，
+   *  当前流式气泡封存为已完成段——防多轮工具循环的中间文本全堆进气泡、final 整段闪跳。
+   *  旧后端无 msg_id：不封存，行为与历史版本一致。
+   */
+  function sealAssistantSegment() {
+    const last = timeline.value[timeline.value.length - 1]
+    if (last && last.kind === 'assistant' && last.status === 'streaming' && last.text.trim())
+      last.status = 'done'
+  }
+
+  /**
+   * 生图卡片状态机。id 规则：compat 的 running 带 tool_call_id；工具侧
+   *  progress/done/failed 不带 id（生图串行锁保证同时至多一张）——并入最近的未收敛卡。
+   */
+  function applyImageEvent(payload: Record<string, unknown>) {
+    const id = str(payload.id)
+    const items = [...timeline.value]
+    let idx = -1
+    if (id) {
+      idx = items.findIndex(it => it.kind === 'image' && it.id === id)
+    }
+    else {
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i]
+        if (it.kind === 'image' && (it.status === 'running' || it.status === 'progress')) {
+          idx = i
+          break
+        }
+      }
+    }
+    const cur = idx >= 0
+      ? { ...(items[idx] as TimelineImage) }
+      : {
+          kind: 'image' as const,
+          id: id || newId('img'),
+          status: 'running' as TimelineImage['status'],
+          percent: 0,
+          stage: '准备中',
+          time: formatTime(new Date()),
+        }
+    const st = str(payload.status)
+    if (st === 'running' || st === 'progress' || st === 'done' || st === 'failed')
+      cur.status = st
+    const pct = num(payload.percent, cur.percent)
+    if (pct >= 0)
+      cur.percent = pct
+    if (str(payload.stage))
+      cur.stage = str(payload.stage)
+    if (str(payload.url))
+      cur.url = str(payload.url)
+    if (str(payload.prompt))
+      cur.prompt = str(payload.prompt)
+    if (str(payload.size))
+      cur.size = str(payload.size)
+    if (str(payload.error))
+      cur.error = str(payload.error)
+    if (typeof payload.seed === 'number')
+      cur.seed = payload.seed
+    if (idx >= 0)
+      items[idx] = cur
+    else
+      items.push(cur)
+    timeline.value = items
+  }
+
+  /** 网页来源：挂到最后一条 assistant（sources 卡片与站内帖子样式区隔渲染） */
+  function applySourcesEvent(payload: Record<string, unknown>) {
+    const raw = Array.isArray(payload.items) ? payload.items as Record<string, unknown>[] : []
+    const fresh = raw
+      .filter(x => x && typeof x.url === 'string' && (x.url as string).startsWith('http'))
+      .map(x => ({
+        kind: str(x.kind) || 'web',
+        via: str(x.via),
+        title: str(x.title) || str(x.url),
+        url: str(x.url),
+        snippet: str(x.snippet),
+      }))
+    if (!fresh.length)
+      return
+    const assistant = ensureAssistantTail()
+    const merged = assistant.sources ? [...assistant.sources] : []
+    const seen = new Set(merged.map(m => m.url))
+    for (const it of fresh) {
+      if (!seen.has(it.url)) {
+        seen.add(it.url)
+        merged.push(it)
+      }
+    }
+    assistant.sources = merged
+    bump()
+  }
+
   function applyContentV2(payload: Record<string, unknown>, onAfterUpdate?: () => void) {
     const mode = str(payload.mode)
     const text = str(payload.text)
 
     if (mode === 'final') {
       finalizeActiveSteps()
+      holder.segId = ''
       const assistant = ensureAssistantTail()
       assistant.text = text
       assistant.status = 'done'
@@ -316,6 +439,14 @@ export function useOpsAgentStream(shareKey?: string) {
 
     if (hasSupervisorRound(payload) || mode === 'append') {
       finalizeActiveSteps()
+      if (mode === 'append') {
+        const mid = str(payload.msg_id)
+        // 新一次 LLM 调用（id 变化）：先封存上一段，再开新气泡
+        if (mid && holder.segId && mid !== holder.segId)
+          sealAssistantSegment()
+        if (mid)
+          holder.segId = mid
+      }
       const assistant = ensureAssistantTail()
       if (mode === 'append')
         assistant.text += text
@@ -387,6 +518,7 @@ export function useOpsAgentStream(shareKey?: string) {
     ensureAssistantTail()
     bump()
     startStreamElapsed()
+    holder.segId = ''
     let aborted = false
     let gotStream = false
 
@@ -394,6 +526,8 @@ export function useOpsAgentStream(shareKey?: string) {
       session_id: sessionId,
       task,
     }
+    if (opts.mode)
+      body.mode = opts.mode
 
     try {
       let res: Response | undefined
@@ -468,7 +602,27 @@ export function useOpsAgentStream(shareKey?: string) {
           }
 
           if (eventName === 'status') {
+            // 工具开始执行=本轮模型说完：封存当前段（final 只替换最后一段）
+            sealAssistantSegment()
             pushToolStep(str(payload.tool) || '工具', str(payload.args))
+            onAfterUpdate?.()
+            continue
+          }
+
+          if (eventName === 'image') {
+            applyImageEvent(payload)
+            onAfterUpdate?.()
+            continue
+          }
+
+          if (eventName === 'sources') {
+            applySourcesEvent(payload)
+            onAfterUpdate?.()
+            continue
+          }
+
+          if (eventName === 'mode') {
+            opts.onMode?.(str(payload.mode), str(payload.reason))
             onAfterUpdate?.()
             continue
           }
@@ -518,7 +672,6 @@ export function useOpsAgentStream(shareKey?: string) {
           }
         }
       }
-
     }
     catch (e) {
       // 停止生成不是错误：静默收尾；其余异常复位状态后原样抛给调用方
@@ -532,6 +685,19 @@ export function useOpsAgentStream(shareKey?: string) {
     finally {
       stopStreamElapsed()
       finalizeActiveSteps()
+      // 未收敛的生图卡置错误（done 丢失=流断了，卡片永远转圈比报错更糟）
+      {
+        let dirty = false
+        const fixed = timeline.value.map((it) => {
+          if (it.kind === 'image' && (it.status === 'running' || it.status === 'progress')) {
+            dirty = true
+            return { ...it, status: 'failed' as const, error: it.error || '已中断' }
+          }
+          return it
+        })
+        if (dirty)
+          timeline.value = fixed
+      }
       const tail = timeline.value[timeline.value.length - 1]
       if (tail && tail.kind === 'assistant' && tail.status === 'streaming') {
         if (!tail.text.trim()) {

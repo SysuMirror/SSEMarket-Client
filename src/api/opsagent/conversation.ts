@@ -14,6 +14,8 @@ export interface ConversationBootstrapData {
   title: string
   segment_seq: number
   archived: boolean
+  /** 生图模式持久化（A5）：threads.mode，开/切会话时恢复 pill */
+  mode: 'chat' | 'image'
   messages: BootstrapMessage[]
 }
 
@@ -22,11 +24,13 @@ export interface ConversationSummary {
   title: string
   created_at: string
   updated_at: string
+  mode?: string
 }
 
 export interface ConversationMessagesData {
   session_id: string
   title: string
+  mode?: string
   messages: BootstrapMessage[]
 }
 
@@ -44,6 +48,7 @@ interface BootstrapPayload {
   segment_seq?: number
   archived?: boolean
   closed?: boolean
+  mode?: string
   messages?: BootstrapMessage[]
 }
 
@@ -56,8 +61,9 @@ function normalizeBootstrapData(raw: BootstrapPayload): ConversationBootstrapDat
   const archived = raw.archived !== undefined
     ? !!raw.archived
     : !!raw.closed
+  const mode: 'chat' | 'image' = raw.mode === 'image' ? 'image' : 'chat'
   const messages = Array.isArray(raw.messages) ? raw.messages : []
-  return { session_id, title, segment_seq, archived, messages }
+  return { session_id, title, segment_seq, archived, mode, messages }
 }
 
 async function opsagentEnvelope<T>(path: string, init: RequestInit): Promise<T> {
@@ -84,15 +90,17 @@ async function opsagentEnvelope<T>(path: string, init: RequestInit): Promise<T> 
   return body.data
 }
 
-/** GET /api/v1/agent/conversation/bootstrap（不传 sessionId 时服务端恢复最近会话）；
- *  传 sessionId 时走 POST（开新会话并绑定属主）。 */
+/**
+ * GET /api/v1/agent/conversation/bootstrap（不传 sessionId 时服务端恢复最近会话）；
+ *  传 sessionId 时走 POST（开新会话并绑定属主）。
+ */
 export async function fetchConversationBootstrap(sessionId?: string): Promise<ConversationBootstrapData> {
   const raw = sessionId
     ? await opsagentEnvelope<BootstrapPayload>(
         '/api/v1/agent/conversation/bootstrap',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: JSON.stringify({ session_id: sessionId }),
         },
       )
@@ -101,15 +109,6 @@ export async function fetchConversationBootstrap(sessionId?: string): Promise<Co
         { method: 'GET', headers: { Accept: 'application/json' } },
       )
   return normalizeBootstrapData(raw)
-}
-
-/** POST /api/v1/agent/conversation/close */
-export async function closeConversation(sessionId: string): Promise<void> {
-  await opsagentEnvelope<unknown>('/api/v1/agent/conversation/close', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ session_id: sessionId }),
-  })
 }
 
 /** GET /api/v1/agent/conversations —— 会话列表（按最近活跃倒序）。 */
@@ -135,7 +134,7 @@ export async function renameConversation(sessionId: string, title: string): Prom
     `/api/v1/agent/conversations/${encodeURIComponent(sessionId)}/title`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ title }),
     },
   )
