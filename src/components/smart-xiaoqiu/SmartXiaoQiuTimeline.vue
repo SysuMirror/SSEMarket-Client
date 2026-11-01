@@ -21,7 +21,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'draft-update', item: TimelinePostDraft): void
+  (e: 'draftUpdate', item: TimelinePostDraft): void
   (e: 'feedback', runId: string, rating: 1 | -1): void
   (e: 'imageAction', action: 'redo' | 'tweak', item: TimelineImage): void
 }>()
@@ -183,7 +183,7 @@ watchEffect(() => {
 }, { flush: 'post' })
 
 function onDraftUpdate(updated: TimelinePostDraft) {
-  emit('draft-update', updated)
+  emit('draftUpdate', updated)
 }
 
 function canRate(a: TimelineAssistant | undefined): boolean {
@@ -909,6 +909,27 @@ function canRate(a: TimelineAssistant | undefined): boolean {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 拇指热区：折叠行/来源链接手机端抬高到可点按标准 */
+  .goal-summary,
+  .reasoning-head,
+  .step-toggle {
+    min-height: 38px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .reasoning-live {
+    max-height: 45vh;
+  }
+
+  .sources-link {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
   }
 }
 </style>

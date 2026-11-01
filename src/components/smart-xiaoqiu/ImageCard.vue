@@ -191,4 +191,12 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
 }
+
+@media (max-width: 768px) {
+  /* 手机端「重新抽一张/按此微调」按钮加高到拇指可稳点 */
+  .img-card__btn {
+    min-height: 36px;
+    padding: 6px 14px;
+  }
+}
 </style>

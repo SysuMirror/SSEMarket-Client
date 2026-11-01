@@ -1519,6 +1519,41 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   .ghost-btn {
     padding: 8px 11px;
   }
+
+  /* 手机端适配（2026-11-01）：iOS <16px 聚焦会整页放大，输入框必须 16px；
+     底部留刘海安全区；模式下拉/附件芯片给足拇指热区 */
+  .composer-input {
+    font-size: 16px;
+  }
+
+  .composer-shell {
+    padding: 8px 10px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .mode-select-btn {
+    height: 38px;
+    padding-inline: 9px;
+  }
+
+  .attach-chip {
+    width: 58px;
+    height: 58px;
+  }
+
+  .attach-del {
+    width: 22px;
+    height: 22px;
+    line-height: 21px;
+    font-size: 15px;
+  }
+
+  .chat-scroll {
+    padding-inline: 10px;
+  }
+
+  .sug-row {
+    padding-inline: 10px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
