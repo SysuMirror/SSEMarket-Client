@@ -7,6 +7,8 @@ import { getSelfAllInfo, isEmailNotificationBlocked, normalizeAllInfo } from '@/
 import { setCustomTitle, updateEmailPush, updateUserInfo, uploadAvatar } from '@/api/info/updateInfo'
 import { changeEmail } from '@/api/LoginAndRegister/changeEmail'
 import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
+import type { RecommendationMode, RecommendationSettings } from '@/api/recommendation'
+import { getRecommendationSettings, setRecommendationMode } from '@/api/recommendation'
 import { sendCode } from '@/api/LoginAndRegister/utils'
 import { ssoBindStart, ssoStatus, ssoUnbind } from '@/api/sso/sso'
 import ApiTokenPanel from '@/components/ApiTokenPanel.vue'
@@ -15,12 +17,14 @@ import { showMsg } from '@/components/MessageBox'
 import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsRow, SettingsToggle } from '@/components/settings'
 import SkinSettings from '@/components/skin/SkinSettings.vue'
 import { usePWA } from '@/composables/usePWA'
+import { useNewPostsStore } from '@/store/newPostsStore'
 import { useUserStore } from '@/store/userStore'
-import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
+import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
 
 const router = useRouter()
 const isPC = inject('isPC', ref(false)) as Ref<boolean>
+const { setRecommendationModeEnabled } = useNewPostsStore()
 const { userInfo, setToken, setRefreshToken, setUserInfo } = useUserStore()
 const { pwaExperienceEnabled } = usePWA()
 
@@ -59,6 +63,50 @@ const ssoBoundUsername = ref('')
 const ssoBoundAt = ref('')
 const ssoUnbindPassword = ref('')
 const ssoBusy = ref(false)
+
+// 推荐流设置
+const recSettings = ref<RecommendationSettings | null>(null)
+const recSaving = ref(false)
+const recHint = computed(() => {
+  const s = recSettings.value
+  if (!s)
+    return '正在读取推荐设置…'
+  if (!s.available)
+    return '兴趣画像还在构建中，暂时按时间排序；构建完成后自动生效。'
+  if (s.effective === 'recommend')
+    return '当前：为你推荐（按浏览、点赞、评论等兴趣排序，优先展示没看过的帖子）。'
+  if (s.mode === 'off')
+    return '当前：按时间排序（你已关闭个性化推荐）。'
+  if (s.mode === 'auto' && s.grayMatched)
+    return '当前：按时间排序（已在灰度范围内，但尚未开启）。'
+  return '当前：按时间排序（默认）。开启后按你的兴趣推荐。'
+})
+
+async function loadRecommendationSettings() {
+  recSettings.value = await getRecommendationSettings()
+  if (recSettings.value)
+    setRecommendationModeEnabled(recSettings.value.effective === 'recommend' || recSettings.value.mode === 'on')
+}
+
+async function chooseRecMode(mode: RecommendationMode) {
+  if (recSaving.value || recSettings.value?.mode === mode)
+    return
+  recSaving.value = true
+  try {
+    const next = await setRecommendationMode(mode)
+    if (next) {
+      recSettings.value = next
+      // 开启为你推荐后不再提醒新帖；关掉后恢复轮询。
+      setRecommendationModeEnabled(next.effective === 'recommend' || next.mode === 'on')
+    }
+    else {
+      showMsg('保存推荐设置失败')
+    }
+  }
+  finally {
+    recSaving.value = false
+  }
+}
 
 // 表单本地草稿(展开时初始化,保存时写回 allInfo)
 const passwordForm = ref({ vcode: '', password1: '', password2: '' })
@@ -125,15 +173,22 @@ async function persistUserInfoToServer(): Promise<void> {
     showMsg(res.msg)
 }
 
+const avatarUploading = ref(false)
+
 async function onUploadAvatar(e: Event) {
   const el = e.target as HTMLInputElement
+  if (avatarUploading.value)
+    return
   try {
     if (!allInfo.value)
       return
     const file = el.files?.[0]
     if (!file)
       return
+    avatarUploading.value = true
     const res = await uploadAvatar(file)
+    if (!res?.data?.avatar_url)
+      throw new Error('头像上传返回异常')
     allInfo.value.avatarURL = res.data.avatar_url
     try {
       await persistUserInfoToServer()
@@ -147,6 +202,7 @@ async function onUploadAvatar(e: Event) {
     showMsg('失败了:-(')
   }
   finally {
+    avatarUploading.value = false
     if (el)
       el.value = ''
   }
@@ -470,6 +526,7 @@ async function confirmUnbindSso() {
 onMounted(() => {
   void reloadSettingsFromServer()
   void loadSsoStatus()
+  void loadRecommendationSettings()
 })
 </script>
 
@@ -487,6 +544,7 @@ onMounted(() => {
       :exp-target="expTarget"
       :next-level-label="nextLevelLabel"
       :coins="allInfo.coins"
+      :uploading="avatarUploading"
       @upload-avatar="onUploadAvatar"
       @avatar-error="onAvatarError"
       @edit-profile="onEditProfile"
@@ -685,6 +743,47 @@ onMounted(() => {
       />
     </SettingsGroup>
 
+    <!-- 分组：推荐流 -->
+    <SettingsGroup title="推荐流">
+      <div class="options-rec">
+        <p class="options-hint">
+          {{ recHint }}
+        </p>
+        <div class="options-rec__modes" role="group" aria-label="推荐模式">
+          <button
+            type="button"
+            class="options-rec__mode"
+            :class="{ 'options-rec__mode--active': recSettings?.mode === 'auto' }"
+            :aria-pressed="recSettings?.mode === 'auto'"
+            :disabled="recSaving"
+            @click="chooseRecMode('auto')"
+          >
+            默认
+          </button>
+          <button
+            type="button"
+            class="options-rec__mode"
+            :class="{ 'options-rec__mode--active': recSettings?.mode === 'on' }"
+            :aria-pressed="recSettings?.mode === 'on'"
+            :disabled="recSaving"
+            @click="chooseRecMode('on')"
+          >
+            为你推荐
+          </button>
+          <button
+            type="button"
+            class="options-rec__mode"
+            :class="{ 'options-rec__mode--active': recSettings?.mode === 'off' }"
+            :aria-pressed="recSettings?.mode === 'off'"
+            :disabled="recSaving"
+            @click="chooseRecMode('off')"
+          >
+            按时间
+          </button>
+        </div>
+      </div>
+    </SettingsGroup>
+
     <!-- 分组 6: 开发者(默认折叠) -->
     <SettingsGroup title="开发者">
       <SettingsExpander v-model:open="patOpen" label="个人访问令牌(PAT)" hint="用于 MCP 等对外调用">
@@ -770,6 +869,47 @@ onMounted(() => {
   &:hover {
     background: rgba(239, 68, 68, 0.06);
     border-color: rgba(239, 68, 68, 0.55);
+  }
+}
+
+.options-rec {
+  padding: 12px 14px 14px;
+}
+
+.options-rec__modes {
+  display: flex;
+  gap: 8px;
+}
+
+.options-rec__mode {
+  flex: 1 1 0;
+  padding: 8px 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    color: var(--color-text);
+  }
+
+  &--active {
+    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 }
 

@@ -14,6 +14,7 @@ import { searchRagPosts } from '@/api/ragSearch'
 import { searchUsers } from '@/api/search/searchUsers'
 import AppDatetimePicker from '@/components/AppDatetimePicker.vue'
 import { showMsg } from '@/components/MessageBox'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import PostList from '@/components/PostList.vue'
 import PresenceBadge from '@/components/PresenceBadge.vue'
 import UserSearchCard from '@/components/search/UserSearchCard.vue'
@@ -184,9 +185,7 @@ watch(
       <h3 class="search-page__section-title">
         相关用户
       </h3>
-      <p v-if="userLoading && !userResults.length" class="search-page__users-status">
-        正在查找相关用户...
-      </p>
+      <PageSkeleton v-if="userLoading && !userResults.length" variant="list" :count="3" />
       <UserSearchCard
         v-for="user in userResults"
         :key="user.userID"

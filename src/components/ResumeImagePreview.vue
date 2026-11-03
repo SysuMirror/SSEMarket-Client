@@ -273,6 +273,7 @@ defineExpose({ retry: loadImage })
         <div class="resume-image-preview__wrap" :style="imageWrapStyle">
           <img
             :src="imageUrl"
+            decoding="async"
             class="resume-image-preview__img"
             alt="简历图片预览"
             draggable="false"

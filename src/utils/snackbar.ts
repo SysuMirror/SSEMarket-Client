@@ -262,6 +262,10 @@ class SnackbarManager {
     })
   }
 
+  hide(id: string): void {
+    this.instances.get(id)?.hide()
+  }
+
   destroy(): void {
     for (const instance of this.instances.values())
       instance.destroy()
@@ -283,6 +287,11 @@ const snackbar = new SnackbarManager()
  */
 export function showSnackbar(options: SnackbarOptions): SnackbarInstance {
   return snackbar.show(options)
+}
+
+/** 按 id 收起一条 snackbar（常驻通知切模式时用）。 */
+export function hideSnackbar(id: string): void {
+  snackbar.hide(id)
 }
 
 /**

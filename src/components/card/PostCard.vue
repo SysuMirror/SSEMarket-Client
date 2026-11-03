@@ -273,7 +273,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
           v-for="(img, i) in previewImages"
           :key="i"
           :src="img"
-          loading="lazy"
+          loading="lazy" decoding="async"
           class="post-card__image-item"
           alt=""
         >
@@ -288,7 +288,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
             v-for="(img, i) in hotCommentImages"
             :key="i"
             :src="img"
-            loading="lazy"
+            loading="lazy" decoding="async"
             class="post-card__hot-comment-image"
             alt=""
           >

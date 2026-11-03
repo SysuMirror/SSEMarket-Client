@@ -261,7 +261,7 @@ onMounted(() => {
                   v-if="!shouldShowAvatarFallback(item)"
                   :src="userAvatarSrc(item)"
                   :alt="displayUserName(item)"
-                  loading="lazy"
+                  loading="lazy" decoding="async"
                   @error="onUserAvatarError(item.userID)"
                 >
                 <span v-else class="ranking-page__podium-avatar-fallback">
@@ -322,7 +322,7 @@ onMounted(() => {
                   v-if="!shouldShowAvatarFallback(item)"
                   :src="userAvatarSrc(item)"
                   :alt="displayUserName(item)"
-                  loading="lazy"
+                  loading="lazy" decoding="async"
                   @error="onUserAvatarError(item.userID)"
                 >
                 <span v-else class="ranking-page__avatar-fallback">

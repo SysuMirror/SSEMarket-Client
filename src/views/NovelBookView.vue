@@ -16,9 +16,11 @@ import {
 } from '@/api/novel'
 import CoinThrowButton from '@/components/CoinThrowButton.vue'
 import { confirmDialog } from '@/components/ConfirmDialog'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
 import NovelCover from '@/components/novel/NovelCover.vue'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import PresenceBadge from '@/components/PresenceBadge.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { useUserStore } from '@/store/userStore'
@@ -291,8 +293,9 @@ async function onDeleteNovel() {
     message: `确定删除《${novel.value.title}》？所有章节与评论都会一并删除。`,
     confirmText: '删除',
     danger: true,
-  }))
+  })) {
     return
+  }
   const ok = await deleteNovel(novel.value.novelID)
   if (!ok) {
     showMsg('删除失败')
@@ -457,7 +460,8 @@ onMounted(async () => {
         :disabled="coverBusy"
         @click="pickCover"
       >
-        <Icon icon="tabler:photo" width="16" height="16" aria-hidden="true" />
+        <LoadingSpinner v-if="coverBusy" :size="16" />
+        <Icon v-else icon="tabler:photo" width="16" height="16" aria-hidden="true" />
         {{ coverBusy ? '上传中…' : '换封面' }}
       </button>
       <button v-if="novel.isAuthor" type="button" class="novel-book__btn novel-book__btn--danger" @click="onDeleteNovel">
@@ -637,7 +641,10 @@ onMounted(async () => {
   </div>
 
   <div v-else class="novel-book__loading">
-    {{ loading ? '加载中…' : '小说不存在' }}
+    <PageSkeleton v-if="loading" variant="detail" />
+    <template v-else>
+      小说不存在
+    </template>
   </div>
 </template>
 

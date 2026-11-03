@@ -3,6 +3,7 @@ import { Icon } from '@iconify/vue'
 import { ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { uploadResume } from '@/api/resume/uploadResume'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
 
 defineOptions({ name: 'ResumeUploadView' })
@@ -128,6 +129,7 @@ function goBack() {
       </div>
 
       <button type="submit" class="resume-upload-page__submit" :disabled="isSubmitting">
+        <LoadingSpinner v-if="isSubmitting" :size="14" style="margin-right: 6px;" />
         {{ isSubmitting ? '上传中…' : '确认上传' }}
       </button>
     </form>

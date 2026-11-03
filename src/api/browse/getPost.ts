@@ -51,7 +51,7 @@ const defaultPost: Post = {
 }
 
 // 空 BrowseResult,用于请求失败时返回(保持调用方结构一致)。
-const emptyBrowseResult: BrowseResult = { pinned: [], posts: [], total: 0 }
+const emptyBrowseResult: BrowseResult = { pinned: [], posts: [], total: 0, feedMode: 'time' }
 
 /**
  * 拉取主页帖子列表。
@@ -88,12 +88,13 @@ async function getPosts(object: getPostsObject): Promise<BrowseResult> {
       const data = await res.json() as Partial<BrowseResult>
       // 兼容性兜底:若后端意外返回数组(老版),整体作为 posts 返回。
       if (Array.isArray(data)) {
-        return { pinned: [], posts: normalizePosts(data), total: data.length }
+        return { pinned: [], posts: normalizePosts(data), total: data.length, feedMode: 'time' }
       }
       return {
         pinned: normalizePosts(data.pinned ?? []),
         posts: normalizePosts(data.posts ?? []),
         total: typeof data.total === 'number' ? data.total : 0,
+        feedMode: data.feedMode === 'recommend' ? 'recommend' : 'time',
       }
     }
     catch (e) {

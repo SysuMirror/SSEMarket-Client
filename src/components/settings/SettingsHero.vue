@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import LoadingSpinner from '../LoadingSpinner.vue'
 import ExpRulesModal from './ExpRulesModal.vue'
-
-const showRules = ref(false)
 
 defineProps<{
   avatarSrc: string
@@ -17,27 +16,36 @@ defineProps<{
   nextLevelLabel: string
   /** 站内币余额；undefined = 后端没给（不显示） */
   coins?: number
+  /** 头像上传中：遮罩转圈并禁止再次选择 */
+  uploading?: boolean
 }>()
+
 defineEmits<{
   uploadAvatar: [event: Event]
   editProfile: []
   avatarError: []
 }>()
+
+const showRules = ref(false)
 </script>
 
 <template>
   <section class="settings-hero">
     <div class="settings-hero__card">
       <div class="settings-hero__main">
-        <label class="settings-hero__avatar-wrap" title="点击更换头像">
+        <label class="settings-hero__avatar-wrap" :class="{ 'settings-hero__avatar-wrap--busy': uploading }" title="点击更换头像">
           <img
             class="settings-hero__avatar"
             :src="avatarSrc"
             alt="头像"
             loading="lazy"
+            decoding="async"
             @error="$emit('avatarError')"
           >
-          <span class="settings-hero__avatar-badge" aria-hidden="true">
+          <span v-if="uploading" class="settings-hero__avatar-busy" aria-label="头像上传中">
+            <LoadingSpinner :size="22" />
+          </span>
+          <span v-if="!uploading" class="settings-hero__avatar-badge" aria-hidden="true">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
               <path d="M9 4h6l1 2h3v14H5V6h3l1-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
               <circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="2" />
@@ -47,6 +55,7 @@ defineEmits<{
             type="file"
             accept="image/*"
             class="settings-hero__file-input"
+            :disabled="uploading"
             @change="$emit('uploadAvatar', $event)"
           >
         </label>
@@ -131,6 +140,20 @@ defineEmits<{
     height: 100%;
     object-fit: cover;
     background: var(--accent);
+  }
+
+  &__avatar-wrap--busy {
+    cursor: progress;
+  }
+
+  &__avatar-busy {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
   }
 
   &__avatar-badge {

@@ -28,8 +28,10 @@ const placeholderBg = computed(() => {
 
 const titleFontSize = computed(() => {
   const n = Array.from(props.title).length
-  if (n <= 4) return '15px'
-  if (n <= 8) return '12px'
+  if (n <= 4)
+    return '15px'
+  if (n <= 8)
+    return '12px'
   return '10px'
 })
 </script>
@@ -40,7 +42,7 @@ const titleFontSize = computed(() => {
       v-if="showImg"
       :src="coverUrl"
       :alt="title"
-      loading="lazy"
+      loading="lazy" decoding="async"
       @error="failedURL = coverUrl ?? ''"
     >
     <span v-else class="novel-cover__text" :style="{ fontSize: titleFontSize }">

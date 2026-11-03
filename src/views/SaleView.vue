@@ -4,6 +4,7 @@ import { ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { uploadPhoto } from '@/api/editPostAndComment/utils'
 import { createShopProduct } from '@/api/shop/mutations'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
 
@@ -19,6 +20,8 @@ const syncFeedPost = ref(true)
 const previewUrls = ref<string[]>([])
 const tempFiles = ref<File[]>([])
 const submitting = ref(false)
+// 发布时逐张传图：按钮显示「图片 i/N」，避免多图画床上传期间像卡死
+const uploadingImageCount = ref(0)
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 
 function triggerFileInput() {
@@ -72,8 +75,9 @@ async function submit() {
   submitting.value = true
   try {
     const imageUrls: string[] = []
-    for (const file of tempFiles.value) {
-      const data = await uploadPhoto(file)
+    for (let i = 0; i < tempFiles.value.length; ++i) {
+      uploadingImageCount.value = i + 1
+      const data = await uploadPhoto(tempFiles.value[i])
       imageUrls.push(data.fileURL)
     }
     const id = await createShopProduct(
@@ -94,6 +98,7 @@ async function submit() {
   }
   finally {
     submitting.value = false
+    uploadingImageCount.value = 0
   }
 }
 
@@ -172,7 +177,8 @@ function shopProductPath(id: number) {
     </section>
 
     <button type="button" class="shop-sale__submit" :disabled="submitting" @click="submit">
-      {{ submitting ? '发布中…' : '发布商品' }}
+      <LoadingSpinner v-if="submitting" :size="14" style="margin-right: 6px;" />
+      {{ submitting ? (tempFiles.length ? `传图 ${uploadingImageCount}/${tempFiles.length}，发布中…` : '发布中…') : '发布商品' }}
     </button>
   </div>
 </template>

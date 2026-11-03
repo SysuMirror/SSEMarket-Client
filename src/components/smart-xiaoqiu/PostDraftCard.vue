@@ -35,6 +35,23 @@ const photoInput = ref<HTMLInputElement | null>(null)
 const isProduct = computed(() => type.value === 'product')
 const isDone = computed(() => props.item.status === 'success')
 
+// 正文里的 markdown 配图实时提取成正经缩略图（2026-11-01 手机端"满屏裸 URL 很丑"）：
+// 草稿卡只读预览、发帖时仍随正文原样带走，点开看大图
+const contentImages = computed(() => {
+  const urls: string[] = []
+  const re = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(content.value))) {
+    if (!urls.includes(m[1]))
+      urls.push(m[1])
+  }
+  return urls
+})
+
+function openImage(url: string) {
+  window.open(url, '_blank', 'noopener')
+}
+
 function patch(partial: Partial<TimelinePostDraft>) {
   emit('update', { ...props.item, ...partial })
 }
@@ -194,6 +211,19 @@ function handleCancel() {
           rows="5"
           placeholder="正文（1-10000 字）"
         />
+        <div v-if="contentImages.length" class="draft-content-imgs">
+          <span class="draft-content-imgs__hint">正文配图 {{ contentImages.length }} 张</span>
+          <div class="draft-content-imgs__row">
+            <img
+              v-for="u in contentImages"
+              :key="u"
+              :src="u"
+              alt=""
+              loading="lazy"
+              @click="openImage(u)"
+            >
+          </div>
+        </div>
       </div>
 
       <template v-if="!isProduct">
@@ -390,6 +420,35 @@ function handleCancel() {
   resize: vertical;
   min-height: 80px;
   font-family: inherit;
+  overflow-wrap: anywhere;
+}
+
+.draft-content-imgs {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.draft-content-imgs__hint {
+  font-size: 12px;
+  color: var(--xq-text-muted, #94a3b8);
+}
+
+.draft-content-imgs__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.draft-content-imgs__row img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--xq-border, #e2e8f0);
+  cursor: zoom-in;
+  background: #0f172a08;
 }
 
 .draft-checkbox {

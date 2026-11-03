@@ -53,6 +53,8 @@ export interface BrowseResult {
   pinned: Post[]
   posts: Post[]
   total: number
+  /** 本次列表实际使用的推流模式：time=按时间，recommend=个性化推荐 */
+  feedMode?: 'time' | 'recommend'
 }
 
 export type PostType = 'post'

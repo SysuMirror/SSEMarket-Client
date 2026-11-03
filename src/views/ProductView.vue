@@ -8,6 +8,7 @@ import { deleteShopProduct, markShopProductSold } from '@/api/shop/mutations'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showImg } from '@/components/ImageShower'
 import { showMsg } from '@/components/MessageBox'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import { useUserStore } from '@/store/userStore'
 import { getSellerName } from '@/utils/sellerNameMapper'
 import { strHandler } from '@/utils/strHandler'
@@ -136,9 +137,7 @@ watch(() => route.params.ProductID, loadDetail)
       <span class="shop-detail__nav-title">商品详情</span>
     </header>
 
-    <div v-if="loading" class="shop-detail__loading">
-      加载中…
-    </div>
+    <PageSkeleton v-if="loading" class="shop-detail__loading" variant="detail" />
 
     <template v-else-if="product">
       <article class="shop-detail__card">
@@ -147,6 +146,7 @@ watch(() => route.params.ProductID, loadDetail)
             :src="product.Photos[imageIndex]"
             :alt="product.Name"
             class="shop-detail__main-img"
+            decoding="async"
           >
           <div v-if="product.Photos.length > 1" class="shop-detail__thumbs">
             <button
@@ -157,7 +157,7 @@ watch(() => route.params.ProductID, loadDetail)
               :class="{ 'shop-detail__thumb--on': i === imageIndex }"
               @click.stop="imageIndex = i"
             >
-              <img :src="url.replace('/uploads/', '/resized/')" alt="">
+              <img :src="url.replace('/uploads/', '/resized/')" alt="" loading="lazy" decoding="async">
             </button>
           </div>
         </div>

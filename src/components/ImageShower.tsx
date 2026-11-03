@@ -122,6 +122,7 @@ const ImageShower = defineComponent({
               ref={imageRef}
               src={props.img}
               alt="preview"
+              decoding="async"
               class={`max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-300 ${imageLoaded.value ? 'opacity-100' : 'opacity-0'}`}
               style={{
                 width: imageDimensions.value.width ? `${imageDimensions.value.width}px` : 'auto',

@@ -5,7 +5,7 @@ import { useUserStore } from '@/store/userStore'
 
 export function usePostView() {
   const { userInfo } = useUserStore()
-  const { posts, pinnedPosts, addPost, changeTo, refreshPosts, refreshPinned, updateNum } = usePostStore()
+  const { posts, pinnedPosts, feedMode, addPost, changeTo, refreshPosts, refreshPinned, updateNum } = usePostStore()
   const hasMore = ref(true)
   const isLoading = ref(false)
 
@@ -39,6 +39,7 @@ export function usePostView() {
   return {
     posts,
     pinnedPosts,
+    feedMode,
     hasMore,
     isLoading,
     update,

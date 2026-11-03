@@ -13,6 +13,7 @@ import {
 } from '@/api/novel'
 import { showMsg } from '@/components/MessageBox'
 import NovelCommentCard from '@/components/novel/NovelCommentCard.vue'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import PresenceBadge from '@/components/PresenceBadge.vue'
 import { useUserStore } from '@/store/userStore'
 import { novelBookPath } from '@/utils/novelRoute'
@@ -763,8 +764,7 @@ onUnmounted(() => {
           class="novel-reader__para-img"
           :src="p.imageURL"
           :alt="`第 ${p.index + 1} 段配图`"
-          loading="lazy"
-          decoding="async"
+          loading="lazy" decoding="async"
           @click.stop="openLightbox(p.imageURL)"
         >
         <span v-else class="novel-reader__para-text">{{ p.text }}</span>
@@ -895,7 +895,7 @@ onUnmounted(() => {
 
       <Transition name="novel-lightbox">
         <div v-if="lightboxURL" class="novel-reader__lightbox" @click="lightboxURL = ''">
-          <img class="novel-reader__lightbox-img" :src="lightboxURL" alt="正文配图">
+          <img class="novel-reader__lightbox-img" :src="lightboxURL" alt="正文配图" decoding="async">
           <span class="novel-reader__lightbox-tip">点击任意处关闭 · Esc</span>
         </div>
       </Transition>
@@ -1010,7 +1010,10 @@ onUnmounted(() => {
   </div>
 
   <div v-else class="novel-reader__loading">
-    {{ loading ? '加载中…' : '章节不存在' }}
+    <PageSkeleton v-if="loading" variant="reader" :count="16" />
+    <template v-else>
+      章节不存在
+    </template>
   </div>
 </template>
 

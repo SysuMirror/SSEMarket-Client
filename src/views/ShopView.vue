@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getShopCarousel, getShopProducts } from '@/api/shop'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import ShopHeroCarousel from '@/components/shop/ShopHeroCarousel.vue'
 import ShopProductCard from '@/components/shop/ShopProductCard.vue'
 
@@ -152,10 +153,7 @@ watch(() => route.path, () => {
       </template>
     </nav>
 
-    <div v-if="loading" class="shop-page__state">
-      <Icon icon="tabler:loader-2" class="shop-page__spin" width="20" height="20" />
-      <span>加载中…</span>
-    </div>
+    <PageSkeleton v-if="loading" class="shop-page__skeleton" variant="grid" :count="8" />
 
     <div v-else-if="filteredProducts.length === 0" class="shop-page__state shop-page__state--empty">
       <Icon :icon="isMain ? 'tabler:mood-empty' : 'tabler:package-off'" width="32" height="32" />

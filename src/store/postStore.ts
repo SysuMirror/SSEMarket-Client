@@ -40,6 +40,10 @@ const posts = reactive<Post[]>([])
 // 渲染时由调用方拼接 [...pinnedPosts, ...posts]。
 const pinnedPosts = reactive<Post[]>([])
 
+// 当前列表实际推流模式（后端返回）：time=按时间，recommend=为你推荐。
+// 推荐流下 posts 不再按 PostID 倒序，一些依赖有序性的查找/插入需要降级处理。
+const feedMode = ref<'time' | 'recommend'>('time')
+
 const conditions = reactive<Condition>({
   limit: FEED_PAGE_SIZE,
   offset: 0,
@@ -72,6 +76,7 @@ async function addPost(userTelephone: string): Promise<boolean> {
   if (conditions.offset === 0 && data.pinned.length > 0) {
     pinnedPosts.splice(0, pinnedPosts.length, ...data.pinned)
   }
+  feedMode.value = data.feedMode === 'recommend' ? 'recommend' : 'time'
   posts.push(...data.posts)
   conditions.offset += data.posts.length
   return data.posts.length >= conditions.limit
@@ -170,6 +175,11 @@ function findPostIndex(id: number): { arr: Post[], index: number } {
     if (pinnedPosts[i].PostID === id)
       return { arr: pinnedPosts, index: i }
   }
+  // 推荐流不保证 PostID 有序，退回线性扫描；时间流仍用二分查找。
+  if (feedMode.value === 'recommend') {
+    const index = posts.findIndex(p => p.PostID === id)
+    return { arr: posts, index }
+  }
   // posts 二分查找(按 PostID 倒序)
   let left = 0
   let right = posts.length - 1
@@ -255,6 +265,7 @@ async function getNewPosts(userTelephone: string) {
 function refreshPosts() {
   posts.splice(0, posts.length)
   pinnedPosts.splice(0, pinnedPosts.length)
+  feedMode.value = 'time'
   totalNum.value = 0
   conditions.offset = 0
   conditions.partition = '主页'
@@ -327,6 +338,7 @@ export function usePostStore() {
     updateNum,
     posts,
     pinnedPosts,
+    feedMode,
     restorePosts,
     storePosts,
     addPost,

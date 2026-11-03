@@ -123,7 +123,7 @@ function onStickerError(event: Event) {
         class="user-card__avatar"
         :src="avatar"
         :alt="`${user.name} 的头像`"
-        loading="lazy"
+        loading="lazy" decoding="async"
         @error="onAvatarError"
         @click="goProfile"
       >
@@ -172,7 +172,7 @@ function onStickerError(event: Event) {
               class="user-card__thumb-photo"
               :src="coverOf(post)"
               alt=""
-              loading="lazy"
+              loading="lazy" decoding="async"
               @error="onPhotoError(post)"
             >
             <template v-else>
@@ -182,7 +182,7 @@ function onStickerError(event: Event) {
                 class="user-card__thumb-sticker"
                 :src="stickerOf(post)"
                 alt=""
-                loading="lazy"
+                loading="lazy" decoding="async"
                 @error="onStickerError"
               >
             </template>

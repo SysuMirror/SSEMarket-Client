@@ -282,6 +282,27 @@ export function useOpsAgentStream(shareKey?: string) {
     return a
   }
 
+  /**
+   * 时间序插入（2026-11-01 两次改判后的最终口径）：新到达的过程卡一律落在队尾，
+   * 只给"**连一个字都还没有**的空占位气泡"让位（发送后的等待指示，不代表已发生
+   * 的思考）。已经有 reasoning 的气泡=模型此刻正在想/刚想完整段，工具卡是它之后
+   * 才发生的事——必须排在它下面（用户原话：先思考、再工具，往下走）。
+   */
+  function appendChronological(item: TimelineItem) {
+    const items = [...timeline.value]
+    const tail = items[items.length - 1]
+    if (
+      tail
+      && tail.kind === 'assistant'
+      && tail.status === 'streaming'
+      && !tail.text.trim()
+      && !(tail.reasoning || '').trim()
+    )
+      items.splice(items.length - 1, 0, item)
+    else items.push(item)
+    timeline.value = items
+  }
+
   function ensureActiveStep(): TimelineStep {
     const start = lastUserIndex()
     for (let i = timeline.value.length - 1; i > start; i--) {
@@ -298,12 +319,7 @@ export function useOpsAgentStream(shareKey?: string) {
       status: 'streaming',
       collapsed: false,
     }
-    const items = [...timeline.value]
-    let insertAt = start + 1
-    while (insertAt < items.length && items[insertAt].kind === 'step')
-      insertAt++
-    items.splice(insertAt, 0, step)
-    timeline.value = items
+    appendChronological(step)
     return step
   }
 
@@ -323,7 +339,14 @@ export function useOpsAgentStream(shareKey?: string) {
    */
   function sealAssistantSegment() {
     const last = timeline.value[timeline.value.length - 1]
-    if (last && last.kind === 'assistant' && last.status === 'streaming' && last.text.trim())
+    // 封存判据含 reasoning：模型只出思考就调工具（没有正文旁白）时，这段思考同样
+    // "说完"了——不封存就会被 appendChronological 当成空占位、把工具卡插到它上面。
+    if (
+      last
+      && last.kind === 'assistant'
+      && last.status === 'streaming'
+      && (last.text.trim() || (last.reasoning || '').trim())
+    )
       last.status = 'done'
   }
 
@@ -375,11 +398,13 @@ export function useOpsAgentStream(shareKey?: string) {
       cur.error = str(payload.error)
     if (typeof payload.seed === 'number')
       cur.seed = payload.seed
-    if (idx >= 0)
+    if (idx >= 0) {
       items[idx] = cur
-    else
-      items.push(cur)
-    timeline.value = items
+      timeline.value = items
+    }
+    else {
+      appendChronological(cur)
+    }
   }
 
   /** 网页来源：挂到最后一条 assistant（sources 卡片与站内帖子样式区隔渲染） */
@@ -495,13 +520,7 @@ export function useOpsAgentStream(shareKey?: string) {
       status: 'done',
       collapsed: true,
     }
-    const items = [...timeline.value]
-    // 插到最后一个用户消息之后、assistant 气泡之前
-    let insertAt = lastUserIndex() + 1
-    while (insertAt < items.length && items[insertAt].kind === 'step')
-      insertAt++
-    items.splice(insertAt, 0, step)
-    timeline.value = items
+    appendChronological(step)
   }
 
   async function sendAgentMessage(opts: SendAgentOptions) {
@@ -665,7 +684,7 @@ export function useOpsAgentStream(shareKey?: string) {
               draft,
               status: 'editing',
             }
-            timeline.value = [...timeline.value, item]
+            appendChronological(item)
             bump()
             onAfterUpdate?.()
             continue

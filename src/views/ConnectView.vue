@@ -249,6 +249,7 @@ onMounted(async () => {
           <img
             :src="oauthUserAvatarSrc"
             class="h-12 w-12 border-2 border-gray-200 rounded-full object-cover"
+            decoding="async"
             @error="onOAuthUserAvatarError"
           >
           <div class="min-w-0 flex-1">

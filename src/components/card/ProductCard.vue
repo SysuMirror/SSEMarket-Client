@@ -110,7 +110,7 @@ onMounted(() => {
           :src="resizedImageUrl"
           :alt="product.Name"
           class="preserve-orientation"
-          loading="lazy"
+          loading="lazy" decoding="async"
           @load="handleImageLoad"
           @error="handleImageError"
         >
@@ -176,7 +176,7 @@ onMounted(() => {
             :src="resizedImageUrl"
             :alt="product.Name"
             class="preserve-orientation"
-            loading="lazy"
+            loading="lazy" decoding="async"
             @load="handleImageLoad"
             @error="handleImageError"
           >

@@ -125,8 +125,8 @@ md.renderer.rules.image = (tokens, idx) => {
   const src = token.attrs[srcIndex][1]
   const alt = altIndex >= 0 ? `alt="${token.content}"` : ''
   const title = titleIndex >= 0 ? ` title="${token.attrs[titleIndex][1]}"` : ''
-  // 添加懒加载属性
-  return `<img src="${src}"${alt}${title} loading="lazy" />`
+  // 懒加载 + 异步解码：大图（含动图）不阻塞主线程与首屏
+  return `<img src="${src}"${alt}${title} loading="lazy" decoding="async" />`
 }
 
 /**
@@ -210,6 +210,8 @@ const safeHTML = computed(() => {
     ADD_ATTR: [
       'xmlns',
       'display',
+      'loading',
+      'decoding',
       'class',
       'width',
       'height',
@@ -355,7 +357,7 @@ async function hydrateMusicCards() {
     const title = md.utils.escapeHtml(music.title)
     const artist = md.utils.escapeHtml(music.artist || '未知歌手')
     card.innerHTML = `
-      <img class="post-music__cover" src="${cover}" alt="" loading="lazy">
+      <img class="post-music__cover" src="${cover}" alt="" loading="lazy" decoding="async">
       <div class="post-music__meta">
         <div class="post-music__title">${title}</div>
         <div class="post-music__artist">${artist}</div>

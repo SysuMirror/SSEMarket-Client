@@ -16,6 +16,8 @@ defineProps<{
       v-for="img in strHandler('img', photos)"
       :key="img"
       :src="img"
+      loading="lazy"
+      decoding="async"
     >
   </div>
 </template>

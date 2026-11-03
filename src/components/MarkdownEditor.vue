@@ -3,13 +3,14 @@
 import type { StaffAlias } from '@/api/staff/staff'
 
 import { Icon } from '@iconify/vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
 import { showMsg } from '@/components/MessageBox'
 import { primeMentionCache } from '@/composables/useMentionResolve'
 import { useStaffAliases } from '@/composables/useStaffAliases'
 import { buildMentionPrefix } from '@/utils/mention'
+import LoadingSpinner from './LoadingSpinner.vue'
 import MarkdownContainer from './MarkdownContainer.vue'
 
 /**
@@ -66,13 +67,20 @@ const modelValue = defineModel({
 
 /* ---------------- 图片上传(点击/粘贴) ---------------- */
 
+// 上传中状态：工具栏按钮转圈、禁用重复点击，避免大图/动图上传期间无反馈
+const imageUploading = ref(false)
+const fileUploading = ref(false)
+
 function openImagePicker() {
+  if (imageUploading.value)
+    return
   fileInputRef.value?.click()
 }
 
 async function upload(file: File) {
-  if (!file)
+  if (!file || imageUploading.value)
     return
+  imageUploading.value = true
   try {
     const data = await uploadPhoto(file)
     showMsg(data.message)
@@ -81,6 +89,9 @@ async function upload(file: File) {
   catch (error) {
     console.error('Error uploading file:', error)
     showMsg('上传失败，请重试')
+  }
+  finally {
+    imageUploading.value = false
   }
 }
 
@@ -93,14 +104,17 @@ async function handleImageUpload(event: Event) {
 }
 
 function openFilePicker() {
+  if (fileUploading.value)
+    return
   fileUploadRef.value?.click()
 }
 
 async function handleFileUpload(event: Event) {
   const el = event.target as HTMLInputElement
   const file = el.files?.[0]
-  if (!file)
+  if (!file || fileUploading.value)
     return
+  fileUploading.value = true
   try {
     const data = await uploadFile(file)
     showMsg(data.message)
@@ -111,6 +125,7 @@ async function handleFileUpload(event: Event) {
     showMsg('上传失败，请重试')
   }
   finally {
+    fileUploading.value = false
     el.value = ''
   }
 }
@@ -469,36 +484,36 @@ watch(isPreview, (preview) => {
   >
     <div class="md-editor__toolbar">
       <div class="md-editor__tools" role="toolbar" aria-label="格式化工具">
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="标题 (行首 ###)" @click="applyFormat('heading')">
+        <button type="button" class="md-editor__tool" title="标题 (行首 ###)" @mousedown.prevent @click="applyFormat('heading')">
           <span class="md-editor__glyph md-editor__glyph--h">H</span>
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="粗体 (Ctrl+B)" @click="applyFormat('bold')">
+        <button type="button" class="md-editor__tool" title="粗体 (Ctrl+B)" @mousedown.prevent @click="applyFormat('bold')">
           <span class="md-editor__glyph md-editor__glyph--b">B</span>
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="斜体 (Ctrl+I)" @click="applyFormat('italic')">
+        <button type="button" class="md-editor__tool" title="斜体 (Ctrl+I)" @mousedown.prevent @click="applyFormat('italic')">
           <span class="md-editor__glyph md-editor__glyph--i">I</span>
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="删除线 (Ctrl+S)" @click="applyFormat('strike')">
+        <button type="button" class="md-editor__tool" title="删除线 (Ctrl+S)" @mousedown.prevent @click="applyFormat('strike')">
           <span class="md-editor__glyph md-editor__glyph--s">S</span>
         </button>
         <span class="md-editor__sep" aria-hidden="true" />
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="引用" @click="applyFormat('quote')">
+        <button type="button" class="md-editor__tool" title="引用" @mousedown.prevent @click="applyFormat('quote')">
           <span class="md-editor__glyph">&ldquo;</span>
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="无序列表" @click="applyFormat('ul')">
+        <button type="button" class="md-editor__tool" title="无序列表" @mousedown.prevent @click="applyFormat('ul')">
           <span class="md-editor__glyph">&bull;</span>
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="有序列表" @click="applyFormat('ol')">
+        <button type="button" class="md-editor__tool" title="有序列表" @mousedown.prevent @click="applyFormat('ol')">
           <span class="md-editor__glyph md-editor__glyph--ol">1.</span>
         </button>
         <span class="md-editor__sep" aria-hidden="true" />
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="代码 (Ctrl+E 可用反引号)" @click="applyFormat('code')">
+        <button type="button" class="md-editor__tool" title="代码 (Ctrl+E 可用反引号)" @mousedown.prevent @click="applyFormat('code')">
           <span class="md-editor__glyph md-editor__glyph--code">&lt;/&gt;</span>
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="表格" @click="applyFormat('table')">
+        <button type="button" class="md-editor__tool" title="表格" @mousedown.prevent @click="applyFormat('table')">
           <span class="md-editor__glyph md-editor__glyph--table">&#8865;</span>
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="分割线" @click="applyFormat('hr')">
+        <button type="button" class="md-editor__tool" title="分割线" @mousedown.prevent @click="applyFormat('hr')">
           <span class="md-editor__glyph">&mdash;</span>
         </button>
       </div>
@@ -509,26 +524,28 @@ watch(isPreview, (preview) => {
           type="button"
           class="md-editor__tool"
           :class="{ 'md-editor__tool--active': mentionOpen }"
-          @mousedown.prevent
           title="@ 职位（匿名）"
           aria-haspopup="dialog"
           :aria-expanded="mentionOpen"
+          @mousedown.prevent
           @click="toggleMention"
         >
           <span class="md-editor__glyph md-editor__glyph--at">@</span>
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="插入图片(可直接粘贴)" @click="openImagePicker">
-          <Icon icon="tabler:photo" width="17" height="17" aria-hidden="true" />
+        <button type="button" class="md-editor__tool" :disabled="imageUploading" :title="imageUploading ? '图片上传中…' : '插入图片(可直接粘贴)'" @mousedown.prevent @click="openImagePicker">
+          <LoadingSpinner v-if="imageUploading" :size="17" />
+          <Icon v-else icon="tabler:photo" width="17" height="17" aria-hidden="true" />
         </button>
-        <button type="button" class="md-editor__tool" @mousedown.prevent title="上传文件" @click="openFilePicker">
-          <Icon icon="tabler:paperclip" width="17" height="17" aria-hidden="true" />
+        <button type="button" class="md-editor__tool" :disabled="fileUploading" :title="fileUploading ? '文件上传中…' : '上传文件'" @mousedown.prevent @click="openFilePicker">
+          <LoadingSpinner v-if="fileUploading" :size="17" />
+          <Icon v-else icon="tabler:paperclip" width="17" height="17" aria-hidden="true" />
         </button>
         <button
           v-if="musicEnabled"
           type="button"
           class="md-editor__tool"
-          @mousedown.prevent
           title="插入音乐"
+          @mousedown.prevent
           @click="emit('insertMusic')"
         >
           <Icon icon="tabler:disc" width="17" height="17" aria-hidden="true" />
@@ -537,8 +554,8 @@ watch(isPreview, (preview) => {
           type="button"
           class="md-editor__tool md-editor__tool--toggle"
           :class="{ 'md-editor__tool--active': isPreview }"
-          @mousedown.prevent
           :title="isPreview ? '返回编辑' : '预览'"
+          @mousedown.prevent
           @click="isPreview = !isPreview"
         >
           <span class="md-editor__glyph md-editor__glyph--preview">{{ isPreview ? '编辑' : '预览' }}</span>
@@ -558,7 +575,7 @@ watch(isPreview, (preview) => {
               <Icon icon="tabler:x" width="20" height="20" />
             </button>
           </div>
-          
+
           <div v-if="staffAliases.length > 6" class="md-editor__mention-search-wrap">
             <input
               ref="mentionInput"
@@ -655,7 +672,9 @@ watch(isPreview, (preview) => {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 1px;
-  &::-webkit-scrollbar { display: none; }
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .md-editor__tools-right {
@@ -676,11 +695,18 @@ watch(isPreview, (preview) => {
   color: var(--chat-text-secondary);
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 
   &:hover {
     background: var(--chat-accent-soft);
     color: var(--chat-accent);
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: progress;
   }
   &--active {
     background: var(--chat-accent-soft);
@@ -694,15 +720,38 @@ watch(isPreview, (preview) => {
   font-weight: 600;
   line-height: 1;
   user-select: none;
-  &--h { font-size: 13px; }
-  &--b { font-weight: 700; }
-  &--i { font-style: italic; font-family: Georgia, serif; }
-  &--s { text-decoration: line-through; }
-  &--ol { font-size: 12px; }
-  &--code { font-size: 11px; font-family: ui-monospace, monospace; }
-  &--table { font-size: 13px; }
-  &--preview { font-size: 12px; font-weight: 500; padding: 0 2px; }
-  &--at { font-size: 15px; font-weight: 700; }
+  &--h {
+    font-size: 13px;
+  }
+  &--b {
+    font-weight: 700;
+  }
+  &--i {
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+  &--s {
+    text-decoration: line-through;
+  }
+  &--ol {
+    font-size: 12px;
+  }
+  &--code {
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+  }
+  &--table {
+    font-size: 13px;
+  }
+  &--preview {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0 2px;
+  }
+  &--at {
+    font-size: 15px;
+    font-weight: 700;
+  }
 }
 
 .md-editor__sep {
@@ -892,7 +941,7 @@ watch(isPreview, (preview) => {
   .md-editor__mention-overlay {
     align-items: center;
   }
-  
+
   .md-editor__mention-drawer {
     width: 90%;
     max-width: 360px;
@@ -901,10 +950,16 @@ watch(isPreview, (preview) => {
     padding-bottom: 16px;
     animation: fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  
+
   @keyframes fadeInScale {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 
   .md-editor__mention-item {
@@ -918,7 +973,7 @@ watch(isPreview, (preview) => {
     background: transparent; /* 桌面端去掉暗色遮罩 */
     backdrop-filter: none; /* 去掉模糊，避免干扰视觉 */
   }
-  
+
   .md-editor__mention-drawer {
     width: 360px;
     max-height: 400px;
@@ -948,9 +1003,13 @@ watch(isPreview, (preview) => {
     line-height: 1.5;
     resize: none;
     box-sizing: border-box;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
 
-    &::placeholder { color: var(--chat-text-tips); }
+    &::placeholder {
+      color: var(--chat-text-tips);
+    }
     &:focus {
       outline: none;
       border-color: var(--chat-accent);
@@ -1014,7 +1073,10 @@ watch(isPreview, (preview) => {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 
   &:hover {
     background: var(--chat-accent-soft);
@@ -1071,7 +1133,7 @@ watch(isPreview, (preview) => {
       border-bottom: none;
     }
   }
-  
+
   .md-editor__body--preview .md-editor__preview-pane {
     flex: 1 1 auto;
     min-height: clamp(200px, 38vh, 480px);
@@ -1107,7 +1169,9 @@ watch(isPreview, (preview) => {
 /* ---------- 评论区 compact ---------- */
 
 .md-editor--compact {
-  .md-editor__toolbar { margin-bottom: 6px; }
+  .md-editor__toolbar {
+    margin-bottom: 6px;
+  }
   .md-editor__body textarea {
     min-height: calc(20px + 1.5em * 4);
     max-height: calc(20px + 1.5em * 6);
@@ -1121,7 +1185,9 @@ watch(isPreview, (preview) => {
     max-height: calc(20px + 1.5em * 6);
     overflow-y: auto;
   }
-  .md-editor__actions { margin-top: 6px; }
+  .md-editor__actions {
+    margin-top: 6px;
+  }
   .md-editor__action {
     min-width: 72px;
     min-height: 32px;
@@ -1130,8 +1196,14 @@ watch(isPreview, (preview) => {
 }
 
 @media screen and (max-width: 768px) {
-  .md-editor__actions { justify-content: stretch; }
-  .md-editor__action { flex: 1; }
-  .md-editor__hint { display: none; }
+  .md-editor__actions {
+    justify-content: stretch;
+  }
+  .md-editor__action {
+    flex: 1;
+  }
+  .md-editor__hint {
+    display: none;
+  }
 }
 </style>

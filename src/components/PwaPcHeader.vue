@@ -80,7 +80,7 @@ function goBack() {
 
 <template>
   <!-- PWA模式下的常驻侧边栏菜单 -->
-  <div class="pwa-sidebar" :class="{ collapsed: !isMenuOpen, 'skin-nav': skinNavActive }">
+  <div class="pwa-sidebar" :class="{ 'collapsed': !isMenuOpen, 'skin-nav': skinNavActive }">
     <div class="sidebar-header" />
     <div class="sidebar-links">
       <router-link to="/" :class="{ 'router-link-active': router.currentRoute.value.name === 'Home' }" active-class="">
@@ -164,7 +164,7 @@ function goBack() {
         </router-link>
         <router-link to="/options">
           <div class="user-avatar-icon">
-            <img :src="headerAvatarSrc" alt="avatar" @error="onHeaderAvatarError">
+            <img :src="headerAvatarSrc" alt="avatar" decoding="async" @error="onHeaderAvatarError">
           </div>
           <span>{{ userInfo.name }}</span>
         </router-link>

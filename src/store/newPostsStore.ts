@@ -1,5 +1,6 @@
 import { reactive, ref } from 'vue'
 import { getPosts } from '@/api/browse/getPost'
+import { hideSnackbar } from '@/utils/snackbar'
 import { useUserStore } from './userStore'
 
 // 新帖子通知状态
@@ -17,6 +18,24 @@ let pollingTimer: ReturnType<typeof setInterval> | null = null
 
 // 是否正在轮询新帖子
 const isPollingNewPosts = ref(false)
+
+// 「为你推荐」开启后不再提醒新帖：推荐流本身会自动把内容轮换上来。
+// recommendationModeOn 来自设置接口；recommendationFeedActive 来自首页实际返回的 feedMode，
+// 两者任一成立都暂停轮询并清掉已有提醒。
+const recommendationModeOn = ref(false)
+const recommendationFeedActive = ref(false)
+
+function shouldSuppressNewPosts(): boolean {
+  return recommendationModeOn.value || recommendationFeedActive.value
+}
+
+function clearNotification(): void {
+  newPostsNotification.isVisible = false
+  newPostsNotification.newPostIds.splice(0, newPostsNotification.newPostIds.length)
+  newPostsNotification.updatedAt = 0
+  cachedHomePostIds.value = []
+  hideSnackbar('new-posts-notification')
+}
 
 // 获取首页最新帖子ID列表
 async function getHomePostIds(): Promise<number[]> {
@@ -43,11 +62,19 @@ async function getHomePostIds(): Promise<number[]> {
 
 // 检查新帖子
 async function checkNewPosts(): Promise<void> {
+  if (shouldSuppressNewPosts()) {
+    clearNotification()
+    return
+  }
   if (isPollingNewPosts.value)
     return
   isPollingNewPosts.value = true
   try {
     const currentPostIds = await getHomePostIds()
+    if (shouldSuppressNewPosts()) {
+      clearNotification()
+      return
+    }
     if (cachedHomePostIds.value.length === 0) {
       // 首次加载，直接缓存
       cachedHomePostIds.value = currentPostIds
@@ -74,6 +101,11 @@ async function checkNewPosts(): Promise<void> {
 
 // 开始轮询
 function startPolling(): void {
+  if (shouldSuppressNewPosts()) {
+    stopPolling()
+    clearNotification()
+    return
+  }
   if (pollingTimer)
     return
   checkNewPosts()
@@ -97,8 +129,42 @@ function hideNotification(): void {
 
 // 初始化新帖子缓存（在首页加载完成后调用）
 async function initNewPostsCache(): Promise<void> {
+  if (shouldSuppressNewPosts()) {
+    clearNotification()
+    return
+  }
   const postIds = await getHomePostIds()
+  if (shouldSuppressNewPosts()) {
+    clearNotification()
+    return
+  }
   cachedHomePostIds.value = postIds
+}
+
+/**
+ * 设置页/布局拿到推荐设置后调用。
+ * 开启「为你推荐」（含灰度生效）时立即停止新帖轮询并清掉提醒。
+ */
+function setRecommendationModeEnabled(enabled: boolean): void {
+  recommendationModeOn.value = enabled
+  if (enabled)
+    clearNotification()
+  syncPolling()
+}
+
+/** 首页实际 feedMode 变化时调用；推荐流生效时同样不再提醒新帖。 */
+function setRecommendationFeedActive(active: boolean): void {
+  recommendationFeedActive.value = active
+  if (active)
+    clearNotification()
+  syncPolling()
+}
+
+function syncPolling(): void {
+  if (shouldSuppressNewPosts())
+    stopPolling()
+  else
+    startPolling()
 }
 
 // 访问新帖子后，从新帖子列表中移除对应的新帖子ID
@@ -121,5 +187,7 @@ export function useNewPostsStore() {
     hideNotification,
     initNewPostsCache,
     removeNewPostId,
+    setRecommendationModeEnabled,
+    setRecommendationFeedActive,
   }
 }

@@ -12,6 +12,7 @@ import {
 
 import { useRoute, useRouter } from 'vue-router'
 
+import { getRecommendationSettings } from '@/api/recommendation'
 import { useChat } from '@/composables/useChat'
 import { usePresence } from '@/composables/usePresence'
 import { usePWA } from '@/composables/usePWA'
@@ -37,7 +38,7 @@ const route = useRoute()
 const router = useRouter()
 
 const { noticeNum, refreshNoticeNum } = useNoticeStore()
-const { startPolling, stopPolling, newPostsNotification, hideNotification } = useNewPostsStore()
+const { startPolling, stopPolling, newPostsNotification, hideNotification, setRecommendationModeEnabled } = useNewPostsStore()
 
 const { connect, disconnect, chatNum } = useChat()
 const { desktopExperienceEnabled } = usePWA()
@@ -131,7 +132,13 @@ onMounted(() => {
     // provide('focusCleanup', _);
   })
 
-  // 启动新帖子轮询
+  // 启动新帖子轮询；若用户开着「为你推荐」，拿到设置后立即停掉提醒。
+  if (isLogin.value || refreshToken.value) {
+    void getRecommendationSettings().then((settings) => {
+      if (settings)
+        setRecommendationModeEnabled(settings.effective === 'recommend' || settings.mode === 'on')
+    })
+  }
   startPolling()
 })
 

@@ -57,12 +57,40 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number):
   return new Promise(resolve => canvas.toBlob(resolve, type, quality))
 }
 
+/**
+ * canvas 重编码会把动图压成首帧，所以动图一律原样放行。
+ * 嗅探规则与后端 passthroughAnimatedImage 对齐：GIF、VP8X+ANIM 的 WebP、
+ * IDAT 前带 acTL 的 PNG（APNG）。
+ */
+async function looksAnimated(file: File): Promise<boolean> {
+  if (file.type === 'image/gif')
+    return true
+  if (file.type !== 'image/webp' && file.type !== 'image/png')
+    return false
+  const head = new Uint8Array(await file.slice(0, 1024).arrayBuffer())
+  const ascii = (off: number, len: number) => String.fromCharCode(...head.slice(off, off + len))
+  if (file.type === 'image/webp')
+    return head.length >= 21 && ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP' && ascii(12, 4) === 'VP8X' && (head[20] & 0x02) !== 0
+  if (head.length < 8 || ascii(1, 4) !== 'PNG')
+    return false
+  for (let p = 8; p + 12 <= head.length;) {
+    const len = (head[p] << 24) | (head[p + 1] << 16) | (head[p + 2] << 8) | head[p + 3]
+    const type = ascii(p + 4, 4)
+    if (type === 'acTL')
+      return true
+    if (type === 'IDAT' || type === 'IEND' || len < 0)
+      return false
+    p += 12 + len
+  }
+  return false
+}
+
 export async function compressImageFile(file: File, options: CompressImageOptions = {}): Promise<File> {
   const maxEdge = options.maxEdge ?? 1920
   const quality = options.quality ?? 0.85
   const minBytes = options.minBytes ?? 700 * 1024
 
-  if (!isRasterImageType(file.type) || file.type === 'image/gif')
+  if (!isRasterImageType(file.type) || await looksAnimated(file))
     return file
 
   let bitmap: ImageBitmap | null = null

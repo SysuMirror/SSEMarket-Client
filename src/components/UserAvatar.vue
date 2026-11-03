@@ -2,8 +2,8 @@
 import { computed, ref, useSlots, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWornBadge } from '@/composables/useWornBadge'
-import { levelClassHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
+import { levelClassHandler, titleNameHandler } from '@/utils/level'
 import UserIdentityIcon from './UserIdentityIcon.vue'
 
 const props = withDefaults(
@@ -116,7 +116,7 @@ function onProfileKeydown(event: KeyboardEvent) {
         <img
           class="user-avatar-img"
           :src="displaySrc"
-          loading="lazy"
+          loading="lazy" decoding="async"
           :alt="resolvedUserId > 0 ? String(resolvedUserId) : '头像'"
           @error="onAvatarError"
         >
@@ -141,7 +141,7 @@ function onProfileKeydown(event: KeyboardEvent) {
             :src="wornBadge.imageURL"
             :alt="wornBadge.name"
             :title="wornBadge.name"
-            loading="lazy"
+            loading="lazy" decoding="async"
             @error="wornBadgeBroken = true"
           >
         </span>

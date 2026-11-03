@@ -11,6 +11,7 @@ import { fetchAssistPost } from '@/api/assist'
 import { getCommentsByPostID } from '@/api/browse/getComment'
 
 import { getPostByID } from '@/api/browse/getPost'
+import { reportRecommendationRead } from '@/api/recommendation'
 import { getDigestPref } from '@/api/digestPref'
 import { getLotteryDetail } from '@/api/lottery/lottery'
 import DetailCard from '@/components/card/DetailCard.vue'
@@ -18,6 +19,7 @@ import CommentSortSwitch from '@/components/CommentSortSwitch.vue'
 import { showImg } from '@/components/ImageShower'
 import LotteryDetailBox from '@/components/LotteryDetailBox.vue'
 import { showMsg } from '@/components/MessageBox'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import PresenceBadge from '@/components/PresenceBadge.vue'
 import { loadStaffAliases } from '@/composables/useStaffAliases'
 import { isDigestPrefEnabled } from '@/config/digestPref'
@@ -36,9 +38,11 @@ const DigestPrefModal = defineAsyncComponent(() => import('@/components/DigestPr
 
 const route = useRoute()
 const router = useRouter()
-const { userInfo } = useUserStore()
+const userStore = useUserStore()
+const { userInfo } = userStore
 
 const post = ref<Post>()
+const postLoaded = ref(false)
 const comments = ref<Comment[]>([])
 const lottery = ref<LotteryDetail | null>(null)
 const aiAssistData = ref<AssistPostData | null>(null)
@@ -190,6 +194,9 @@ onMounted(async () => {
     const curPost = await getPostByID(ID, userInfo.phone)
     post.value = curPost as Post
     setTitle(post.value.Title)
+    // 点进详情才标记已读（默认未读）；游客不调用，避免触发登录提示。
+    if (userStore.token.value)
+      void reportRecommendationRead(ID)
     // 加载 AI 回答留底（只读，不生成；与评论/抽奖并行加载，静默失败）
     void resolveAssistForPost(post.value)
     // 白名单用户拉取日报倾向状态（决定「调整日报倾向」按钮可见性；静默失败）
@@ -203,6 +210,7 @@ onMounted(async () => {
   catch (e) {
     showMsg(`获取帖子失败: ${e}`)
   }
+  postLoaded.value = true
 })
 </script>
 
@@ -212,6 +220,7 @@ onMounted(async () => {
     @click="clickHandler"
     @comment-handle="commentHandler"
   >
+    <PageSkeleton v-if="!post && !postLoaded" variant="detail" />
     <DetailCard
       v-if="post"
       :post="post"

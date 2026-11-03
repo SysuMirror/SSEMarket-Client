@@ -32,13 +32,21 @@ const route = useRoute()
 const router = useRouter()
 const { userInfo } = useUserStore()
 const { restorePosts, storePosts, setHomeOrder, updateNum } = usePostStore()
-const { posts, pinnedPosts, isLoading, hasMore, update, initialize, refreshPinned } = usePostView()
-const { initNewPostsCache, newPostsNotification } = useNewPostsStore()
+const { posts, pinnedPosts, feedMode, isLoading, hasMore, update, initialize, refreshPinned } = usePostView()
+const { initNewPostsCache, newPostsNotification, setRecommendationFeedActive } = useNewPostsStore()
 const scrollTop = ref(0)
 const hasCache = ref(false)
 const cachePosts = reactive<Post[]>([])
 const cachePinnedPosts = reactive<Post[]>([])
 const cacheTotalNum = ref(0)
+// 「为你推荐」生效时不用再弹新帖提醒：推荐流本身会轮换内容。
+function syncNewPostsMode() {
+  setRecommendationFeedActive(feedMode.value === 'recommend')
+}
+watch(feedMode, (mode) => {
+  setRecommendationFeedActive(mode === 'recommend')
+}, { immediate: true })
+
 const cacheCondition = reactive<Condition>({
   limit: 10,
   offset: 0,
@@ -116,6 +124,7 @@ async function applySort(field: SortField) {
 onMounted(async () => {
   await initialize('主页')
   syncSortUiFromOrderBy('time_desc')
+  syncNewPostsMode()
   await initNewPostsCache()
   hasCache.value = true
 })
@@ -127,6 +136,7 @@ onActivated(async () => {
   if (newPostsNotification.isVisible) {
     await initialize('主页')
     syncSortUiFromOrderBy('time_desc')
+    syncNewPostsMode()
     await initNewPostsCache()
   }
   else {
@@ -157,6 +167,7 @@ watch(() => route.query.refresh, async (newRefresh) => {
   if (newRefresh && hasCache.value) {
     await initialize('主页')
     syncSortUiFromOrderBy('time_desc')
+    syncNewPostsMode()
     await initNewPostsCache()
 
     const newQuery = { ...route.query }
@@ -172,9 +183,22 @@ watch(() => route.query.refresh, async (newRefresh) => {
     <header class="home-page__toolbar" aria-label="主页与排序">
       <div class="home-page__title-row">
         <h1 class="home-page__title">主页</h1>
+        <span
+          v-if="feedMode === 'recommend' && !featuredOnly"
+          class="home-page__rec-badge"
+          title="按你的浏览、点赞、评论等兴趣信号排序，可在设置中关闭"
+        >
+          <Icon icon="tabler:sparkles" width="13" height="13" aria-hidden="true" />
+          为你推荐
+        </span>
         <PresenceBadge />
       </div>
-      <div class="home-page__sort" role="group" aria-label="帖子排序">
+      <div
+        v-if="feedMode !== 'recommend' || featuredOnly"
+        class="home-page__sort"
+        role="group"
+        aria-label="帖子排序"
+      >
         <button
           v-for="opt in sortOptions"
           :key="opt.field"
@@ -252,6 +276,19 @@ watch(() => route.query.refresh, async (newRefresh) => {
   font-weight: 700;
   color: var(--color-text);
   flex-shrink: 0;
+}
+
+.home-page__rec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary, #3b82f6);
+  background: color-mix(in srgb, var(--color-primary, #3b82f6) 12%, transparent);
+  border-radius: 999px;
 }
 
 .home-page__sort {

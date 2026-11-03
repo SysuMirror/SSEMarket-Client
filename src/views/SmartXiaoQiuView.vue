@@ -15,6 +15,7 @@ import { OpsAgentRequestError, shouldRebootstrapAfterTaskError } from '@/api/ops
 import { fetchSuggestions, submitMessageFeedback } from '@/api/opsagent/suggestions'
 import { uploadDraftImage } from '@/api/post/draft'
 import { showMsg } from '@/components/MessageBox'
+import { clearStaleNewSSEServiceWorker } from '@/utils/clearStaleServiceWorker'
 import BanBanner from '@/components/smart-xiaoqiu/BanBanner.vue'
 import ConversationSidebar from '@/components/smart-xiaoqiu/ConversationSidebar.vue'
 import MemoryDrawer from '@/components/smart-xiaoqiu/MemoryDrawer.vue'
@@ -506,6 +507,44 @@ watch(draft, (v) => {
   }
 })
 
+// —— 新版本检测（2026-11-01 事故复盘）：手机页面可以通宵常开，SPA 站内跳会话
+// 永远不重载文档——发新版后用户跑的仍是内存里的旧 chunk，改了多少次都"看不见"。
+// 定期比对线上入口脚本哈希，发现换版就在顶部弹高对比更新条；点按先清历史遗留
+// Workbox SW 再重载。生流进行中不打扰（重载会掐断正在生成的回复）。
+const staleBuild = ref(false)
+let buildCheckTimer: ReturnType<typeof setInterval> | null = null
+
+function currentEntrySrc(): string {
+  return Array.from(document.querySelectorAll('script[src]'))
+    .map(x => x.getAttribute('src') || '')
+    .find(x => /assets\/index-[^/]+\.js/.test(x)) ?? ''
+}
+
+async function checkBuildFreshness() {
+  if (staleBuild.value || document.visibilityState !== 'visible' || isStreaming.value)
+    return
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}?_b=${Date.now()}`, { cache: 'no-store' })
+    if (!res.ok)
+      return
+    const m = (await res.text()).match(/assets\/index-[^"'/]+\.js/)
+    const cur = currentEntrySrc()
+    if (m && cur && !cur.includes(m[0]))
+      staleBuild.value = true
+  }
+  catch { /* 探测失败静默，下轮再试 */ }
+}
+
+function onVisibilityFresh() {
+  if (document.visibilityState === 'visible')
+    void checkBuildFreshness()
+}
+
+async function applyBuildRefresh() {
+  await clearStaleNewSSEServiceWorker().catch(() => {})
+  location.reload()
+}
+
 // 移动端会话抽屉打开时锁页面滚动 + ESC 关闭
 watch(sidebarOpen, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
@@ -538,10 +577,17 @@ onMounted(() => {
   })
   void refreshConversations()
   window.addEventListener('keydown', onGlobalKeydown)
+  buildCheckTimer = setInterval(() => void checkBuildFreshness(), 120_000)
+  document.addEventListener('visibilitychange', onVisibilityFresh)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onGlobalKeydown)
+  document.removeEventListener('visibilitychange', onVisibilityFresh)
+  if (buildCheckTimer !== null) {
+    clearInterval(buildCheckTimer)
+    buildCheckTimer = null
+  }
   document.body.style.overflow = ''
 })
 
@@ -557,6 +603,12 @@ function onDraftUpdate(updated: TimelinePostDraft) {
 
 <template>
   <div class="smart-page">
+    <div v-if="staleBuild" class="build-stale-bar" role="alert">
+      <span class="build-stale-bar__text">小秋发布了新版本</span>
+      <button type="button" class="build-stale-bar__btn" @click="applyBuildRefresh">
+        立即更新
+      </button>
+    </div>
     <div class="page-shell">
       <aside class="side-desktop">
         <ConversationSidebar
@@ -1407,6 +1459,9 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   min-width: 0;
   min-height: 24px;
   max-height: 120px;
+  /* 粘贴/输入的裸长链要折行，不许单行滚出屏（2026-11-01 用户实拍输入框 URL 被裁） */
+  overflow-wrap: anywhere;
+  word-break: break-word;
   resize: none;
   border: none;
   outline: none;
@@ -1568,5 +1623,29 @@ function onDraftUpdate(updated: TimelinePostDraft) {
   .jump-bottom {
     scroll-behavior: auto;
   }
+}
+
+/* 新版本提示条：贴顶实底高对比（皮肤/旧版陷阱教训：绝不能低调到看不见） */
+.build-stale-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.build-stale-bar__btn {
+  padding: 5px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 </style>

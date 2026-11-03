@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { UserSkin } from '@/api/skin/userSkin'
 import { computed, onMounted, ref, watch } from 'vue'
+import { uploadPhoto } from '@/api/editPostAndComment/utils'
 import {
   addUserSkin,
   buildSkinShareURL,
@@ -11,8 +12,8 @@ import {
   searchUserSkins,
   setUserSkinVisibility,
 } from '@/api/skin/userSkin'
-import { uploadPhoto } from '@/api/editPostAndComment/utils'
 import { confirmDialog } from '@/components/ConfirmDialog'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
 import { useSkin } from '@/composables/useSkin'
 import { useUserStore } from '@/store/userStore'
@@ -95,6 +96,9 @@ watch(
 )
 
 async function uploadImage(file: File, target: 'desktop' | 'mobile') {
+  // 防重复触发：上传中再次点同一位置直接忽略
+  if (target === 'desktop' ? uploadingDesktop.value : uploadingMobile.value)
+    return
   if (!isRasterImageType(file.type)) {
     showMsg('仅支持 JPG / PNG / GIF / WebP 图片')
     return
@@ -327,7 +331,7 @@ async function addFromSearch(skin: UserSkin) {
       </p>
       <div v-else class="cs__results">
         <article v-for="skin in searchResults" :key="`search-${skin.skinID}`" class="cs__result">
-          <img :src="skin.desktopUrl" alt="" loading="lazy">
+          <img :src="skin.desktopUrl" alt="" loading="lazy" decoding="async">
           <div class="cs__result-copy">
             <strong>{{ skin.name }}</strong>
             <span>{{ skin.ownerName || '集市用户' }}</span>
@@ -372,22 +376,22 @@ async function addFromSearch(skin: UserSkin) {
       <div class="cs__slots">
         <div class="cs__slot">
           <div class="cs__slot-preview">
-            <img v-if="draftDesktopUrl" :src="draftDesktopUrl" alt="电脑端预览" loading="lazy">
+            <img v-if="draftDesktopUrl" :src="draftDesktopUrl" alt="电脑端预览" loading="lazy" decoding="async">
             <span v-else>电脑端横图<br>建议 16:9</span>
           </div>
-          <label class="cs__upload-btn">
-            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="onPickFile($event, 'desktop')">
-            <span>{{ uploadingDesktop ? '上传中…' : (draftDesktopUrl ? '更换电脑图' : '上传电脑图') }}</span>
+          <label class="cs__upload-btn" :class="{ 'cs__upload-btn--busy': uploadingDesktop }">
+            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" :disabled="uploadingDesktop" @change="onPickFile($event, 'desktop')">
+            <span><LoadingSpinner v-if="uploadingDesktop" :size="14" style="margin-right: 5px;" />{{ uploadingDesktop ? '上传中…' : (draftDesktopUrl ? '更换电脑图' : '上传电脑图') }}</span>
           </label>
         </div>
         <div class="cs__slot">
           <div class="cs__slot-preview cs__slot-preview--mobile">
-            <img v-if="draftMobileUrl" :src="draftMobileUrl" alt="手机端预览" loading="lazy">
+            <img v-if="draftMobileUrl" :src="draftMobileUrl" alt="手机端预览" loading="lazy" decoding="async">
             <span v-else>手机端竖图<br>建议 9:16</span>
           </div>
-          <label class="cs__upload-btn">
-            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="onPickFile($event, 'mobile')">
-            <span>{{ uploadingMobile ? '上传中…' : (draftMobileUrl ? '更换手机图' : '上传手机图') }}</span>
+          <label class="cs__upload-btn" :class="{ 'cs__upload-btn--busy': uploadingMobile }">
+            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" :disabled="uploadingMobile" @change="onPickFile($event, 'mobile')">
+            <span><LoadingSpinner v-if="uploadingMobile" :size="14" style="margin-right: 5px;" />{{ uploadingMobile ? '上传中…' : (draftMobileUrl ? '更换手机图' : '上传手机图') }}</span>
           </label>
         </div>
       </div>
@@ -415,7 +419,7 @@ async function addFromSearch(skin: UserSkin) {
         :class="{ 'cs__card--active': isActive(skin) }"
       >
         <button type="button" class="cs__preview" @click="applySkin(skin)">
-          <img :src="skin.desktopUrl" :alt="skin.name" loading="lazy">
+          <img :src="skin.desktopUrl" :alt="skin.name" loading="lazy" decoding="async">
           <span v-if="isActive(skin)" class="cs__active-badge">使用中</span>
         </button>
         <div class="cs__meta">
@@ -686,6 +690,11 @@ async function addFromSearch(skin: UserSkin) {
   &:hover {
     border-color: var(--accent);
     color: var(--accent);
+  }
+
+  &--busy {
+    opacity: 0.7;
+    cursor: progress;
   }
 
   input {

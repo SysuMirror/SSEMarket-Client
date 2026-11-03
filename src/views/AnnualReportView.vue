@@ -4,9 +4,9 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAnnualReport } from '@/api/info/getAnnualReport'
 import { showMsg } from '@/components/MessageBox'
-import { levelNameHandler } from '@/utils/level'
 import { useUserStore } from '@/store/userStore'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
+import { levelNameHandler } from '@/utils/level'
 
 const router = useRouter()
 const { userInfo } = useUserStore()
@@ -663,7 +663,7 @@ onMounted(async () => {
 
             <div class="user-profile">
               <div class="avatar-ring">
-                <img :src="coverAvatarDisplay" alt="Avatar" class="avatar" @error="onCoverAvatarError">
+                <img :src="coverAvatarDisplay" alt="Avatar" class="avatar" decoding="async" @error="onCoverAvatarError">
               </div>
               <p class="greeting">
                 {{ reportData?.name }}
@@ -882,7 +882,7 @@ onMounted(async () => {
                 年度私信
               </div>
               <div class="partner-info">
-                <img :src="partnerAvatarDisplay" class="partner-avatar" @error="onPartnerAvatarError">
+                <img :src="partnerAvatarDisplay" class="partner-avatar" loading="lazy" decoding="async" @error="onPartnerAvatarError">
                 <div class="partner-details">
                   <span class="partner-name">{{ reportData?.maxSayUser?.name }}</span>
                   <span class="partner-msg">{{ reportData?.maxSayUserCnt }} 条消息</span>
@@ -901,6 +901,8 @@ onMounted(async () => {
                   :key="user.userID"
                   :src="friendMiniDisplaySrc(user)"
                   class="mini-avatar"
+                  loading="lazy"
+                  decoding="async"
                   @error="onFriendMiniAvatarError(user.userID)"
                 >
               </div>

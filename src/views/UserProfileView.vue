@@ -10,13 +10,15 @@ import { getUserProfilePostNum, getUserProfilePosts } from '@/api/browse/getUser
 import { uploadPhoto } from '@/api/editPostAndComment/utils'
 import { getInfoById, normalizeAllInfo } from '@/api/info/getInfo'
 import { saveProfileBanner } from '@/api/info/updateInfo'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import PostList from '@/components/PostList.vue'
 import { primeWornBadge } from '@/composables/useWornBadge'
 import { useUserStore } from '@/store/userStore'
 import { compressImageFile, isRasterImageType } from '@/utils/compressImage'
-import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
 import { defaultAvatarFor } from '@/utils/defaultAvatar'
+import { levelClassHandler, levelExpHandler, titleNameHandler } from '@/utils/level'
 import { setWindowScrollY } from '@/utils/windowScroll'
 
 const PAGE_SIZE = 15
@@ -430,6 +432,7 @@ function onAvatarError(e: Event) {
         :src="avatarSrc"
         :alt="user.name || '头像'"
         loading="lazy"
+        decoding="async"
         @error="onAvatarError"
       >
       <h1 class="profile-avatar-zone__name">
@@ -526,9 +529,7 @@ function onAvatarError(e: Event) {
         </button>
       </div>
 
-      <div v-if="badgesLoading && !ownedBadges.length" class="profile-badges__loading">
-        加载中…
-      </div>
+      <PageSkeleton v-if="badgesLoading && !ownedBadges.length" variant="list" :count="2" />
       <div v-else-if="displayedBadges.length" class="profile-badges__grid">
         <div
           v-for="badge in displayedBadges"
@@ -582,239 +583,240 @@ function onAvatarError(e: Event) {
 
     <!-- 主页背景设置弹窗（Teleport 到 body：否则会被 .app-main 的 stacking context 压在底栏下面） -->
     <Teleport to="body">
-    <div v-if="bannerSettingsOpen" class="banner-modal-mask" @click.self="closeBannerSettings">
-      <section class="banner-modal" role="dialog" aria-modal="true" aria-label="设置主页背景">
-        <header class="banner-modal__head">
-          <div>
-            <h2 class="banner-modal__title">
-              主页背景
-            </h2>
-            <p class="banner-modal__hint">
-              上传图床上图片；拖动不透明度时上方栏板实时预览，访客看到的是同一效果。
+      <div v-if="bannerSettingsOpen" class="banner-modal-mask" @click.self="closeBannerSettings">
+        <section class="banner-modal" role="dialog" aria-modal="true" aria-label="设置主页背景">
+          <header class="banner-modal__head">
+            <div>
+              <h2 class="banner-modal__title">
+                主页背景
+              </h2>
+              <p class="banner-modal__hint">
+                上传图床上图片；拖动不透明度时上方栏板实时预览，访客看到的是同一效果。
+              </p>
+            </div>
+            <button type="button" class="banner-modal__close" aria-label="关闭" @click="closeBannerSettings">
+              ×
+            </button>
+          </header>
+
+          <div class="banner-modal__body">
+            <div class="banner-modal__preview" :style="profileBannerStyle">
+              <span v-if="!bannerDraftUrl">默认渐变背景</span>
+            </div>
+
+            <div class="banner-modal__actions">
+              <button
+                type="button"
+                class="banner-modal__upload"
+                :class="{ 'banner-modal__upload--busy': bannerUploading }"
+                :disabled="bannerUploading || bannerSaving"
+                @click="bannerFileInput?.click()"
+              >
+                <LoadingSpinner v-if="bannerUploading" :size="14" style="margin-right: 6px;" />
+                {{ bannerUploading ? '上传中…' : (bannerDraftUrl ? '更换图片' : '上传图片') }}
+              </button>
+              <input
+                ref="bannerFileInput"
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                class="banner-modal__file"
+                :disabled="bannerUploading || bannerSaving"
+                @change="onBannerFileChange"
+              >
+              <button
+                v-if="bannerDraftUrl"
+                type="button"
+                class="banner-modal__remove"
+                :disabled="bannerUploading || bannerSaving"
+                @click="bannerDraftUrl = ''"
+              >
+                移除图片
+              </button>
+            </div>
+
+            <div class="banner-modal__opacity">
+              <div class="banner-modal__opacity-head">
+                <span>背景不透明度</span>
+                <span class="banner-modal__opacity-value">{{ bannerDraftOpacity }}%</span>
+              </div>
+              <input
+                v-model.number="bannerDraftOpacity"
+                class="banner-modal__range"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                aria-label="主页背景不透明度"
+                :disabled="bannerSaving"
+              >
+              <div class="banner-modal__scale">
+                <span>越透明，越能看见全站背景</span>
+                <span>100% 完全不透明</span>
+              </div>
+            </div>
+            <p class="banner-modal__note">
+              建议使用 16:9 或更宽的横图（JPG/PNG，≤15MB）。图片会上传到图床，以绝对地址保存。
             </p>
           </div>
-          <button type="button" class="banner-modal__close" aria-label="关闭" @click="closeBannerSettings">
-            ×
-          </button>
-        </header>
 
-        <div class="banner-modal__body">
-          <div class="banner-modal__preview" :style="profileBannerStyle">
-            <span v-if="!bannerDraftUrl">默认渐变背景</span>
-          </div>
-
-          <div class="banner-modal__actions">
+          <footer class="banner-modal__foot">
             <button
               type="button"
-              class="banner-modal__upload"
-              :class="{ 'banner-modal__upload--busy': bannerUploading }"
+              class="banner-modal__btn"
               :disabled="bannerUploading || bannerSaving"
-              @click="bannerFileInput?.click()"
+              @click="closeBannerSettings"
             >
-              {{ bannerUploading ? '上传中…' : (bannerDraftUrl ? '更换图片' : '上传图片') }}
+              取消
             </button>
-            <input
-              ref="bannerFileInput"
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              class="banner-modal__file"
-              :disabled="bannerUploading || bannerSaving"
-              @change="onBannerFileChange"
-            >
             <button
-              v-if="bannerDraftUrl"
               type="button"
-              class="banner-modal__remove"
+              class="banner-modal__btn banner-modal__btn--primary"
               :disabled="bannerUploading || bannerSaving"
-              @click="bannerDraftUrl = ''"
+              @click="saveBannerSettings"
             >
-              移除图片
+              {{ bannerSaving ? '保存中…' : '保存' }}
             </button>
-          </div>
-
-          <div class="banner-modal__opacity">
-            <div class="banner-modal__opacity-head">
-              <span>背景不透明度</span>
-              <span class="banner-modal__opacity-value">{{ bannerDraftOpacity }}%</span>
-            </div>
-            <input
-              v-model.number="bannerDraftOpacity"
-              class="banner-modal__range"
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              aria-label="主页背景不透明度"
-              :disabled="bannerSaving"
-            >
-            <div class="banner-modal__scale">
-              <span>越透明，越能看见全站背景</span>
-              <span>100% 完全不透明</span>
-            </div>
-          </div>
-          <p class="banner-modal__note">
-            建议使用 16:9 或更宽的横图（JPG/PNG，≤15MB）。图片会上传到图床，以绝对地址保存。
-          </p>
-        </div>
-
-        <footer class="banner-modal__foot">
-          <button
-            type="button"
-            class="banner-modal__btn"
-            :disabled="bannerUploading || bannerSaving"
-            @click="closeBannerSettings"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            class="banner-modal__btn banner-modal__btn--primary"
-            :disabled="bannerUploading || bannerSaving"
-            @click="saveBannerSettings"
-          >
-            {{ bannerSaving ? '保存中…' : '保存' }}
-          </button>
-        </footer>
-      </section>
-    </div>
+          </footer>
+        </section>
+      </div>
     </Teleport>
 
     <!-- 勋章管理弹窗 -->
     <Teleport to="body">
-    <div v-if="badgeManageOpen" class="badge-modal-mask" @click.self="closeBadgeManager">
-      <section class="badge-modal" role="dialog" aria-modal="true" aria-label="管理我的勋章">
-        <header class="badge-modal__head">
-          <div>
-            <h2 class="badge-modal__title">
-              我的勋章
-            </h2>
-            <p class="badge-modal__hint">
-              对外只挂 1 枚；主页可多选，默认全部展示。
-            </p>
-          </div>
-          <button type="button" class="badge-modal__close" aria-label="关闭" @click="closeBadgeManager">
-            ×
-          </button>
-        </header>
-
-        <div v-if="ownedBadges.length" class="badge-modal__body">
-          <section class="badge-modal__section">
-            <div class="badge-modal__section-head">
-              <h3>对外展示</h3>
-              <button
-                type="button"
-                class="badge-modal__reset"
-                :class="{ 'badge-modal__reset--active': badgeDraftWorn === 0 }"
-                @click="badgeDraftWorn = 0"
-              >
-                不挂
-              </button>
+      <div v-if="badgeManageOpen" class="badge-modal-mask" @click.self="closeBadgeManager">
+        <section class="badge-modal" role="dialog" aria-modal="true" aria-label="管理我的勋章">
+          <header class="badge-modal__head">
+            <div>
+              <h2 class="badge-modal__title">
+                我的勋章
+              </h2>
+              <p class="badge-modal__hint">
+                对外只挂 1 枚；主页可多选，默认全部展示。
+              </p>
             </div>
-            <div class="badge-picker">
-              <button
-                v-for="badge in ownedBadges"
-                :key="`worn-${badge.badgeID}`"
-                type="button"
-                class="badge-picker__item"
-                :class="{ 'badge-picker__item--selected': badgeDraftWorn === badge.badgeID }"
-                @click="badgeDraftWorn = badge.badgeID"
-              >
-                <img class="badge-picker__img" :src="badge.imageURL" :alt="badge.name" loading="lazy">
-                <span class="badge-picker__name">{{ badge.name }}</span>
-                <span class="badge-picker__check" aria-hidden="true">✓</span>
-              </button>
-            </div>
-          </section>
+            <button type="button" class="badge-modal__close" aria-label="关闭" @click="closeBadgeManager">
+              ×
+            </button>
+          </header>
 
-          <section class="badge-modal__section">
-            <div class="badge-modal__section-head">
-              <h3>主页勋章墙</h3>
-              <div class="badge-modal__bulk">
+          <div v-if="ownedBadges.length" class="badge-modal__body">
+            <section class="badge-modal__section">
+              <div class="badge-modal__section-head">
+                <h3>对外展示</h3>
                 <button
                   type="button"
                   class="badge-modal__reset"
-                  :class="{ 'badge-modal__reset--active': badgeDraftProfile === null }"
-                  @click="selectAllProfileBadges"
+                  :class="{ 'badge-modal__reset--active': badgeDraftWorn === 0 }"
+                  @click="badgeDraftWorn = 0"
                 >
-                  全部
-                </button>
-                <button
-                  type="button"
-                  class="badge-modal__reset"
-                  :class="{ 'badge-modal__reset--active': badgeDraftProfile !== null && badgeDraftProfile.length === 0 }"
-                  @click="clearProfileBadges"
-                >
-                  不展示
+                  不挂
                 </button>
               </div>
-            </div>
-            <div class="badge-picker">
-              <button
-                v-for="badge in ownedBadges"
-                :key="`profile-${badge.badgeID}`"
-                type="button"
-                class="badge-picker__item"
-                :class="{ 'badge-picker__item--selected': isProfileBadgeSelected(badge.badgeID) }"
-                @click="toggleProfileBadge(badge.badgeID)"
-              >
-                <img class="badge-picker__img" :src="badge.imageURL" :alt="badge.name" loading="lazy">
-                <span class="badge-picker__name">{{ badge.name }}</span>
-                <span class="badge-picker__check" aria-hidden="true">✓</span>
-              </button>
-            </div>
-          </section>
-        </div>
-        <p v-else class="badge-modal__empty">
-          还没有获得勋章
-        </p>
+              <div class="badge-picker">
+                <button
+                  v-for="badge in ownedBadges"
+                  :key="`worn-${badge.badgeID}`"
+                  type="button"
+                  class="badge-picker__item"
+                  :class="{ 'badge-picker__item--selected': badgeDraftWorn === badge.badgeID }"
+                  @click="badgeDraftWorn = badge.badgeID"
+                >
+                  <img class="badge-picker__img" :src="badge.imageURL" :alt="badge.name" loading="lazy">
+                  <span class="badge-picker__name">{{ badge.name }}</span>
+                  <span class="badge-picker__check" aria-hidden="true">✓</span>
+                </button>
+              </div>
+            </section>
 
-        <footer class="badge-modal__foot">
-          <button type="button" class="badge-modal__btn" :disabled="badgeSaving" @click="closeBadgeManager">
-            取消
-          </button>
-          <button
-            type="button"
-            class="badge-modal__btn badge-modal__btn--primary"
-            :disabled="badgeSaving"
-            @click="saveBadgeSelection"
-          >
-            {{ badgeSaving ? '保存中…' : '保存' }}
-          </button>
-        </footer>
-      </section>
-    </div>
+            <section class="badge-modal__section">
+              <div class="badge-modal__section-head">
+                <h3>主页勋章墙</h3>
+                <div class="badge-modal__bulk">
+                  <button
+                    type="button"
+                    class="badge-modal__reset"
+                    :class="{ 'badge-modal__reset--active': badgeDraftProfile === null }"
+                    @click="selectAllProfileBadges"
+                  >
+                    全部
+                  </button>
+                  <button
+                    type="button"
+                    class="badge-modal__reset"
+                    :class="{ 'badge-modal__reset--active': badgeDraftProfile !== null && badgeDraftProfile.length === 0 }"
+                    @click="clearProfileBadges"
+                  >
+                    不展示
+                  </button>
+                </div>
+              </div>
+              <div class="badge-picker">
+                <button
+                  v-for="badge in ownedBadges"
+                  :key="`profile-${badge.badgeID}`"
+                  type="button"
+                  class="badge-picker__item"
+                  :class="{ 'badge-picker__item--selected': isProfileBadgeSelected(badge.badgeID) }"
+                  @click="toggleProfileBadge(badge.badgeID)"
+                >
+                  <img class="badge-picker__img" :src="badge.imageURL" :alt="badge.name" loading="lazy">
+                  <span class="badge-picker__name">{{ badge.name }}</span>
+                  <span class="badge-picker__check" aria-hidden="true">✓</span>
+                </button>
+              </div>
+            </section>
+          </div>
+          <p v-else class="badge-modal__empty">
+            还没有获得勋章
+          </p>
+
+          <footer class="badge-modal__foot">
+            <button type="button" class="badge-modal__btn" :disabled="badgeSaving" @click="closeBadgeManager">
+              取消
+            </button>
+            <button
+              type="button"
+              class="badge-modal__btn badge-modal__btn--primary"
+              :disabled="badgeSaving"
+              @click="saveBadgeSelection"
+            >
+              {{ badgeSaving ? '保存中…' : '保存' }}
+            </button>
+          </footer>
+        </section>
+      </div>
     </Teleport>
 
     <!-- 币发放规则弹窗 -->
     <Teleport to="body">
-    <div v-if="coinRulesOpen" class="coin-rules-mask" @click.self="coinRulesOpen = false">
-      <div class="coin-rules" role="dialog" aria-modal="true" aria-label="币发放规则">
-        <h2 class="coin-rules__title">
-          <Icon icon="tabler:coin" width="18" height="18" aria-hidden="true" />
-          币发放规则
-        </h2>
-        <ul class="coin-rules__list">
-          <li>每天进入网页 <strong>+1 币</strong>（一天一次）</li>
-          <li>每天首次发帖 <strong>+1 币</strong></li>
-          <li>当天阅读累计满 30 分钟 <strong>+1 币</strong></li>
-          <li>当天更新写作满 4000 字 <strong>+1 币</strong></li>
-          <li>收到评分：作者 <strong>+1 币</strong>（同一读者对同一本书只算一次）</li>
-          <li>投币：每人对每个帖子 / 小说最多 2 币；每投 1 币自己 +10 主页经验</li>
-          <li>帖子被投币：作者 <strong>+0.1 币 / 币</strong>（仅真实投币，不含旧投票折算）</li>
-        </ul>
-        <p class="coin-rules__note">
-          币与小说的经验 / 积分是两条独立的线，不能互相兑换。
-        </p>
-        <div class="coin-rules__actions">
-          <RouterLink class="coin-rules__link" to="/coin" @click="coinRulesOpen = false">
-            去币中心看流水
-          </RouterLink>
-          <button type="button" class="coin-rules__close" @click="coinRulesOpen = false">
-            关闭
-          </button>
+      <div v-if="coinRulesOpen" class="coin-rules-mask" @click.self="coinRulesOpen = false">
+        <div class="coin-rules" role="dialog" aria-modal="true" aria-label="币发放规则">
+          <h2 class="coin-rules__title">
+            <Icon icon="tabler:coin" width="18" height="18" aria-hidden="true" />
+            币发放规则
+          </h2>
+          <ul class="coin-rules__list">
+            <li>每天进入网页 <strong>+1 币</strong>（一天一次）</li>
+            <li>每天首次发帖 <strong>+1 币</strong></li>
+            <li>当天阅读累计满 30 分钟 <strong>+1 币</strong></li>
+            <li>当天更新写作满 4000 字 <strong>+1 币</strong></li>
+            <li>收到评分：作者 <strong>+1 币</strong>（同一读者对同一本书只算一次）</li>
+            <li>投币：每人对每个帖子 / 小说最多 2 币；每投 1 币自己 +10 主页经验</li>
+            <li>帖子被投币：作者 <strong>+0.1 币 / 币</strong>（仅真实投币，不含旧投票折算）</li>
+          </ul>
+          <p class="coin-rules__note">
+            币与小说的经验 / 积分是两条独立的线，不能互相兑换。
+          </p>
+          <div class="coin-rules__actions">
+            <RouterLink class="coin-rules__link" to="/coin" @click="coinRulesOpen = false">
+              去币中心看流水
+            </RouterLink>
+            <button type="button" class="coin-rules__close" @click="coinRulesOpen = false">
+              关闭
+            </button>
+          </div>
         </div>
       </div>
-    </div>
     </Teleport>
   </div>
 </template>
@@ -861,7 +863,9 @@ function onAvatarError(e: Event) {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 
   &:hover {
     background: rgba(15, 23, 42, 0.55);
@@ -1189,7 +1193,10 @@ function onAvatarError(e: Event) {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 
   &:hover {
     border-color: var(--accent);
@@ -1394,7 +1401,10 @@ function onAvatarError(e: Event) {
   color: inherit;
   font-family: inherit;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
 
   &:hover {
     border-color: color-mix(in srgb, var(--accent) 55%, transparent);
@@ -1445,7 +1455,9 @@ function onAvatarError(e: Event) {
   font-weight: 700;
   opacity: 0;
   transform: scale(0.7);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .badge-picker__item--selected .badge-picker__check {

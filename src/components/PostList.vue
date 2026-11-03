@@ -3,6 +3,7 @@ import type { Post } from '@/types/post'
 
 import { onUnmounted, useTemplateRef, watch } from 'vue'
 import PostCard from './card/PostCard.vue'
+import PageSkeleton from './PageSkeleton.vue'
 
 const { isDense, posts = [], isLoading = false, hasMore = true, newPostIds = [] } = defineProps<{
   isDense?: boolean
@@ -59,6 +60,8 @@ onUnmounted(() => {
 
 <template>
   <div class="w-full">
+    <!-- 首屏还没任何数据时先摆骨架，避免整页空白 -->
+    <PageSkeleton v-if="isLoading && !posts.length" variant="feed" :count="isDense ? 3 : 4" />
     <PostCard
       v-for="post in posts"
       :key="post.PostID"
@@ -70,6 +73,7 @@ onUnmounted(() => {
     />
     <template v-if="hasMore">
       <div
+        v-show="posts.length || !isLoading"
         ref="bottom"
         class="feed-list__footer"
         :class="{ 'feed-list__footer--loading': isLoading }"

@@ -28,59 +28,38 @@ const emit = defineEmits<{
 
 const xiaoQiuAvatarUrl = `${import.meta.env.BASE_URL}xiaoqiu-avatar.png`
 
+/**
+ * 时间序过程流（2026-11-01 用户改判 WorkBuddy 式）：步骤/旁白/生图卡/草稿按**到达顺序**
+ * 交错渲染、来一条渲一条，不再"工具聚一桶、思考吊桶后"。pending=还没被后段顶掉的
+ * assistant 段，回合收尾时：除最后一段（升格主气泡）外全部降为旁白行。
+ */
+type FlowSeg =
+  | { t: 'step'; id: string; step: TimelineStep }
+  | { t: 'image'; id: string; image: TimelineImage }
+  | { t: 'draft'; id: string; draft: TimelinePostDraft }
+  | { t: 'aside'; id: string; aside: TimelineAssistant }
+  | { t: 'pending'; id: string; asst: TimelineAssistant }
+
 interface TimelineTurn {
   id: string
   user?: TimelineUser
-  steps: TimelineStep[]
+  flow: FlowSeg[]
   assistant?: TimelineAssistant
-  /** msg_id 切段的已封存中间段（"我先查一下…"）：淡色旁白行，不进主气泡 */
-  asides: TimelineAssistant[]
-  drafts: TimelinePostDraft[]
-  images: TimelineImage[]
 }
 
+// 裸图链兜底渲染（2026-11-01 用户截图：手机端满屏 image.ssemarket.cn 长链接，丑且"看不到图"）：
+// 模型偶尔把生图 URL 当正文贴出来——凡未被 `](` 包裹的图床直链，一律转成 markdown 图就地显示。
+// 不用 lookbehind（老 Safari 兼容）：用"前一个字符不是 ( [ 或单词字符"排除已在链接语法里的。
+const BARE_IMG_RE = /(^|[^[\w(])(https?:\/\/image\.ssemarket\.cn\/[^\s<>()[\]（）【】]+?\.(?:png|jpe?g|webp|gif))/gi
+
 function markdownForAssistant(raw: string) {
-  return raw.replace(/post:\/\/(\d+)/gi, (_, id: string) => `[帖子 #${id}](/postdetail/${id})`)
+  return raw
+    .replace(/post:\/\/(\d+)/gi, (_, id: string) => `[帖子 #${id}](/postdetail/${id})`)
+    .replace(BARE_IMG_RE, (_, pre: string, url: string) => `${pre}![生成图片](${url})`)
 }
 
 function stripStepLabel(label: string) {
   return label.replace(/^【|】$/g, '')
-}
-
-// 任务目标派生文案：按本轮首个工具的语义映射（后端将来发 goal 事件则覆盖）
-const TOOL_GOAL: Record<string, string> = {
-  sql_post_search: '检索帖子',
-  sql_latest_posts: '翻最新帖子',
-  sql_read: '查论坛数据',
-  kb_search: '查知识库',
-  web_search: '联网搜索',
-  submit_feedback: '提交反馈',
-  create_post: '发帖',
-  create_comment: '写评论',
-  toggle_like_post: '点赞',
-  toggle_vote_post: '投票',
-  write_code: '写代码',
-  run_code: '跑代码验证',
-  memory_save: '记下偏好',
-  generate_image: '生成图片',
-  edit_image: '改图',
-}
-
-function goalFor(turn: TimelineTurn) {
-  if (!turn.steps.length)
-    return ''
-  const verbs = [...new Set(turn.steps.map((s) => {
-    const name = stripStepLabel(s.label)
-    return TOOL_GOAL[name] ?? '处理任务'
-  }))]
-  const head = verbs.length > 1 ? `${verbs[0]}等` : verbs[0]
-  return `${head} · ${turn.steps.length} 步`
-}
-
-function turnHasLive(turn: TimelineTurn) {
-  return turn.steps.some(s => s.status === 'streaming')
-    || turn.assistant?.status === 'streaming'
-    || turn.images.some(i => i.status === 'running' || i.status === 'progress')
 }
 
 const turns = computed(() => {
@@ -92,30 +71,46 @@ const turns = computed(() => {
       continue
 
     if (item.kind === 'user') {
-      current = { id: item.id, user: item, steps: [], asides: [], drafts: [], images: [] }
+      current = { id: item.id, user: item, flow: [] }
       out.push(current)
       continue
     }
 
     if (!current) {
-      current = { id: `turn-${item.id}`, steps: [], asides: [], drafts: [], images: [] }
+      current = { id: `turn-${item.id}`, flow: [] }
       out.push(current)
     }
 
-    if (item.kind === 'step') {
-      current.steps.push(item)
+    if (item.kind === 'step')
+      current.flow.push({ t: 'step', id: item.id, step: item })
+    else if (item.kind === 'image')
+      current.flow.push({ t: 'image', id: item.id, image: item })
+    else if (item.kind === 'post_draft')
+      current.flow.push({ t: 'draft', id: item.id, draft: item })
+    else
+      current.flow.push({ t: 'pending', id: item.id, asst: item })
+  }
+
+  for (const turn of out) {
+    let lastPending = -1
+    for (let i = 0; i < turn.flow.length; i++) {
+      if (turn.flow[i].t === 'pending')
+        lastPending = i
     }
-    else if (item.kind === 'assistant') {
-      // 多段（msg_id 切段）：先到的封存段降为旁白行，最后一段是主气泡
-      if (current.assistant)
-        current.asides.push(current.assistant)
-      current.assistant = item
+    // 只有 pending 位于 flow **末尾**才升格主气泡（模板里主气泡渲在 flow 之后）。
+    // 生图/工具占位把后续卡片顶到它下面时，它已不是"当前正在说的话"——
+    // 留在时间原位降为旁白，否则思考会被吊到 image 占位卡下面（2026-11-01 用户截图）。
+    if (lastPending >= 0 && lastPending === turn.flow.length - 1) {
+      const seg = turn.flow[lastPending]
+      if (seg.t === 'pending') {
+        turn.assistant = seg.asst
+        turn.flow.splice(lastPending, 1)
+      }
     }
-    else if (item.kind === 'post_draft') {
-      current.drafts.push(item)
-    }
-    else if (item.kind === 'image') {
-      current.images.push(item)
+    for (let i = 0; i < turn.flow.length; i++) {
+      const seg = turn.flow[i]
+      if (seg.t === 'pending')
+        turn.flow[i] = { t: 'aside', id: seg.id, aside: seg.asst }
     }
   }
 
@@ -150,18 +145,12 @@ const thinkingLabel = computed(() => {
 // 改 button + v-show，状态源唯一
 const rootRef = ref<HTMLElement | null>(null)
 const openReasoning = ref<Record<string, boolean>>({})
-const openGoal = ref<Record<string, boolean>>({})
 
 function toggleReasoning(id: string) {
   openReasoning.value = { ...openReasoning.value, [id]: !(openReasoning.value[id] === true) }
 }
 
-function toggleGoal(id: string) {
-  openGoal.value = { ...openGoal.value, [id]: !(openGoal.value[id] === true) }
-}
-
-function reasoningSummary(turn: TimelineTurn) {
-  const a = turn.assistant
+function reasoningSummary(a?: TimelineAssistant) {
   if (!a?.reasoning)
     return ''
   if (isThinking(a.text, a.status))
@@ -207,7 +196,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
         <time class="meta-time">{{ turn.user.time }}</time>
       </div>
 
-      <div v-if="turn.steps.length || turn.assistant || turn.images.length || turn.asides.length" class="agent-row">
+      <div v-if="turn.flow.length || turn.assistant" class="agent-row">
         <div class="agent-avatar" aria-hidden="true">
           <img :src="xiaoQiuAvatarUrl" alt="" width="36" height="36">
         </div>
@@ -223,78 +212,103 @@ function canRate(a: TimelineAssistant | undefined): boolean {
             </span>
           </div>
 
-          <!-- 任务目标汇总条：默认收起，展开后是本目标下的工具调用序列 -->
-          <div v-if="turn.steps.length" class="goal-box">
-            <button
-              type="button"
-              class="goal-summary"
-              :aria-expanded="openGoal[turn.id] === true"
-              @click="toggleGoal(turn.id)"
+          <!-- 时间序过程流（WorkBuddy 式，2026-11-01 用户改判）：思考旁白→就地渲染、
+               工具行→就地渲染、生图卡/草稿→就地渲染，按到达顺序往下走；
+               步骤默认一行收起，点开看详情 -->
+          <template v-for="seg in turn.flow" :key="seg.id">
+            <div
+              v-if="seg.t === 'step'"
+              class="step-card"
+              :class="{ streaming: seg.step.status === 'streaming', done: seg.step.status === 'done' }"
             >
-              <svg class="goal-chev" :class="{ 'is-open': openGoal[turn.id] === true }" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-              <span class="goal-text">{{ goalFor(turn) }}</span>
-              <span v-if="turnHasLive(turn)" class="goal-live">处理中</span>
-            </button>
-            <div v-show="openGoal[turn.id] === true" class="goal-steps">
-              <div
-                v-for="step in turn.steps"
-                :key="step.id"
-                class="step-card"
-                :class="{ streaming: step.status === 'streaming', done: step.status === 'done' }"
+              <button
+                type="button"
+                class="step-toggle"
+                :aria-expanded="stepExpanded(seg.step.id, seg.step.collapsed)"
+                @click="toggleStep(seg.step.id, seg.step.collapsed)"
               >
-                <button
-                  type="button"
-                  class="step-toggle"
-                  :aria-expanded="stepExpanded(step.id, step.collapsed)"
-                  @click="toggleStep(step.id, step.collapsed)"
-                >
-                  <span class="step-icon" aria-hidden="true">
-                    <svg v-if="stepExpanded(step.id, step.collapsed)" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                    <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                  </span>
-                  <span class="step-label">{{ stripStepLabel(step.label) }}</span>
-                  <span class="step-badge" :class="{ live: step.status === 'streaming' }">
-                    {{ step.status === 'streaming' ? '处理中' : '中间步骤' }}
-                  </span>
-                </button>
-                <div
-                  v-show="stepExpanded(step.id, step.collapsed)"
-                  class="step-body"
-                >
-                  <MarkdownContainer
-                    v-if="step.text"
-                    variant="chat"
-                    :markdown-content="markdownForAssistant(step.text)"
-                    open-links-in-new-tab
-                  />
-                  <span v-else class="placeholder">正在整理信息…</span>
-                </div>
+                <span class="step-icon" aria-hidden="true">
+                  <svg v-if="stepExpanded(seg.step.id, seg.step.collapsed)" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="step-label">{{ stripStepLabel(seg.step.label) }}</span>
+                <span class="step-badge" :class="{ live: seg.step.status === 'streaming' }">
+                  {{ seg.step.status === 'streaming' ? '处理中' : '中间步骤' }}
+                </span>
+              </button>
+              <div
+                v-show="stepExpanded(seg.step.id, seg.step.collapsed)"
+                class="step-body"
+              >
+                <MarkdownContainer
+                  v-if="seg.step.text"
+                  variant="chat"
+                  :markdown-content="markdownForAssistant(seg.step.text)"
+                  open-links-in-new-tab
+                />
+                <span v-else class="placeholder">正在整理信息…</span>
               </div>
             </div>
-          </div>
-
-          <!-- 中间轮封存文本：淡色旁白行（WorkBuddy 分步感；final 不再整段覆盖它） -->
-          <p
-            v-for="aside in turn.asides"
-            :key="aside.id"
-            class="aside-line"
-          >
-            {{ aside.text }}
-          </p>
-
-          <ImageCard
-            v-for="img in turn.images"
-            :key="img.id"
-            :item="img"
-            @redo="emit('imageAction', 'redo', $event)"
-            @tweak="emit('imageAction', 'tweak', $event)"
-          />
+            <div
+              v-else-if="seg.t === 'aside'"
+              class="aside-block"
+            >
+              <!-- 被封存的中间思考段：在原时间位置渲染折叠卡（2026-11-01 用户实拍：
+                   思考被工具卡反超/变隐形空行——旁白只剩淡字行是错的，thinking 必须可见可展开） -->
+              <div v-if="seg.aside.reasoning" class="reasoning-box">
+                <button
+                  type="button"
+                  class="reasoning-head"
+                  :aria-expanded="openReasoning[seg.id] === true"
+                  @click="toggleReasoning(seg.id)"
+                >
+                  <svg class="reasoning-chev" :class="{ 'is-open': openReasoning[seg.id] === true }" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                  {{ reasoningSummary(seg.aside) }}
+                </button>
+                <div v-show="openReasoning[seg.id] === true" class="reasoning-live">
+                  {{ seg.aside.reasoning }}
+                </div>
+              </div>
+              <p v-if="seg.aside.text.trim()" class="aside-line">
+                {{ seg.aside.text }}
+              </p>
+              <div v-if="seg.aside.sources?.length" class="sources-box">
+                <span class="sources-head">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" />
+                    <path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18" stroke="currentColor" stroke-width="1.6" />
+                  </svg>
+                  网页来源
+                </span>
+                <a
+                  v-for="s in seg.aside.sources"
+                  :key="s.url"
+                  class="sources-link"
+                  :href="s.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  :title="s.snippet || s.title"
+                >{{ s.title }}</a>
+              </div>
+            </div>
+            <ImageCard
+              v-else-if="seg.t === 'image'"
+              :item="seg.image"
+              @redo="emit('imageAction', 'redo', $event)"
+              @tweak="emit('imageAction', 'tweak', $event)"
+            />
+            <PostDraftCard
+              v-else-if="seg.t === 'draft'"
+              :item="seg.draft"
+              @update="onDraftUpdate"
+            />
+          </template>
 
           <div
             v-if="turn.assistant"
@@ -312,7 +326,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
                 <svg class="reasoning-chev" :class="{ 'is-open': openReasoning[turn.id] === true }" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
-                {{ reasoningSummary(turn) }}
+                {{ reasoningSummary(turn.assistant) }}
               </button>
               <div
                 v-show="openReasoning[turn.id] === true"
@@ -385,13 +399,6 @@ function canRate(a: TimelineAssistant | undefined): boolean {
               </svg>
             </button>
           </div>
-
-          <PostDraftCard
-            v-for="draft in turn.drafts"
-            :key="draft.id"
-            :item="draft"
-            @update="onDraftUpdate"
-          />
         </div>
       </div>
     </article>
@@ -521,56 +528,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   }
 }
 
-/* —— 任务目标汇总条：无卡片底，一行文字 + 展开箭头 —— */
-.goal-box {
-  width: 100%;
-  max-width: var(--xq-bubble-max);
-}
-
-.goal-summary {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  width: 100%;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  padding: 2px;
-  font-size: 12px;
-  color: var(--xq-text-muted);
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.goal-chev {
-  flex: none;
-  transition: transform 0.15s ease;
-}
-
-.goal-chev.is-open {
-  transform: rotate(90deg);
-}
-
-.goal-text {
-  font-weight: 500;
-}
-
-.goal-live {
-  color: var(--xq-accent);
-  font-weight: 500;
-}
-
-.goal-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
-}
-
-/* —— 中间步骤：WorkBuddy 式透明行，无卡片底/边框/光环 —— */
+/* —— 过程流步骤行：WorkBuddy 式透明行，无卡片底/边框/光环 —— */
 .step-card {
   width: 100%;
   max-width: var(--xq-bubble-max);
@@ -635,6 +593,7 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   line-height: 1.55;
   color: var(--xq-text-secondary);
   word-break: break-word;
+  overflow-wrap: anywhere; /* 工具入参里的裸长链不撑破手机屏 */
 }
 
 .step-body :deep(.markdown-body) {
@@ -652,7 +611,14 @@ function canRate(a: TimelineAssistant | undefined): boolean {
   font-size: 13px;
 }
 
-/* 中间轮封存旁白：无泡、淡字 */
+/* 中间轮封存旁白块：思考折叠卡 + 淡字行 + 来源组，纵向紧凑组合 */
+.aside-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: var(--xq-bubble-max);
+}
+
 .aside-line {
   margin: 0;
   max-width: var(--xq-bubble-max);
@@ -914,7 +880,6 @@ function canRate(a: TimelineAssistant | undefined): boolean {
 
 @media (max-width: 768px) {
   /* 拇指热区：折叠行/来源链接手机端抬高到可点按标准 */
-  .goal-summary,
   .reasoning-head,
   .step-toggle {
     min-height: 38px;

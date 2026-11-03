@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { createNovel, createNovelChapter, getMyNovels, getNovelDetail, uploadNovelImage } from '@/api/novel'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
 import NovelCover from '@/components/novel/NovelCover.vue'
 import { novelBookPath, novelReadPath } from '@/utils/novelRoute'
@@ -431,7 +432,8 @@ onUnmounted(() => {
           <span class="novel-write__field-label">封面（可选，也可创建后在书籍页更换）</span>
           <div class="novel-write__cover-btns">
             <button type="button" class="novel-write__ghost-btn" :disabled="coverBusy" @click="pickCover">
-              <Icon icon="tabler:upload" width="14" height="14" aria-hidden="true" />
+              <LoadingSpinner v-if="coverBusy" :size="14" />
+              <Icon v-else icon="tabler:upload" width="14" height="14" aria-hidden="true" />
               {{ coverBusy ? '上传中…' : coverURL ? '更换封面' : '上传封面' }}
             </button>
             <button v-if="coverURL" type="button" class="novel-write__ghost-btn novel-write__ghost-btn--muted" @click="removeCover">
@@ -537,7 +539,8 @@ onUnmounted(() => {
             title="上传一张图片，插入为独立一段"
             @click="pickImage"
           >
-            <Icon icon="tabler:photo" width="14" height="14" aria-hidden="true" />
+            <LoadingSpinner v-if="imageBusy" :size="14" />
+            <Icon v-else icon="tabler:photo" width="14" height="14" aria-hidden="true" />
             {{ imageBusy ? '上传中…' : '插入图片' }}
           </button>
           <button type="button" class="novel-write__tool" @click="previewMode = !previewMode">
@@ -571,7 +574,7 @@ onUnmounted(() => {
               class="novel-write__preview-img"
               :src="p.imageURL"
               :alt="`第 ${p.index + 1} 段配图`"
-              loading="lazy"
+              loading="lazy" decoding="async"
             >
             <template v-else>
               {{ p.text }}
