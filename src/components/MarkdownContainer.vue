@@ -153,6 +153,9 @@ function preprocessMarkdown(content: string): string {
   text = text.replace(/(^|\n)[ \t]*::music\s+(\d+)::[ \t]*(?=\n|$)/g, (m, lead, id) => `${lead}<div class="post-music" data-music-id="${id}"></div>`)
   // 帖子内嵌视频标记：[video:123] 渲染为受控播放器占位节点
   text = text.replace(/(^|\n)[ \t]*\[video:(\d+)\][ \t]*(?=\n|$)/g, (_m, lead, id) => `${lead}<div class="post-video" data-video-id="${id}"></div>`)
+  // 中文输入法容易把图片语法打成全角「！[alt](url)」，Markdown 只认半角 "!"，
+  // 不纠正会退化成「！+ 链接」显示在正文里。
+  text = text.replace(/！(\[[^\]\n]*\]\([^)\n]+\))/g, '!$1')
   // 先用正则匹配一下
   return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, urlPart) => {
     const titleIndex = urlPart.lastIndexOf(' "')
