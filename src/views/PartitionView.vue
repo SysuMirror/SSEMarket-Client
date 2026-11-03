@@ -48,6 +48,7 @@ const cacheCondition = reactive<Condition>({
 })
 
 onMounted(async () => {
+  setWindowScrollY(0)
   const params = route.params
   if (!('name' in params)) {
     router.push('/')

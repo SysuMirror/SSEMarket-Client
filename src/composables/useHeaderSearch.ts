@@ -113,7 +113,23 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
     { immediate: true },
   )
 
+  // 回到搜索页（返回、刷新、直达链接）时，把搜索词同步回顶栏输入框，
+  // 避免 URL 里还带着关键词、输入框却是空的。
+  function syncSearchInput() {
+    const sinfo = route.query.sinfo
+    if (route.name !== 'Search' || typeof sinfo !== 'string' || !sinfo)
+      return
+    if (searchInputValue.value !== sinfo)
+      searchInputValue.value = sinfo
+    const el = inputRef.value
+    if (el && document.activeElement !== el)
+      el.value = sinfo
+  }
+
+  watch(() => [route.name, route.query.sinfo], syncSearchInput, { flush: 'post' })
+
   onMounted(() => {
+    syncSearchInput()
     mountedCount += 1
     if (!hotQueries.value.length)
       void loadHotQueries()

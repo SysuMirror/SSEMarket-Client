@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import type { UserSearchUser } from '@/api/search/searchUsers'
-import type { Partitions } from '@/store/postStore'
+import type { Condition, Partitions } from '@/store/postStore'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
 import {
+  nextTick,
+  onActivated,
   onMounted,
+  reactive,
   ref,
   watch,
 } from 'vue'
 
-import { useRoute } from 'vue-router'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { searchRagPosts } from '@/api/ragSearch'
 import { searchUsers } from '@/api/search/searchUsers'
 import AppDatetimePicker from '@/components/AppDatetimePicker.vue'
@@ -21,8 +24,13 @@ import UserSearchCard from '@/components/search/UserSearchCard.vue'
 import { usePostView } from '@/composables/usePostView'
 import { usePostStore } from '@/store/postStore'
 import { useUserStore } from '@/store/userStore'
+import { getWindowScrollY, setWindowScrollY } from '@/utils/windowScroll'
 
-const { search, setSearchTimeRange, refreshPosts, conditions, updateNum } = usePostStore()
+defineOptions({
+  name: 'SearchView',
+})
+
+const { search, setSearchTimeRange, refreshPosts, conditions, updateNum, restorePosts, storePosts } = usePostStore()
 const { userInfo } = useUserStore()
 const route = useRoute()
 const { posts, update, isLoading, hasMore, initialize } = usePostView()
@@ -39,6 +47,32 @@ const initialized = ref(false)
 const userResults = ref<UserSearchUser[]>([])
 const userLoading = ref(false)
 let userSearchSeq = 0
+
+// 返回搜索页时恢复列表与滚动位置（配合 KeepAlive）
+const scrollTop = ref(0)
+const hasCache = ref(false)
+const cachePosts = reactive<Post[]>([])
+const cacheTotalNum = ref(0)
+const cacheCondition = reactive<Condition>({
+  limit: 10,
+  offset: 0,
+  partition: '主页',
+  searchsort: 'home',
+  searchinfo: '',
+  tag: '',
+  orderBy: 'time_desc',
+  timeFrom: '',
+  timeTo: '',
+})
+const cacheFullPath = ref('')
+const cacheSmart = ref(false)
+
+function restoreScroll() {
+  requestAnimationFrame(() => {
+    setWindowScrollY(scrollTop.value)
+    requestAnimationFrame(() => setWindowScrollY(scrollTop.value))
+  })
+}
 
 /** 顶部「相关用户」卡片：与帖子搜索并行，失败不影响帖子结果。 */
 async function loadUserCards() {
@@ -65,6 +99,7 @@ async function runSearch() {
   refreshPosts()
   search(keyword.value, route.query?.partition as typeof Partitions[number] | undefined)
   setSearchTimeRange(timeFrom.value, timeTo.value)
+  setWindowScrollY(0)
   await update()
   await updateNum(userInfo.phone)
   filtering.value = false
@@ -78,6 +113,7 @@ async function runSmartSearch() {
   smartError.value = ''
   posts.splice(0, posts.length)
   hasMore.value = false
+  setWindowScrollY(0)
   try {
     const response = await searchRagPosts(keyword.value, 10, 'manual')
     const ragPosts = (response.data?.results || [])
@@ -109,6 +145,7 @@ async function initializeFromRoute() {
   const query = route.query
   if (!('sinfo' in query))
     return showMsg('未知的搜索')
+  hasCache.value = false
   const sinfo = query.sinfo as string
   keyword.value = sinfo
   void loadUserCards()
@@ -123,6 +160,7 @@ async function initializeFromRoute() {
     timeTo.value = query.timeTo
   if (partition === '课程专区')
     isDense.value = true
+  setWindowScrollY(0)
   await initialize(partition || '主页', {
     afterRefresh: () => {
       search(sinfo, partition)
@@ -134,15 +172,51 @@ async function initializeFromRoute() {
     await runSmartSearch()
 }
 
+onBeforeRouteLeave(() => {
+  if (route.name !== 'Search')
+    return
+  scrollTop.value = getWindowScrollY()
+  const data = storePosts()
+  cachePosts.splice(0, cachePosts.length, ...data.cachePosts)
+  cacheTotalNum.value = data.cacheTotalNum
+  Object.assign(cacheCondition, data.cacheConditions)
+  cacheFullPath.value = route.fullPath
+  cacheSmart.value = isSmartMode.value
+  hasCache.value = true
+})
+
+onActivated(async () => {
+  if (!hasCache.value || route.name !== 'Search' || route.fullPath !== cacheFullPath.value)
+    return
+  // 智能检索结果不是分页流，直接放回缓存，避免 restorePosts 触发普通列表的增量拉取
+  if (cacheSmart.value) {
+    posts.splice(0, posts.length, ...cachePosts)
+    hasMore.value = false
+    isLoading.value = false
+    await nextTick()
+    restoreScroll()
+    return
+  }
+  isLoading.value = true
+  await restorePosts(userInfo.phone, cachePosts, cacheTotalNum.value, cacheCondition)
+  hasMore.value = cachePosts.length < cacheTotalNum.value
+  isLoading.value = false
+  await nextTick()
+  restoreScroll()
+})
+
 onMounted(async () => {
   await initializeFromRoute()
   initialized.value = true
 })
 
 watch(
-  () => [route.query.sinfo, route.query.partition, route.query.smart, route.query.timeFrom, route.query.timeTo],
-  async ([sinfo, partition, smart, timeFrom, timeTo], [previousSinfo, previousPartition, previousSmart, previousTimeFrom, previousTimeTo]) => {
-    if (!initialized.value)
+  () => [route.name, route.query.sinfo, route.query.partition, route.query.smart, route.query.timeFrom, route.query.timeTo],
+  async ([name, sinfo, partition, smart, timeFrom, timeTo], [previousName, previousSinfo, previousPartition, previousSmart, previousTimeFrom, previousTimeTo]) => {
+    if (!initialized.value || name !== 'Search')
+      return
+    // 从详情页返回搜索页：交给 onActivated 用缓存恢复，不走重新检索
+    if (previousName !== 'Search')
       return
 
     const queryChanged = sinfo !== previousSinfo

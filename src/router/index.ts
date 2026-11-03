@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
+import { installRouteScrollMemory } from '@/utils/routeScroll'
 import { setTitle } from '@/utils/title'
 
 const router = createRouter({
@@ -315,6 +316,8 @@ const router = createRouter({
 })
 
 const { isLogin, refreshToken } = useUserStore()
+
+installRouteScrollMemory(router)
 
 router.beforeEach((to, from, next) => {
   if (to.path.startsWith('/auth')) {

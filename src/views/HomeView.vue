@@ -122,6 +122,7 @@ async function applySort(field: SortField) {
 }
 
 onMounted(async () => {
+  setWindowScrollY(0)
   await initialize('主页')
   syncSortUiFromOrderBy('time_desc')
   syncNewPostsMode()

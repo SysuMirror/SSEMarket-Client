@@ -218,7 +218,7 @@ watch(() => newPostsNotification.updatedAt, (updatedAt: number) => {
           <PartitionList />
         </template>
         <router-view v-slot="{ Component }">
-          <KeepAlive include="HomeView,PartitionView">
+          <KeepAlive include="HomeView,PartitionView,SearchView,CourseView,SaveView,HistoryView">
             <component :is="Component" :key="route.path" />
           </KeepAlive>
         </router-view>

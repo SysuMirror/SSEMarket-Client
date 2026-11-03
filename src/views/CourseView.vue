@@ -9,16 +9,26 @@ import {
 } from 'vue'
 import { getTeachers } from '@/api/info/getTeacher'
 import PostList from '@/components/PostList.vue'
+import { usePostListCache } from '@/composables/usePostListCache'
 import { usePostView } from '@/composables/usePostView'
 import { usePostStore } from '@/store/postStore'
+import { setWindowScrollY } from '@/utils/windowScroll'
+
+defineOptions({
+  name: 'CourseView',
+})
 
 const tag = ref('')
 const teachers = reactive<Tag[]>([])
 
 const { changeTo, refreshPosts } = usePostStore()
-const { posts, isLoading, hasMore, initialize, update } = usePostView()
+const view = usePostView()
+const { posts, isLoading, hasMore, initialize, update } = view
+
+usePostListCache(view)
 
 onMounted(async () => {
+  setWindowScrollY(0)
   await initialize('课程专区')
   const resp = await getTeachers()
   teachers.splice(0, teachers.length, ...resp)
