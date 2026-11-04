@@ -10,7 +10,7 @@ import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
 import type { RecommendationMode, RecommendationSettings } from '@/api/recommendation'
 import { getRecommendationSettings, setRecommendationMode } from '@/api/recommendation'
 import { sendCode } from '@/api/LoginAndRegister/utils'
-import { ssoBindStart, ssoStatus, ssoUnbind } from '@/api/sso/sso'
+import { ssoBindStart, ssoLogout, ssoStatus, ssoUnbind } from '@/api/sso/sso'
 import ApiTokenPanel from '@/components/ApiTokenPanel.vue'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
@@ -456,6 +456,8 @@ async function resetEmail() {
 async function logout() {
   if (!await confirmDialog({ message: '确定要退出登录吗？', confirmText: '退出登录', danger: true }))
     return
+  // 单点登出：先吊销 unisso 共享会话并清父域 Cookie，再清本地；服务端不可达也继续本地退出。
+  await ssoLogout()
   localStorage.removeItem('userInfo')
   localStorage.removeItem('token')
   localStorage.removeItem('email')

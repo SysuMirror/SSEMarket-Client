@@ -1,6 +1,7 @@
 import { showMsg } from '@/components/MessageBox'
 import router from '@/router'
 import { useUserStore } from '@/store/userStore'
+import { ssoTry } from '@/api/sso/sso'
 
 const apiUrl = import.meta.env.VITE_API_BASE_URL
 
@@ -51,6 +52,20 @@ export async function ensureAccessToken(): Promise<boolean> {
   catch {
     return false
   }
+}
+
+/** refresh 失败后的兜底：用共享父域 sse_sso cookie 静默兑换一次。
+ *  ok：本地会话已恢复；logout：共享会话确实失效，应清空并回登录页；
+ *  unstable：unisso/网络不可达，不能把故障当登出，保留本地会话。 */
+async function recoverViaSso(): Promise<'ok' | 'logout' | 'unstable'> {
+  const sso = await ssoTry()
+  if (sso.state === 'ok') {
+    const { setToken, setRefreshToken } = useUserStore()
+    setToken(sso.token)
+    setRefreshToken(sso.refresh_token)
+    return 'ok'
+  }
+  return sso.state === 'unauthorized' ? 'logout' : 'unstable'
 }
 
 export interface RequestObject {
@@ -108,10 +123,21 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
       }
       catch (e) {
         console.error('首次刷新 token 失败', e)
-        showMsg('登录过期，请重新登录')
-        store.setToken('')
-        store.setRefreshToken('')
-        router.push('/auth/login')
+        const rec = await recoverViaSso()
+        if (rec === 'ok') {
+          res = await doRequest()
+          return res
+        }
+        if (rec === 'logout') {
+          showMsg('登录过期，请重新登录')
+          store.setToken('')
+          store.setRefreshToken('')
+          router.push('/auth/login')
+        }
+        else {
+          // unisso 不可达：不当登出处理，保留本地会话下次再试
+          showMsg('网络不稳定，请稍后重试')
+        }
         return null
       }
 
@@ -144,10 +170,21 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
     }
     catch (e) {
       console.error('刷新 token 失败', e)
-      showMsg('登录过期，请重新登录')
-      store.setToken('')
-      store.setRefreshToken('')
-      router.push('/auth/login')
+      const rec = await recoverViaSso()
+      if (rec === 'ok') {
+        res = await doRequest()
+        return res
+      }
+      if (rec === 'logout') {
+        showMsg('登录过期，请重新登录')
+        store.setToken('')
+        store.setRefreshToken('')
+        router.push('/auth/login')
+      }
+      else {
+        // unisso 不可达：不当登出处理，保留本地会话下次再试
+        showMsg('网络不稳定，请稍后重试')
+      }
       return null
     }
 

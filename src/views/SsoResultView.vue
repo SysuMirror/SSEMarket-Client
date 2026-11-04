@@ -12,9 +12,10 @@ const { setToken, setRefreshToken, setUserInfo } = useUserStore()
 const ready = ref(false)
 
 const errorTexts: Record<string, string> = {
-  state: '登录状态已过期或已使用，请重新发起 SSO 登录',
-  exchange: 'SSO 服务暂时不可用，请稍后重试或使用邮箱登录',
-  conflict: '该 SSO 账号已绑定其他集市账号',
+  state: '登录状态已过期或已使用，请重新发起统一登录',
+  exchange: '统一登录服务暂时不可用，请稍后重试',
+  conflict: '该统一身份已绑定其他集市账号',
+  internal: '该账号没有软件工程学院内部权限，无法登录集市',
 }
 
 async function enterMarket(token: string, refreshToken: string, bound: boolean) {
@@ -33,8 +34,8 @@ onMounted(async () => {
   const error = typeof route.query.error === 'string' ? route.query.error : ''
 
   if (error) {
-    showMsg(errorTexts[error] ?? 'SSO 登录失败，请重试')
-    router.replace('/auth/login')
+    showMsg(errorTexts[error] ?? '统一登录失败，请重试')
+    router.replace({ path: '/auth/login', query: { error } })
     ready.value = true
     return
   }
@@ -46,8 +47,8 @@ onMounted(async () => {
 
   const result = await ssoExchange(ticket)
   if (!result) {
-    showMsg('登录凭证无效或已过期，请重新发起 SSO 登录')
-    router.replace('/auth/login')
+    showMsg('登录凭证无效或已过期，请重新发起统一登录')
+    router.replace({ path: '/auth/login', query: { manual: '1' } })
     ready.value = true
     return
   }
@@ -69,8 +70,8 @@ onMounted(async () => {
     await enterMarket(result.token, result.refresh_token, result.type === 'bound')
   }
   else {
-    showMsg('SSO 登录失败，请重试')
-    router.replace('/auth/login')
+    showMsg('统一登录失败，请重试')
+    router.replace({ path: '/auth/login', query: { manual: '1' } })
   }
   ready.value = true
 })

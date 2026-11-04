@@ -1,18 +1,31 @@
 <script setup lang="ts">
 import type { CustomFormData } from '@/composables/FormExam'
 
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { getInfo } from '@/api/info/getInfo'
 import { userLogin } from '@/api/LoginAndRegister/login'
 import { reportDailyVisit } from '@/api/coin/coin'
-import { ssoLoginURL } from '@/api/sso/sso'
+import { ssoMode, ssoTry } from '@/api/sso/sso'
 import FormContainer from '@/components/FormContainer.vue'
 import { showMsg } from '@/components/MessageBox'
 
 import { useUserStore } from '@/store/userStore'
 
-const { setToken, setRefreshToken, setUserInfo } = useUserStore()
+const route = useRoute()
+const router = useRouter()
+const { token, refreshToken, setToken, setRefreshToken, setUserInfo } = useUserStore()
+
+const fallbackNotice = ref(false)
+const modeError = ref('')
+
+const ssoErrorTexts: Record<string, string> = {
+  state: '登录状态已过期或已使用，请重新发起统一登录',
+  exchange: '统一登录服务暂时不可用，请稍后重试',
+  conflict: '该统一身份已绑定其他集市账号',
+  internal: '该账号没有软件工程学院内部权限，无法登录集市',
+}
 
 const form = ref<CustomFormData[]>([
   {
@@ -41,49 +54,92 @@ async function loginHandler() {
     return
   }
   try {
-    if (email && password) {
-      const result = await userLogin(email, password)
-      if (!result) {
-        showMsg('登录失败')
-        return
-      }
-      if (rememberMe.value) {
-        localStorage.setItem('rememberMe', 'true')
-      }
-      else {
-        localStorage.removeItem('rememberMe')
-      }
-      setToken(result.token)
-      setRefreshToken(result.refresh_token)
-      const info = await getInfo()
-      setUserInfo(info)
-      // 每日进入网页 +1 币（后端按日期幂等，重复登录不会重复发）
-      void reportDailyVisit()
+    const result = await userLogin(email, password)
+    if (!result) {
+      showMsg('登录失败')
+      return
     }
+    if (rememberMe.value) {
+      localStorage.setItem('rememberMe', 'true')
+    }
+    else {
+      localStorage.removeItem('rememberMe')
+    }
+    setToken(result.token)
+    setRefreshToken(result.refresh_token)
+    const info = await getInfo()
+    setUserInfo(info)
+    // 每日进入网页 +1 币（后端按日期幂等，重复登录不会重复发）
+    void reportDailyVisit()
   }
   catch (error) {
     console.error('登录失败', error)
-    showMsg('登录失败')
+    showMsg(error instanceof Error && error.message ? error.message : '登录失败')
   }
 }
 
-function gotoSSOLogin() {
-  window.location.href = ssoLoginURL()
+function redirectTarget(): string {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+  return redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
 }
+
+/** 已有本地会话或共享 Cookie 能静默兑换时，直接进入登录态；否则留在表单。 */
+async function tryAutoLogin(): Promise<boolean> {
+  if (token.value || refreshToken.value) {
+    const info = await getInfo()
+    if (info && info.userID && info.userID !== 0) {
+      setUserInfo(info)
+      void reportDailyVisit()
+      return true
+    }
+  }
+  const silent = await ssoTry()
+  if (silent.state !== 'ok')
+    return false
+  setToken(silent.token)
+  setRefreshToken(silent.refresh_token)
+  const info = await getInfo()
+  setUserInfo(info)
+  void reportDailyVisit()
+  return true
+}
+
+onMounted(async () => {
+  const error = typeof route.query.error === 'string' ? route.query.error : ''
+  if (error) {
+    modeError.value = ssoErrorTexts[error] ?? '统一登录失败，请重试'
+  }
+  // 进入登录页先试静默 SSO（共享父域 Cookie），成功则无跳转直接进入已登录态。
+  if (await tryAutoLogin()) {
+    router.replace(redirectTarget())
+    return
+  }
+  // 登录无感：主模式同一表单，密码由后端转 unisso M2M 校验；仅在探测判定故障时提示兜底。
+  const info = await ssoMode()
+  if (info && info.mode === 'fallback') {
+    fallbackNotice.value = true
+  }
+})
 </script>
 
 <template>
   <FormContainer
     title="欢迎回来"
-    subtitle="使用邮箱登录你的账号"
+    :subtitle="fallbackNotice ? '统一身份服务暂不可用，已启用本地登录兜底' : '使用邮箱登录你的账号'"
     form-name="登录"
     :form-data="form"
     @submit-form="loginHandler"
   >
+    <p v-if="modeError" class="auth-sso__error">
+      {{ modeError }}
+    </p>
     <label class="auth-row auth-check">
       <input v-model="rememberMe" type="checkbox" class="auth-check__input">
       <span class="auth-check__text">记住我</span>
     </label>
+    <p v-if="fallbackNotice" class="auth-sso__hint">
+      统一身份服务暂时不可用，本次登录使用本地密码校验。恢复后将自动切回统一校验。
+    </p>
     <div class="auth-links">
       <router-link class="auth-link" to="/auth/register">
         注册账号
@@ -93,15 +149,24 @@ function gotoSSOLogin() {
         忘记密码
       </router-link>
     </div>
-    <div class="auth-sso">
-      <button type="button" class="auth-sso__btn" @click="gotoSSOLogin">
-        使用 UniSSO 登录
-      </button>
-    </div>
   </FormContainer>
 </template>
 
 <style scoped lang="scss">
+.auth-sso__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--chat-text-secondary);
+}
+
+.auth-sso__error {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #d9534f;
+}
+
 .auth-row {
   margin-top: 0.5rem;
 }
@@ -153,28 +218,5 @@ function gotoSSOLogin() {
   color: var(--chat-text);
   text-decoration: underline;
   text-underline-offset: 0.2em;
-}
-
-.auth-sso {
-  margin-top: 1rem;
-  display: flex;
-  justify-content: center;
-}
-
-.auth-sso__btn {
-  padding: 0.55rem 1.1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--chat-text);
-  background: transparent;
-  border: 1px solid var(--chat-border-strong);
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease;
-}
-
-.auth-sso__btn:hover {
-  border-color: var(--chat-accent);
-  color: var(--chat-accent);
 }
 </style>

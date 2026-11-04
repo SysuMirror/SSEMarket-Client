@@ -5,8 +5,9 @@ import {
   ref,
 } from 'vue'
 import { getInfo, getSelfAllInfo } from './api/info/getInfo'
-import { userLogin } from './api/LoginAndRegister/login'
 import { reportDailyVisit } from './api/coin/coin'
+import { ssoTry } from './api/sso/sso'
+import router from './router'
 import { useUserStore } from './store/userStore'
 
 import TitleCustomizeModal from '@/components/TitleCustomizeModal.vue'
@@ -61,41 +62,36 @@ function reportVisitIfLoggedIn() {
 
 onBeforeMount(async () => {
   window.addEventListener('beforeunload', handleBeforeUnload)
-  const hasLegacyCreds = !!(localStorage.email && localStorage.password)
-  const hasToken = !!token.value
-  const hasRefreshToken = !!refreshToken.value
+  // 旧版本曾把邮箱密码留在 localStorage 做自动登录；统一登录后该分支已删除，清理残留。
+  localStorage.removeItem('email')
+  localStorage.removeItem('password')
+  const hadLocal = !!token.value || !!refreshToken.value
 
   try {
-    // 过渡到双Token制用
-    if (hasLegacyCreds && !hasToken && !hasRefreshToken) {
-      try {
-        const email = localStorage.email
-        const password = localStorage.password
-        if (email && password) {
-          const result = await userLogin(email, password)
-          if (result) {
-            localStorage.setItem('rememberMe', 'true')
-
-            setToken(result.token)
-            setRefreshToken(result.refresh_token)
-            const info = await getInfo()
-            if (info && info.userID && info.userID !== 0)
-              setUserInfo(info)
-
-            localStorage.removeItem('email')
-            localStorage.removeItem('password')
-            reportVisitIfLoggedIn()
-            return
-          }
-        }
+    // 每次启动都核对共享父域会话：即使本地已有会话，也要能感知其他平台的单点登出。
+    const sso = await ssoTry()
+    if (sso.state === 'ok') {
+      setToken(sso.token)
+      setRefreshToken(sso.refresh_token)
+      const info = await getInfo()
+      if (info && info.userID && info.userID !== 0) {
+        setUserInfo(info)
+        reportVisitIfLoggedIn()
       }
-      catch (e) {
-        console.error('兼容旧版本自动登录失败', e)
-      }
-      // 登录失败时保留，用户仍可手动登录
     }
-
-    if (hasToken || hasRefreshToken) {
+    else if (sso.state === 'unauthorized') {
+      // 共享会话已失效或已被登出（含 no_sso）：本地会话作废，回登录页。
+      setToken('')
+      setRefreshToken('')
+      setUserInfo({ userID: 0, name: '', avatarURL: '', phone: '', email: '', identity: '', coins: 0 })
+      localStorage.removeItem('token')
+      localStorage.removeItem('rememberMe')
+      const current = router.currentRoute.value
+      if (!current.path.startsWith('/auth') && !current.meta.public)
+        router.replace(`/auth/login?redirect=${encodeURIComponent(current.fullPath)}`)
+    }
+    else if (hadLocal) {
+      // unisso/网络不可达：不能把故障当登出，保留本地会话并尝试续期。
       try {
         const info = await getInfo()
         if (info && info.userID && info.userID !== 0) {
@@ -104,7 +100,7 @@ onBeforeMount(async () => {
         }
       }
       catch {
-        // 优先使用 refresh_token 静默续期
+        // 保留本地 token，交给后续请求的 refresh 流程
       }
     }
   }
