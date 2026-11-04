@@ -55,38 +55,86 @@ export type SsoTryResult =
   /** 503 / 超时 / 网络错误：unisso 不可达 —— 不能把故障当登出，保留本地会话。 */
   | { state: 'unavailable' }
 
-let silentLoginPromise: Promise<SsoTryResult> | null = null
+type SsoProbeListener = (result: SsoTryResult) => void
+
+/** UI 等待上界：超时先按不可用放行首屏，请求继续后台进行。 */
+const SSO_TRY_UI_WAIT_MS = 6000
+/** 真实请求上界：慢链路（首访大 bundle 抢带宽）下 sso/try 可能远晚于 UI 上界才返回。 */
+const SSO_TRY_FETCH_TIMEOUT_MS = 15000
+
+let probePromise: Promise<SsoTryResult> | null = null
+let probeStartedAt = 0
+/** 本轮探测的真实结果；新探测发起时清空。 */
+let probeSettledResult: SsoTryResult | null = null
+const probeListeners = new Set<SsoProbeListener>()
+
+function runSsoProbe(): Promise<SsoTryResult> {
+  return fetchWithTimeout(`${apiUrl}/auth/sso/try`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  }, SSO_TRY_FETCH_TIMEOUT_MS)
+    .then(async (res): Promise<SsoTryResult> => {
+      if (res.status === 401)
+        return { state: 'unauthorized' }
+      if (!res.ok)
+        return { state: 'unavailable' }
+      const data = await res.json().catch(() => null)
+      const token = data?.data?.token
+      const refreshToken = data?.data?.refresh_token
+      return token && refreshToken
+        ? { state: 'ok', token, refresh_token: refreshToken }
+        : { state: 'unavailable' }
+    })
+    .catch((): SsoTryResult => ({ state: 'unavailable' }))
+}
 
 /**
  * 静默 SSO：共享父域 Cookie → unisso 校验 → 本地会话。
  * 返回三态，调用方据此决定保留还是清掉本地会话；自身不抛错、不弹窗、不跳转。
- * 并发调用共享同一个请求；带超时（unisso 卡死不能阻塞首屏），超时按不可用处理。
+ * 并发调用共享同一个请求；UI 等待有上界（unisso 卡死不能阻塞首屏），超时按
+ * 'unavailable' 占位返回但请求继续后台进行，真实结果落定后经 onSsoProbeSettled
+ * 通知 —— 慢链路首访"探测被掐死、刷新才登录"的时序竞态由此补救（同 iwiki 加固）。
  */
 export function ssoTry(): Promise<SsoTryResult> {
-  if (!silentLoginPromise) {
-    silentLoginPromise = fetchWithTimeout(`${apiUrl}/auth/sso/try`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    }, 6000)
-      .then(async (res): Promise<SsoTryResult> => {
-        if (res.status === 401)
-          return { state: 'unauthorized' }
-        if (!res.ok)
-          return { state: 'unavailable' }
-        const data = await res.json().catch(() => null)
-        const token = data?.data?.token
-        const refreshToken = data?.data?.refresh_token
-        return token && refreshToken
-          ? { state: 'ok', token, refresh_token: refreshToken }
-          : { state: 'unavailable' }
-      })
-      .catch((): SsoTryResult => ({ state: 'unavailable' }))
-      .finally(() => {
-        silentLoginPromise = null
-      })
+  if (!probePromise) {
+    probeStartedAt = Date.now()
+    probeSettledResult = null
+    const current = runSsoProbe()
+    probePromise = current
+    current.then((result) => {
+      probeSettledResult = result
+      for (const listener of [...probeListeners])
+        listener(result)
+      probeListeners.clear()
+    }).catch(() => {}).finally(() => {
+      // 落定后允许后续调用发起新一轮探测（如 401 自愈路径的再兑换）。
+      if (probePromise === current)
+        probePromise = null
+    })
   }
-  return silentLoginPromise
+  const elapsed = Date.now() - probeStartedAt
+  if (elapsed >= SSO_TRY_UI_WAIT_MS) {
+    // 上界已过：立即返回占位结果，不再阻塞调用方；真实结果仍会经监听器送达。
+    return Promise.resolve({ state: 'unavailable' })
+  }
+  return Promise.race([
+    probePromise,
+    new Promise<SsoTryResult>(resolve =>
+      setTimeout(() => resolve({ state: 'unavailable' }), SSO_TRY_UI_WAIT_MS - elapsed),
+    ),
+  ])
+}
+
+/**
+ * 订阅本轮静默探测的真实结果（每个探测周期至多通知一次）。
+ * 若订阅时探测已落定，立即补发该结果。返回解绑函数。
+ */
+export function onSsoProbeSettled(listener: SsoProbeListener): () => void {
+  probeListeners.add(listener)
+  if (probeSettledResult)
+    listener(probeSettledResult)
+  return () => probeListeners.delete(listener)
 }
 
 /** 单点登出：吊销 unisso 会话 + 清父域 Cookie；失败不阻塞本地退出。 */

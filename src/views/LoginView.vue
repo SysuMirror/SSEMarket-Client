@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { CustomFormData } from '@/composables/FormExam'
 
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getInfo } from '@/api/info/getInfo'
 import { userLogin } from '@/api/LoginAndRegister/login'
 import { reportDailyVisit } from '@/api/coin/coin'
-import { ssoMode, ssoTry } from '@/api/sso/sso'
+import { onSsoProbeSettled, ssoMode, ssoTry } from '@/api/sso/sso'
 import FormContainer from '@/components/FormContainer.vue'
 import { showMsg } from '@/components/MessageBox'
 
@@ -19,6 +19,8 @@ const { token, refreshToken, setToken, setRefreshToken, setUserInfo } = useUserS
 
 const fallbackNotice = ref(false)
 const modeError = ref('')
+/** 用户开始输入表单后，晚到的静默成功不再自动跳转（交给密码登录）。 */
+const userTyped = ref(false)
 
 const ssoErrorTexts: Record<string, string> = {
   state: '登录状态已过期或已使用，请重新发起统一登录',
@@ -104,11 +106,40 @@ async function tryAutoLogin(): Promise<boolean> {
   return true
 }
 
+watch(
+  () => [form.value[0].value, form.value[1].value],
+  () => {
+    userTyped.value = true
+  },
+)
+
 onMounted(async () => {
   const error = typeof route.query.error === 'string' ? route.query.error : ''
   if (error) {
     modeError.value = ssoErrorTexts[error] ?? '统一登录失败，请重试'
   }
+  // 慢链路下静默探测可能晚于 UI 上界才成功：落定后若用户尚未开始输入，自动进入登录态，
+  // 免去"首访停在登录页、手动刷新才登录"的时序竞态（同 iwiki 加固）。
+  const stopSsoLate = onSsoProbeSettled(async (result) => {
+    if (result.state !== 'ok' || userTyped.value || token.value || refreshToken.value)
+      return
+    if (!route.path.startsWith('/auth'))
+      return
+    try {
+      setToken(result.token)
+      setRefreshToken(result.refresh_token)
+      const info = await getInfo()
+      if (info && info.userID && info.userID !== 0) {
+        setUserInfo(info)
+        void reportDailyVisit()
+        router.replace(redirectTarget())
+      }
+    }
+    catch {
+      // 兑换/取用户信息失败：留在登录表单，交给密码登录
+    }
+  })
+  onUnmounted(() => stopSsoLate())
   // 进入登录页先试静默 SSO（共享父域 Cookie），成功则无跳转直接进入已登录态。
   if (await tryAutoLogin()) {
     router.replace(redirectTarget())
