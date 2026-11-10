@@ -86,6 +86,11 @@ onBeforeMount(async () => {
       setUserInfo({ userID: 0, name: '', avatarURL: '', phone: '', email: '', identity: '', coins: 0 })
       localStorage.removeItem('token')
       localStorage.removeItem('rememberMe')
+      // 等初始导航（含守卫对深链的处理）落定再决定跳转：onBeforeMount 里
+      // router.currentRoute 仍是起始位置，直接用会把 /connect?appid=... 这类
+      // 授权入口覆盖成 redirect=%2F。isReady 后守卫已把带完整 query 的深链
+      // 放进 /auth/login，这里就无需再跳。
+      await Promise.race([router.isReady(), new Promise(resolve => setTimeout(resolve, 1000))])
       const current = router.currentRoute.value
       if (!current.path.startsWith('/auth') && !current.meta.public)
         router.replace(`/auth/login?redirect=${encodeURIComponent(current.fullPath)}`)

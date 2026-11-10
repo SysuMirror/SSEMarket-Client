@@ -81,8 +81,23 @@ async function loginHandler() {
 }
 
 function redirectTarget(): string {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  return redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
+  const query = route.query
+  const redirect = typeof query.redirect === 'string' ? query.redirect : ''
+  if (!(redirect.startsWith('/') && !redirect.startsWith('//')))
+    return '/'
+  // 守卫把深链拆成 redirect + 其余 query 键（如 /connect 的 appid/redirect_uri/
+  // scope/response_type/state）。只回 redirect 会丢参数，这里补回来（同 AuthLayout）。
+  const otherParams = new URLSearchParams()
+  for (const key in query) {
+    if (key === 'redirect' || key === 'error')
+      continue
+    const value = query[key]
+    if (typeof value === 'string' && value)
+      otherParams.append(key, value)
+  }
+  if (!otherParams.toString())
+    return redirect
+  return `${redirect}${redirect.includes('?') ? '&' : '?'}${otherParams.toString()}`
 }
 
 /** 已有本地会话或共享 Cookie 能静默兑换时，直接进入登录态；否则留在表单。 */
