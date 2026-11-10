@@ -127,7 +127,10 @@ function toImagebedPreviewURL(src: string): string {
   const hashIndex = src.indexOf('#')
   const base = hashIndex >= 0 ? src.slice(0, hashIndex) : src
   const hash = hashIndex >= 0 ? src.slice(hashIndex) : ''
-  return `${base}${base.includes('?') ? '&' : '?'}w=1600&q=82${hash}`
+  // v=2 缓存穿透：首次上线期间缩放接口曾短暂返回 200+0 字节且带 immutable 缓存头，
+  // 当时段内被浏览器缓存的空图 URL 无法通过任何服务端手段修复（浏览器不回源），
+  // 只能换 URL 让所有客户端视为新资源重新拉取。v=2 需永久保留，不要再复用旧参数形态。
+  return `${base}${base.includes('?') ? '&' : '?'}w=1600&q=82&v=2${hash}`
 }
 
 md.renderer.rules.image = (tokens, idx) => {
