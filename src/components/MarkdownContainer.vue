@@ -113,6 +113,23 @@ md.renderer.rules.fence = (tokens, idx) => {
   )
 }
 
+// ---------- 图床预览缩放：正文拉缩放图，点开放大看原图 ----------
+// 图床支持 ?w=&h=&q=&fmt= 按需缩放并在 MinIO 落缓存（见 2026-11-09 事故报告），
+// 线上 p50=1.28MB/p90=7.5MB 的原图直出是图床慢速的主要放大器。
+const IMAGEBED_ORIGIN = 'https://image.ssemarket.cn/'
+
+/** 仅改写自家图床链接：外站图片不了解参数语义，追加会破坏其缓存甚至 404 */
+function toImagebedPreviewURL(src: string): string {
+  // 已带尺寸参数（手动指定过）或 GIF（缩放会丢动画）保持原图
+  if (!src.startsWith(IMAGEBED_ORIGIN) || /[?&]w=/.test(src) || /\.gif(?:[?#]|$)/i.test(src))
+    return src
+  // 参数要插在 #fragment 之前，否则会被当成 fragment 的一部分
+  const hashIndex = src.indexOf('#')
+  const base = hashIndex >= 0 ? src.slice(0, hashIndex) : src
+  const hash = hashIndex >= 0 ? src.slice(hashIndex) : ''
+  return `${base}${base.includes('?') ? '&' : '?'}w=1600&q=82${hash}`
+}
+
 md.renderer.rules.image = (tokens, idx) => {
   const token = tokens[idx]
   const srcIndex = token.attrIndex('src')
@@ -123,10 +140,11 @@ md.renderer.rules.image = (tokens, idx) => {
   if (!token.attrs)
     return ''
   const src = token.attrs[srcIndex][1]
-  const alt = altIndex >= 0 ? `alt="${token.content}"` : ''
+  // src 用缩放预览图；原始地址存 data-original，viewerjs 放大时取原图
+  const alt = altIndex >= 0 ? ` alt="${token.content}"` : ''
   const title = titleIndex >= 0 ? ` title="${token.attrs[titleIndex][1]}"` : ''
   // 懒加载 + 异步解码：大图（含动图）不阻塞主线程与首屏
-  return `<img src="${src}"${alt}${title} loading="lazy" decoding="async" />`
+  return `<img src="${toImagebedPreviewURL(src)}" data-original="${src}"${alt}${title} loading="lazy" decoding="async" />`
 }
 
 /**
@@ -224,6 +242,7 @@ const safeHTML = computed(() => {
       'data-user-id',
       'data-music-id',
       'data-video-id',
+      'data-original',
       'role',
       'tabindex',
     ],
@@ -268,6 +287,8 @@ function openImageViewer(clicked: HTMLImageElement) {
     title: false,
     minZoomRatio: 0.2,
     maxZoomRatio: 8,
+    // 放大查看用原图（data-original）：正文 src 是 ?w=1600 缩放预览图
+    url: image => image.getAttribute('data-original') || image.src,
     // 关闭后销毁实例，避免 DOM 与监听器泄漏
     hidden: () => destroyImageViewer(),
   })
