@@ -14,6 +14,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import PostList from '@/components/PostList.vue'
+import { resolveAppDownload, triggerAppDownload } from '@/config/appDownload'
 import { primeWornBadge } from '@/composables/useWornBadge'
 import { useUserStore } from '@/store/userStore'
 import { compressImageFile, isRasterImageType } from '@/utils/compressImage'
@@ -403,6 +404,20 @@ function navigateChat() {
   }
 }
 
+/** 手机端下 Android / 鸿蒙包，桌面端下 Windows 包；其余系统提示暂未提供。 */
+function handleDownloadApp() {
+  const target = resolveAppDownload()
+  if (!target.supported) {
+    showMsg(`暂未提供 ${target.label} 版 App`, 'warning')
+    return
+  }
+  if (!target.url) {
+    showMsg('App 正在开发中，敬请期待')
+    return
+  }
+  triggerAppDownload(target.url)
+}
+
 function onAvatarError(e: Event) {
   const el = e.target as HTMLImageElement
   if (el.src !== defaultAvatar.value)
@@ -444,10 +459,14 @@ function onAvatarError(e: Event) {
     </div>
 
     <!-- 操作栏 -->
-    <div v-if="!isSelf" class="profile-actions">
-      <button type="button" class="profile-actions__btn" @click="navigateChat">
+    <div class="profile-actions">
+      <button v-if="!isSelf" type="button" class="profile-actions__btn" @click="navigateChat">
         <Icon icon="tabler:message-circle" width="20" height="20" aria-hidden="true" />
         <span>发私信</span>
+      </button>
+      <button v-if="isSelf" type="button" class="profile-actions__btn" @click="handleDownloadApp">
+        <Icon icon="tabler:download" width="20" height="20" aria-hidden="true" />
+        <span>下载 App</span>
       </button>
     </div>
 
