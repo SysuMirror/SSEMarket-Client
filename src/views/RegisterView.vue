@@ -1,13 +1,14 @@
 <!-- eslint-disable regexp/no-super-linear-backtracking -->
 <script lang="ts" setup>
 import type { CustomFormData } from '@/composables/FormExam'
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { getInfo } from '@/api/info/getInfo'
 import { userRegister } from '@/api/LoginAndRegister/register'
 
 import { sendCode } from '@/api/LoginAndRegister/utils'
+import { ssoMode } from '@/api/sso/sso'
 import FormContainer from '@/components/FormContainer.vue'
 
 import { showMsg } from '@/components/MessageBox'
@@ -17,6 +18,14 @@ import { useUserStore } from '@/store/userStore'
 const router = useRouter()
 const { setToken, setRefreshToken, setUserInfo } = useUserStore()
 const rememberMe = useTemplateRef('rememberMe')
+
+// 统一身份模式下注册只在 sso.ssemarket.cn/register 完成（UniSSO 会回调集市建号）。
+// 集市本地注册页保留仅用于 SSO 整体停用（disabled）的场景。
+onMounted(async () => {
+  const info = await ssoMode()
+  if (info && info.mode !== 'disabled')
+    window.location.replace('https://sso.ssemarket.cn/register')
+})
 
 // const passwordReg = /^\S*(?=\S{6})(?=\S*\d)(?=\S*[A-Z])(?=\S*[a-z])(?=\S*[!@#$%^&*? ])\S+$/
 

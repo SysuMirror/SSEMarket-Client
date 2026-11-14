@@ -1,15 +1,25 @@
 <script setup lang="ts">
 import type { CustomFormData } from '@/composables/FormExam'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { useRouter } from 'vue-router'
 import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
 import { sendCode } from '@/api/LoginAndRegister/utils'
+import { ssoMode } from '@/api/sso/sso'
 import FormContainer from '@/components/FormContainer.vue'
 import { showMsg } from '@/components/MessageBox'
 import { useFormExam } from '@/composables/FormExam'
 
 const router = useRouter()
+
+// 统一身份模式下密码由 UniSSO 管理，本地改密会造成两边密码不一致、登录被拒。
+// 只有 SSO 整体停用（disabled）时才保留集市本地找回密码页。
+onMounted(async () => {
+  const info = await ssoMode()
+  if (info && info.mode !== 'disabled')
+    window.location.replace('https://sso.ssemarket.cn/reset-password')
+})
+
 const form = ref<CustomFormData[]>([
   {
     id: 'email',

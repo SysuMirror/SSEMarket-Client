@@ -18,6 +18,8 @@ const router = useRouter()
 const { token, refreshToken, setToken, setRefreshToken, setUserInfo } = useUserStore()
 
 const fallbackNotice = ref(false)
+/** 统一身份模式（sso/fallback）：注册与改密都归 UniSSO，本地入口仅 disabled 时保留。 */
+const ssoManaged = ref(false)
 const modeError = ref('')
 /** 用户开始输入表单后，晚到的静默成功不再自动跳转（交给密码登录）。 */
 const userTyped = ref(false)
@@ -162,8 +164,10 @@ onMounted(async () => {
   }
   // 登录无感：主模式同一表单，密码由后端转 unisso M2M 校验；仅在探测判定故障时提示兜底。
   const info = await ssoMode()
-  if (info && info.mode === 'fallback') {
-    fallbackNotice.value = true
+  if (info) {
+    ssoManaged.value = info.mode !== 'disabled'
+    if (info.mode === 'fallback')
+      fallbackNotice.value = true
   }
 })
 </script>
@@ -187,13 +191,24 @@ onMounted(async () => {
       统一身份服务暂时不可用，本次登录使用本地密码校验。恢复后将自动切回统一校验。
     </p>
     <div class="auth-links">
-      <router-link class="auth-link" to="/auth/register">
-        注册账号
-      </router-link>
-      <span class="auth-links__sep" aria-hidden="true">·</span>
-      <router-link class="auth-link" to="/auth/reset">
-        忘记密码
-      </router-link>
+      <template v-if="ssoManaged">
+        <a class="auth-link" href="https://sso.ssemarket.cn/register">
+          注册账号
+        </a>
+        <span class="auth-links__sep" aria-hidden="true">·</span>
+        <a class="auth-link" href="https://sso.ssemarket.cn/reset-password">
+          忘记密码
+        </a>
+      </template>
+      <template v-else>
+        <router-link class="auth-link" to="/auth/register">
+          注册账号
+        </router-link>
+        <span class="auth-links__sep" aria-hidden="true">·</span>
+        <router-link class="auth-link" to="/auth/reset">
+          忘记密码
+        </router-link>
+      </template>
     </div>
   </FormContainer>
 </template>
