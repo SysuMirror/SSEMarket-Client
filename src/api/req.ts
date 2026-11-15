@@ -73,8 +73,7 @@ function recoverSession(): Promise<'ok' | 'unauthorized' | 'unavailable'> {
     return recoverPromise
   recoverPromise = (async () => {
     const store = useUserStore()
-    if (store.token.value)
-      return 'ok' as const
+    // 不因为“store 里还有一个旧 token”就提前返回：refresh 失败后它可能已失效。
     let result = await ssoTry()
     if (result.state === 'unavailable')
       result = await waitSsoProbeSettled() ?? result
