@@ -100,7 +100,7 @@ async function uploadImage(file: File, target: 'desktop' | 'mobile') {
   if (target === 'desktop' ? uploadingDesktop.value : uploadingMobile.value)
     return
   if (!isRasterImageType(file.type)) {
-    showMsg('仅支持 JPG / PNG / GIF / WebP 图片')
+    showMsg('仅支持 JPG / PNG / GIF / WebP / HEIC 图片')
     return
   }
   if (file.size > 15 * 1024 * 1024) {

@@ -103,7 +103,7 @@ async function onBannerFileChange(event: Event) {
   if (!file)
     return
   if (!isRasterImageType(file.type)) {
-    showMsg('仅支持 JPG / PNG / GIF / WebP 图片')
+    showMsg('仅支持 JPG / PNG / GIF / WebP / HEIC 图片')
     input.value = ''
     return
   }

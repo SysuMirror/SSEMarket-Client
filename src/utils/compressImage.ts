@@ -16,9 +16,24 @@ export interface CompressImageOptions {
 }
 
 const RASTER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+// 手机相册常见的 HEIC/HEIF：浏览器 canvas 解不了，后端会交给 ffmpeg 转码，
+// 前端只负责放行、不做重编码。
+const HEIC_TYPES = new Set(['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'])
+
+export function isHeicImageType(type: string): boolean {
+  return HEIC_TYPES.has((type || '').toLowerCase())
+}
+
+/** 部分系统不给 MIME type，按扩展名兜底识别 HEIC/HEIF。 */
+export function isHeicFile(file: File): boolean {
+  if (isHeicImageType(file.type))
+    return true
+  const name = (file.name || '').toLowerCase()
+  return name.endsWith('.heic') || name.endsWith('.heif')
+}
 
 export function isRasterImageType(type: string): boolean {
-  return RASTER_TYPES.has(type)
+  return RASTER_TYPES.has(type) || isHeicImageType(type)
 }
 
 /** 给解码/加载加超时，避免某个坏图让上传按钮一直卡在“上传中”。 */
@@ -90,7 +105,7 @@ export async function compressImageFile(file: File, options: CompressImageOption
   const quality = options.quality ?? 0.85
   const minBytes = options.minBytes ?? 700 * 1024
 
-  if (!isRasterImageType(file.type) || await looksAnimated(file))
+  if (!isRasterImageType(file.type) || isHeicFile(file) || await looksAnimated(file))
     return file
 
   let bitmap: ImageBitmap | null = null
