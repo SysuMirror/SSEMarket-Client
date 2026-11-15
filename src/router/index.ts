@@ -315,11 +315,11 @@ const router = createRouter({
   ],
 })
 
-const { isLogin, refreshToken } = useUserStore()
+const { isLogin, refreshToken, setToken, setRefreshToken } = useUserStore()
 
 installRouteScrollMemory(router)
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   if (to.path.startsWith('/auth')) {
     next()
     setTitle(to.name as string)
@@ -350,6 +350,26 @@ router.beforeEach((to, from, next) => {
       next()
       setTitle(to.name as string)
       return
+    }
+
+    // 没有本地令牌时，先给共享父域 Cookie 一个短窗口做静默登录：
+    // 已登录用户整页进入不该先被弹到登录页再跳回来。动态导入避免 router ↔ req 循环依赖。
+    try {
+      const { ssoTry } = await import('@/api/sso/sso')
+      const sso = await Promise.race([
+        ssoTry(),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 1500)),
+      ])
+      if (sso?.state === 'ok') {
+        setToken(sso.token)
+        setRefreshToken(sso.refresh_token)
+        next()
+        setTitle(to.name as string)
+        return
+      }
+    }
+    catch {
+      // 探测失败按未登录处理
     }
 
     let redirect = `redirect=${to.path}`
