@@ -1,7 +1,7 @@
 import { showMsg } from '@/components/MessageBox'
 import router from '@/router'
 import { useUserStore } from '@/store/userStore'
-import { ssoTry } from '@/api/sso/sso'
+import { ssoTry, waitSsoProbeSettled } from '@/api/sso/sso'
 
 const apiUrl = import.meta.env.VITE_API_BASE_URL
 
@@ -54,18 +54,40 @@ export async function ensureAccessToken(): Promise<boolean> {
   }
 }
 
-/** refresh 失败后的兜底：用共享父域 sse_sso cookie 静默兑换一次。
- *  ok：本地会话已恢复；logout：共享会话确实失效，应清空并回登录页；
- *  unstable：unisso/网络不可达，不能把故障当登出，保留本地会话。 */
-async function recoverViaSso(): Promise<'ok' | 'logout' | 'unstable'> {
-  const sso = await ssoTry()
-  if (sso.state === 'ok') {
-    const { setToken, setRefreshToken } = useUserStore()
-    setToken(sso.token)
-    setRefreshToken(sso.refresh_token)
-    return 'ok'
-  }
-  return sso.state === 'unauthorized' ? 'logout' : 'unstable'
+/**
+ * 本地没有可用令牌时的会话恢复：用共享父域 sse_sso cookie 静默兑换。
+ *
+ * ssoTry() 的 6s UI 上界可能先返回 unavailable（真实请求仍在飞），
+ * 这里必须等真实结果落定再判定；否则慢链路首屏会被误判成“登录过期”。
+ *
+ *  - ok：本地会话已恢复；
+ *  - unauthorized：共享会话确实失效，应清空并回登录页；
+ *  - unavailable：unisso/网络不可达，不能当登出，也不弹“登录过期”。
+ *
+ * 并发请求共享同一个恢复过程，避免同一时刻打出多次 sso/try。
+ */
+let recoverPromise: Promise<'ok' | 'unauthorized' | 'unavailable'> | null = null
+
+function recoverSession(): Promise<'ok' | 'unauthorized' | 'unavailable'> {
+  if (recoverPromise)
+    return recoverPromise
+  recoverPromise = (async () => {
+    const store = useUserStore()
+    if (store.token.value)
+      return 'ok' as const
+    let result = await ssoTry()
+    if (result.state === 'unavailable')
+      result = await waitSsoProbeSettled() ?? result
+    if (result.state === 'ok') {
+      store.setToken(result.token)
+      store.setRefreshToken(result.refresh_token)
+      return 'ok' as const
+    }
+    return result.state === 'unauthorized' ? 'unauthorized' as const : 'unavailable' as const
+  })().finally(() => {
+    recoverPromise = null
+  })
+  return recoverPromise
 }
 
 export interface RequestObject {
@@ -123,12 +145,12 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
       }
       catch (e) {
         console.error('首次刷新 token 失败', e)
-        const rec = await recoverViaSso()
+        const rec = await recoverSession()
         if (rec === 'ok') {
           res = await doRequest()
           return res
         }
-        if (rec === 'logout') {
+        if (rec === 'unauthorized') {
           showMsg('登录过期，请重新登录')
           store.setToken('')
           store.setRefreshToken('')
@@ -144,10 +166,23 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
       res = await doRequest()
     }
     else {
-      showMsg('登录过期，请重新登录')
-      store.setToken('')
-      store.setRefreshToken('')
-      return null
+      // 首屏尚未拿到 access/refresh token：先尝试共享 Cookie 静默登录，
+      // 成功就直接重试——不能把“登录态还在路上”当成登录过期。
+      const rec = await recoverSession()
+      if (rec === 'ok') {
+        res = await doRequest()
+      }
+      else if (rec === 'unauthorized') {
+        showMsg('登录过期，请重新登录')
+        store.setToken('')
+        store.setRefreshToken('')
+        router.push('/auth/login')
+        return null
+      }
+      else {
+        // unisso 不可达：安静地按未登录处理，不弹“登录过期”
+        return null
+      }
     }
 
     if (res.status !== 401) {
@@ -170,12 +205,12 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
     }
     catch (e) {
       console.error('刷新 token 失败', e)
-      const rec = await recoverViaSso()
+      const rec = await recoverSession()
       if (rec === 'ok') {
         res = await doRequest()
         return res
       }
-      if (rec === 'logout') {
+      if (rec === 'unauthorized') {
         showMsg('登录过期，请重新登录')
         store.setToken('')
         store.setRefreshToken('')

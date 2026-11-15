@@ -137,6 +137,31 @@ export function onSsoProbeSettled(listener: SsoProbeListener): () => void {
   return () => probeListeners.delete(listener)
 }
 
+/**
+ * 等本轮静默探测的**真实结果**落定（不是 6s UI 上界的占位结果）。
+ *
+ * ssoTry() 为了不阻塞首屏，慢链路下会先用 `unavailable` 占位返回，真实请求仍在后台。
+ * 鉴权请求不能把这种占位当「会话失效」——先等它落定再判定，避免误弹「登录过期」。
+ * 没有正在进行的探测、或超时仍未落定时返回 null。
+ */
+export function waitSsoProbeSettled(timeoutMs = 10000): Promise<SsoTryResult | null> {
+  if (probeSettledResult)
+    return Promise.resolve(probeSettledResult)
+  return new Promise((resolve) => {
+    let done = false
+    const finish = (result: SsoTryResult | null) => {
+      if (done)
+        return
+      done = true
+      off()
+      clearTimeout(timer)
+      resolve(result)
+    }
+    const off = onSsoProbeSettled(result => finish(result))
+    const timer = setTimeout(() => finish(null), timeoutMs)
+  })
+}
+
 /** 单点登出：吊销 unisso 会话 + 清父域 Cookie；失败不阻塞本地退出。 */
 export async function ssoLogout(): Promise<void> {
   try {
