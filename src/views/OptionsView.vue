@@ -16,6 +16,7 @@ import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
 import { SettingsExpander, SettingsGroup, SettingsHero, SettingsInput, SettingsRow, SettingsToggle } from '@/components/settings'
 import SkinSettings from '@/components/skin/SkinSettings.vue'
+import { resolveAppDownload, triggerAppDownload } from '@/config/appDownload'
 import { usePWA } from '@/composables/usePWA'
 import { useNewPostsStore } from '@/store/newPostsStore'
 import { useUserStore } from '@/store/userStore'
@@ -225,6 +226,20 @@ function onEditProfile() {
 function openMyBadges() {
   if (allInfo.value.userID > 0)
     void router.push({ name: 'UserProfile', params: { id: String(allInfo.value.userID) } })
+}
+
+/** 设置页下载入口：与个人主页按钮同口径，按当前设备给安装包。 */
+function handleDownloadApp() {
+  const target = resolveAppDownload()
+  if (!target.supported) {
+    showMsg(`暂未提供 ${target.label} 版 App，请继续使用网页版`, 'warning')
+    return
+  }
+  if (!target.url) {
+    showMsg('App 正在开发中，敬请期待')
+    return
+  }
+  triggerAppDownload(target.url)
 }
 
 function onUserNameOpenChange(open: boolean) {
@@ -551,6 +566,15 @@ onMounted(() => {
       @avatar-error="onAvatarError"
       @edit-profile="onEditProfile"
     />
+
+    <SettingsGroup title="下载 App">
+      <SettingsRow
+        label="软工集市 App 预览版"
+        hint="Android / Windows / Linux，自动匹配当前设备"
+        clickable
+        @click="handleDownloadApp"
+      />
+    </SettingsGroup>
 
     <SettingsGroup title="我的勋章">
       <SettingsRow
