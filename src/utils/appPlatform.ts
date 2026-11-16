@@ -1,9 +1,10 @@
 /**
  * 集市 App 的终端识别。
  *
- * 目前只发布 Android / 鸿蒙 / Windows 三个版本：
- * - 手机端：Android、鸿蒙可下载，iOS 及其他手机系统提示「暂未提供」；
- * - 桌面端：Windows 可下载，macOS、Linux 及其他桌面系统提示「暂未提供」。
+ * 目前发布 Android / Windows / Linux 三个版本：
+ * - 手机端：Android 可下载，iOS 及其他手机系统提示「暂未提供」；
+ *   老版鸿蒙 UA 带 Android 标记，会走 Android 包；鸿蒙 NEXT 的 HAP 还未签名，暂不提供。
+ * - 桌面端：Windows、Linux 可下载，macOS 及其他桌面系统提示「暂未提供」。
  *
  * 只做 UA 判断，不依赖浏览器 API，方便 Node 里直接跑单测。
  */
@@ -32,11 +33,12 @@ const LABELS: Record<AppPlatform, string> = {
 
 const SUPPORTED: Record<AppPlatform, boolean> = {
   android: true,
-  harmony: true,
+  // HAP 目前是未签名包，普通用户装不了，等签名后再打开。
+  harmony: false,
   windows: true,
   ios: false,
   macos: false,
-  linux: false,
+  linux: true,
   other: false,
 }
 

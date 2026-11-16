@@ -408,7 +408,7 @@ function navigateChat() {
 function handleDownloadApp() {
   const target = resolveAppDownload()
   if (!target.supported) {
-    showMsg(`暂未提供 ${target.label} 版 App`, 'warning')
+    showMsg(`暂未提供 ${target.label} 版 App，请继续使用网页版`, 'warning')
     return
   }
   if (!target.url) {

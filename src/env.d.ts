@@ -5,4 +5,5 @@ interface ImportMetaEnv {
   readonly VITE_APP_DOWNLOAD_ANDROID?: string
   readonly VITE_APP_DOWNLOAD_HARMONY?: string
   readonly VITE_APP_DOWNLOAD_WINDOWS?: string
+  readonly VITE_APP_DOWNLOAD_LINUX?: string
 }

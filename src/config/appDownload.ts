@@ -18,6 +18,7 @@ const DOWNLOAD_URLS: Partial<Record<AppPlatform, string>> = {
   android: readDownloadURL(import.meta.env.VITE_APP_DOWNLOAD_ANDROID),
   harmony: readDownloadURL(import.meta.env.VITE_APP_DOWNLOAD_HARMONY),
   windows: readDownloadURL(import.meta.env.VITE_APP_DOWNLOAD_WINDOWS),
+  linux: readDownloadURL(import.meta.env.VITE_APP_DOWNLOAD_LINUX),
 }
 
 export interface AppDownloadTarget extends AppPlatformInfo {

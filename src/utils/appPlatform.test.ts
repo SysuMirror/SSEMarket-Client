@@ -21,11 +21,11 @@ describe('集市 App 终端识别', () => {
     )
   })
 
-  it('手机端：鸿蒙 NEXT（OpenHarmony）走鸿蒙包', () => {
+  it('手机端：鸿蒙 NEXT（OpenHarmony）识别为鸿蒙，但 HAP 未签名暂不提供', () => {
     const info = detectAppPlatform(UA.harmonyNext)
     assert.equal(info.platform, 'harmony')
     assert.equal(info.device, 'mobile')
-    assert.equal(info.supported, true)
+    assert.equal(info.supported, false)
   })
 
   it('手机端：老版鸿蒙仍带 Android 标记，走 Android 包', () => {
@@ -55,12 +55,17 @@ describe('集市 App 终端识别', () => {
     assert.equal(info.supported, true)
   })
 
-  it('桌面端：macOS / Linux 暂未提供', () => {
-    for (const ua of [UA.mac, UA.linux]) {
-      const info = detectAppPlatform(ua)
-      assert.equal(info.device, 'desktop')
-      assert.equal(info.supported, false)
-    }
+  it('桌面端：Linux 走 Linux 包', () => {
+    const info = detectAppPlatform(UA.linux)
+    assert.equal(info.platform, 'linux')
+    assert.equal(info.device, 'desktop')
+    assert.equal(info.supported, true)
+  })
+
+  it('桌面端：macOS 暂未提供', () => {
+    const info = detectAppPlatform(UA.mac)
+    assert.equal(info.device, 'desktop')
+    assert.equal(info.supported, false)
   })
 
   it('识别不出的桌面浏览器归为 other，不支持下载', () => {

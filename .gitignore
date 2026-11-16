@@ -39,6 +39,9 @@ dev-dist/*
 dist.*/
 .superpowers/
 tmp_upload/
+# App 安装包（大文件，由 /new/downloads/ 静态托管，不进 Git）
+/public/downloads/
+
 # 备份文件夹
 .bak_digestpref_stage2/
 
