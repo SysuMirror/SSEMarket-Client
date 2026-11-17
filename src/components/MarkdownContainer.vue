@@ -2,6 +2,7 @@
 import mk from '@vscode/markdown-it-katex'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
+import { full as markdownItEmoji } from 'markdown-it-emoji'
 import Prism from 'prismjs'
 import Viewer from 'viewerjs'
 import { computed, createApp, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
@@ -79,6 +80,10 @@ const md: MarkdownIt = new MarkdownIt({
   inlineMode: false,
   // 禁用错误处理
   trust: true,
+}).use(markdownItEmoji, {
+  // 只认显式 :shortcode: 语法。默认还启用 :) :-( 等颜文字快捷转换，
+  // 会改变存量评论（可能含这些字面文本）的渲染结果，必须关闭。
+  shortcuts: {},
 })
 
 const defaultLinkOpen = md.renderer.rules.link_open ?? ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options))

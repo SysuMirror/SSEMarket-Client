@@ -69,6 +69,13 @@ export default defineConfig({
             return 'pdfjs'
           }
 
+          // emoji-mart（表情面板组件 + 全量表情数据，~500KB）：只在用户首次点开
+          // 表情按钮时动态 import。必须返回 undefined 让 rollup 按动态 import 分包，
+          // 若并入 vendor（静态 chunk，被入口引用）会把表情资源拖进首屏。
+          if (id.includes('emoji-mart') || id.includes('@emoji-mart/data')) {
+            return
+          }
+
           return 'vendor'
         },
       },
