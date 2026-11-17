@@ -168,7 +168,10 @@ function normalizeChatMarkdown(content: string): string {
 }
 
 function stripLeadingEmptyBlocks(html: string): string {
-  return html.replace(/^(?:\s*<p(?:\s[^>]*)?>\s*(?:<br\s*\/?>\s*)?<\/p>\s*)+/gi, '')
+  // 前导 \s* 提到 + 外面：原写法里相邻迭代的 \s* 与 \s* 可互相交换字符，
+  // 构造特定输入会造成多项式回溯（regexp/no-super-linear-backtracking）。
+  // 提出后匹配的语言不变，但空白归属无歧义。
+  return html.replace(/^\s*(?:<p(?:\s[^>]*)?>\s*(?:<br\s*\/?>\s*)?<\/p>\s*)+/gi, '')
 }
 
 function preprocessMarkdown(content: string): string {
@@ -199,7 +202,7 @@ const safeHTML = computed(() => {
   if (!markdownContent) {
     return ''
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+  // eslint-disable-next-line ts/no-unused-expressions
   mentionMapVersion.value
 
   // 预处理 markdown 内容，编码图片链接中的空格

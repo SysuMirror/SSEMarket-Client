@@ -521,7 +521,9 @@ function handleKeydown(event: KeyboardEvent) {
     const upto = modelValue.value.slice(0, s)
     const lineStart = upto.lastIndexOf('\n') + 1
     const curLine = upto.slice(lineStart)
-    const m = curLine.match(/^(\s*)([-*+]|\d+[.)])(\s+)(.*)$/)
+    // (\S.*)? 替代 (.*)：\s+ 与 .* 可交换空白字符造成多项式回溯；
+    // m[4] 只做真值判断，语义不变（贪婪 \s+ 本就吃光全部空白）。
+    const m = curLine.match(/^(\s*)([-*+]|\d+[.)])(\s+)(\S.*)?$/)
     if (!m)
       return
     event.preventDefault()
