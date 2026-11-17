@@ -1,14 +1,16 @@
 <!-- eslint-disable vue/html-self-closing -->
 <script setup lang="ts">
-import type { StaffAlias } from '@/api/staff/staff'
+import type { Picker as EmojiMartPicker } from 'emoji-mart'
 
+import type { StaffAlias } from '@/api/staff/staff'
 import { Icon } from '@iconify/vue'
-import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
 import { showMsg } from '@/components/MessageBox'
 import { primeMentionCache } from '@/composables/useMentionResolve'
 import { useStaffAliases } from '@/composables/useStaffAliases'
+import { extractBaseShortcode } from '@/utils/emojiShortcode'
 import { buildMentionPrefix } from '@/utils/mention'
 import LoadingSpinner from './LoadingSpinner.vue'
 import MarkdownContainer from './MarkdownContainer.vue'
@@ -345,6 +347,146 @@ function pickStaffAlias(a: StaffAlias) {
 // 暴露关闭方法给父组件，方便父组件“收起”时同步关闭弹窗
 defineExpose({ insertAtCursor, closeMention })
 
+/* ---------------- 表情选择器（emoji-mart，按需动态加载） ---------------- */
+
+/**
+ * emoji-mart 组件 + 全量表情数据体积可观，这里首次点开表情按钮才动态 import，
+ * 不点开就不占任何加载体积；加载后复用同一实例（模块级缓存）：
+ * 同页多个评论框共享面板，「常用表情」记录自然全局保留。
+ * 实例是 web component（Shadow DOM 自带样式，不受站点 CSS 影响），
+ * 命令式挂到 Teleport 出去的宿主 div 上。
+ */
+let emojiPickerLoad: Promise<EmojiMartPicker> | null = null
+
+const emojiOpen = ref(false)
+const emojiLoading = ref(false)
+const emojiButtonRef = useTemplateRef<HTMLButtonElement>('emojiButton')
+const emojiHostRef = useTemplateRef<HTMLDivElement>('emojiHost')
+const emojiPopStyle = ref<Record<string, string>>({})
+
+/** emoji-mart 面板默认尺寸（px），仅用于定位与视口收敛估算 */
+const EMOJI_POP_WIDTH = 352
+const EMOJI_POP_HEIGHT = 435
+
+function currentEmojiTheme(): 'dark' | 'light' {
+  return document.body.classList.contains('dark-mode') ? 'dark' : 'light'
+}
+
+/** 面板锚定在表情按钮下方（右对齐），越界时向内收敛 / 翻到按钮上方 */
+function positionEmojiPop() {
+  const btn = emojiButtonRef.value
+  if (!btn)
+    return
+  const GAP = 8
+  const MARGIN = 8
+  const rect = btn.getBoundingClientRect()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const width = Math.min(EMOJI_POP_WIDTH, vw - MARGIN * 2)
+  let left = rect.right - width
+  left = Math.max(MARGIN, Math.min(left, vw - width - MARGIN))
+  let top = rect.bottom + GAP
+  if (top + EMOJI_POP_HEIGHT > vh - MARGIN)
+    top = Math.max(MARGIN, rect.top - EMOJI_POP_HEIGHT - GAP)
+  emojiPopStyle.value = {
+    left: `${Math.round(left)}px`,
+    top: `${Math.round(top)}px`,
+    width: `${Math.round(width)}px`,
+  }
+}
+
+/**
+ * 选中表情后插入 :shortcode:（如 :smile:）而非 Unicode 字符：
+ * 正文保持纯 ASCII markdown，不依赖 DB 表字符集；渲染期由 MarkdownContainer
+ * 的 markdown-it-emoji 插件替换成 emoji（与 GitHub 评论行为一致）。
+ * 肤色变体（:skin-tone-N:）暂剥离，只插基础表情。
+ */
+function handleEmojiSelect(emoji: { id?: string, shortcodes?: string }) {
+  const code = extractBaseShortcode(emoji.shortcodes, emoji.id)
+  if (code)
+    insertAtCursor(code)
+}
+
+function loadEmojiPicker(): Promise<EmojiMartPicker> {
+  if (!emojiPickerLoad) {
+    emojiPickerLoad = (async () => {
+      const [{ Picker }, { default: data }] = await Promise.all([
+        import('emoji-mart'),
+        import('@emoji-mart/data'),
+      ])
+      return new Picker({
+        data,
+        locale: 'zh',
+        dynamicWidth: true,
+        onEmojiSelect: handleEmojiSelect,
+        onClickOutside: closeEmoji,
+      })
+    })()
+  }
+  return emojiPickerLoad
+}
+
+async function openEmoji() {
+  if (isPreview.value)
+    isPreview.value = false
+  positionEmojiPop()
+  emojiOpen.value = true
+  emojiLoading.value = true
+  try {
+    const picker = await loadEmojiPicker()
+    // 每次打开时同步站点明暗主题（body.dark-mode）
+    picker.update({ theme: currentEmojiTheme() })
+    await nextTick()
+    if (emojiHostRef.value)
+      emojiHostRef.value.replaceChildren(picker as unknown as HTMLElement)
+  }
+  catch (error) {
+    console.error('emoji picker load failed:', error)
+    showMsg('表情面板加载失败，请重试')
+    emojiOpen.value = false
+  }
+  finally {
+    emojiLoading.value = false
+  }
+}
+
+function closeEmoji() {
+  emojiOpen.value = false
+}
+
+function toggleEmoji() {
+  if (emojiOpen.value)
+    closeEmoji()
+  else
+    void openEmoji()
+}
+
+function handleEmojiKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && emojiOpen.value)
+    closeEmoji()
+}
+
+function handleEmojiResize() {
+  if (emojiOpen.value)
+    positionEmojiPop()
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleEmojiKeydown)
+  window.addEventListener('resize', handleEmojiResize)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleEmojiKeydown)
+  window.removeEventListener('resize', handleEmojiResize)
+  closeEmoji()
+})
+
+watch(isPreview, (preview) => {
+  if (preview)
+    closeEmoji()
+})
+
 /* ---------------- 键盘 ---------------- */
 
 function handleKeydown(event: KeyboardEvent) {
@@ -532,6 +674,19 @@ watch(isPreview, (preview) => {
         >
           <span class="md-editor__glyph md-editor__glyph--at">@</span>
         </button>
+        <button
+          ref="emojiButton"
+          type="button"
+          class="md-editor__tool"
+          :class="{ 'md-editor__tool--active': emojiOpen }"
+          title="表情"
+          aria-haspopup="dialog"
+          :aria-expanded="emojiOpen"
+          @mousedown.prevent
+          @click="toggleEmoji"
+        >
+          <Icon icon="tabler:mood-smile" width="17" height="17" aria-hidden="true" />
+        </button>
         <button type="button" class="md-editor__tool" :disabled="imageUploading" :title="imageUploading ? '图片上传中…' : '插入图片(可直接粘贴)'" @mousedown.prevent @click="openImagePicker">
           <LoadingSpinner v-if="imageUploading" :size="17" />
           <Icon v-else icon="tabler:photo" width="17" height="17" aria-hidden="true" />
@@ -609,6 +764,23 @@ watch(isPreview, (preview) => {
             </button>
           </div>
         </div>
+      </div>
+    </Teleport>
+
+    <!-- 表情面板：emoji-mart web component，首次打开动态加载后挂载到宿主 -->
+    <Teleport to="body">
+      <div
+        v-if="emojiOpen"
+        class="md-editor__emoji-pop"
+        :style="emojiPopStyle"
+        role="dialog"
+        aria-label="选择表情"
+      >
+        <div v-if="emojiLoading" class="md-editor__emoji-loading">
+          <LoadingSpinner :size="18" />
+          <span>表情加载中…</span>
+        </div>
+        <div ref="emojiHost" class="md-editor__emoji-host" />
       </div>
     </Teleport>
 
@@ -980,6 +1152,42 @@ watch(isPreview, (preview) => {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); /* 加强阴影，突出浮层 */
     border: 1px solid var(--chat-border);
   }
+}
+
+/* ---------- 表情面板 ---------- */
+
+.md-editor__emoji-pop {
+  position: fixed;
+  z-index: 99998;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--chat-border);
+  border-radius: 12px;
+  background: var(--chat-bg-main);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.md-editor__emoji-host {
+  width: 100%;
+}
+
+/* em-emoji-picker 由 emoji-mart 命令式挂载（不带 scoped 属性），需 :deep 穿透 */
+.md-editor__emoji-host :deep(em-emoji-picker) {
+  width: 100%;
+}
+
+.md-editor__emoji-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--chat-bg-main);
+  color: var(--chat-text-tips);
+  font-size: 13px;
 }
 
 /* ---------- 输入区 ---------- */
