@@ -421,7 +421,11 @@ function loadEmojiPicker(): Promise<EmojiMartPicker> {
       return new Picker({
         data,
         locale: 'zh',
-        dynamicWidth: true,
+        // dynamicWidth 依赖 ResizeObserver 反复重算 perLine 并重置网格，
+        // 外层是 position:fixed 弹层时容易出现测量竞态：只有顶部几行渲染，
+        // 后续分类（动物与自然/食物与饮品等）永远不填充（桌面端高发）。
+        // 改为固定列数，配合 CSS 给定明确宽高，渲染结果稳定。
+        perLine: 9,
         onEmojiSelect: handleEmojiSelect,
         onClickOutside: closeEmoji,
       })
@@ -1192,6 +1196,11 @@ watch(isPreview, (preview) => {
   z-index: 99998;
   display: flex;
   flex-direction: column;
+  /* 明确高度：emoji-mart 的分类/分行渲染以内部滚动容器的实际高度为
+     IntersectionObserver 的 root，容器高度塌陷会只渲染顶部几行，
+     后面的分类永远不填充（桌面端高发，见 perLine 处注释） */
+  height: 435px;
+  max-height: calc(100vh - 16px);
   border: 1px solid var(--chat-border);
   border-radius: 12px;
   background: var(--chat-bg-main);
@@ -1200,12 +1209,16 @@ watch(isPreview, (preview) => {
 }
 
 .md-editor__emoji-host {
+  flex: 1 1 auto;
   width: 100%;
+  /* flex 子项默认 min-height:auto，会被内容撑开或压扁，显式归零 */
+  min-height: 0;
 }
 
 /* em-emoji-picker 由 emoji-mart 命令式挂载（不带 scoped 属性），需 :deep 穿透 */
 .md-editor__emoji-host :deep(em-emoji-picker) {
   width: 100%;
+  height: 100%;
 }
 
 .md-editor__emoji-loading {
