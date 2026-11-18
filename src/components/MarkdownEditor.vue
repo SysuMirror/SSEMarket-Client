@@ -425,6 +425,10 @@ function loadEmojiPicker(): Promise<EmojiMartPicker> {
         onClickOutside: closeEmoji,
       })
     })()
+    // 失败不缓存：瞬时网络问题不该让之后的点击永远失败，清空让下次重试
+    emojiPickerLoad.catch(() => {
+      emojiPickerLoad = null
+    })
   }
   return emojiPickerLoad
 }
@@ -474,9 +478,34 @@ function handleEmojiResize() {
     positionEmojiPop()
 }
 
+/**
+ * 页面空闲时预取表情面板的动态 chunk（组件 ~77KB + 表情数据 ~433KB）。
+ * 首次点击若现场下载，慢链路上要等 1~2 秒；空闲预取后模块已在浏览器
+ * 的模块缓存里，点开即出。整页只调度一次（选择器实例本来就是全局共享的），
+ * 失败静默——用户点开时 loadEmojiPicker 会再试并给出提示。
+ */
+let emojiPrefetchScheduled = false
+
+function scheduleEmojiPrefetch() {
+  if (emojiPrefetchScheduled)
+    return
+  emojiPrefetchScheduled = true
+  const idle: (cb: () => void) => void
+    = 'requestIdleCallback' in window
+      ? cb => window.requestIdleCallback(() => cb(), { timeout: 5000 })
+      : cb => setTimeout(cb, 3000)
+  idle(() => {
+    loadEmojiPicker().catch(() => {
+      // 预取失败允许下一个编辑器实例再调度一次
+      emojiPrefetchScheduled = false
+    })
+  })
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleEmojiKeydown)
   window.addEventListener('resize', handleEmojiResize)
+  scheduleEmojiPrefetch()
 })
 
 onBeforeUnmount(() => {
