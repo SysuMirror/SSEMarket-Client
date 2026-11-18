@@ -3,7 +3,10 @@
 import type { Picker as EmojiMartPicker } from 'emoji-mart'
 
 import type { StaffAlias } from '@/api/staff/staff'
-import { Icon } from '@iconify/vue'
+
+// 注意：本组件的图标是内联 SVG（tabler 图标 path 数据），不走 @iconify/vue 的
+// 运行时 API 拉取——api.iconify.design 在部分国内网络下不可达，曾导致编辑器
+// 工具栏图标在桌面端整体空白（手机端网络可通所以正常）。见 2026-11-17 修复。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
@@ -687,15 +690,15 @@ watch(isPreview, (preview) => {
           @mousedown.prevent
           @click="toggleEmoji"
         >
-          <Icon icon="tabler:mood-smile" width="17" height="17" aria-hidden="true" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0m6-2h.01M15 10h.01" /><path d="M9.5 15a3.5 3.5 0 0 0 5 0" /></g></svg>
         </button>
         <button type="button" class="md-editor__tool" :disabled="imageUploading" :title="imageUploading ? '图片上传中…' : '插入图片(可直接粘贴)'" @mousedown.prevent @click="openImagePicker">
           <LoadingSpinner v-if="imageUploading" :size="17" />
-          <Icon v-else icon="tabler:photo" width="17" height="17" aria-hidden="true" />
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M15 8h.01M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z" /><path d="m3 16l5-5c.928-.893 2.072-.893 3 0l5 5" /><path d="m14 14l1-1c.928-.893 2.072-.893 3 0l3 3" /></g></svg>
         </button>
         <button type="button" class="md-editor__tool" :disabled="fileUploading" :title="fileUploading ? '文件上传中…' : '上传文件'" @mousedown.prevent @click="openFilePicker">
           <LoadingSpinner v-if="fileUploading" :size="17" />
-          <Icon v-else icon="tabler:paperclip" width="17" height="17" aria-hidden="true" />
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13" /></svg>
         </button>
         <button
           v-if="musicEnabled"
@@ -705,7 +708,7 @@ watch(isPreview, (preview) => {
           @mousedown.prevent
           @click="emit('insertMusic')"
         >
-          <Icon icon="tabler:disc" width="17" height="17" aria-hidden="true" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0" /><path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0m-4 0a5 5 0 0 1 5-5m0 10a5 5 0 0 0 5-5" /></g></svg>
         </button>
         <button
           type="button"
@@ -729,7 +732,7 @@ watch(isPreview, (preview) => {
           <div class="md-editor__mention-head">
             <span class="md-editor__mention-caption">要 @ 哪个职位？</span>
             <button type="button" class="md-editor__mention-close" @click="closeMention">
-              <Icon icon="tabler:x" width="20" height="20" />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12" /></svg>
             </button>
           </div>
 
