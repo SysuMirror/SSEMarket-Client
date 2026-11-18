@@ -399,15 +399,16 @@ function positionEmojiPop() {
 }
 
 /**
- * 选中表情后插入 :shortcode:（如 :smile:）而非 Unicode 字符：
- * 正文保持纯 ASCII markdown，不依赖 DB 表字符集；渲染期由 MarkdownContainer
- * 的 markdown-it-emoji 插件替换成 emoji（与 GitHub 评论行为一致）。
- * 肤色变体（:skin-tone-N:）暂剥离，只插基础表情。
+ * 选中表情后直接插入 Unicode 字符（所见即所得）：
+ * 评论表已确认为 utf8mb4，存原生字符安全；肤色选择也能完整保留。
+ * 自定义表情（二期集市表情包）没有 native 字段，届时回退插入 shortcode，
+ * 由 MarkdownContainer 的 markdown-it-emoji 插件渲染。
+ * 手写 :smile: 的渲染支持不受影响。
  */
-function handleEmojiSelect(emoji: { id?: string, shortcodes?: string }) {
-  const code = extractBaseShortcode(emoji.shortcodes, emoji.id)
-  if (code)
-    insertAtCursor(code)
+function handleEmojiSelect(emoji: { id?: string, native?: string, shortcodes?: string }) {
+  const insert = emoji.native || extractBaseShortcode(emoji.shortcodes, emoji.id)
+  if (insert)
+    insertAtCursor(insert)
 }
 
 function loadEmojiPicker(): Promise<EmojiMartPicker> {
@@ -425,6 +426,10 @@ function loadEmojiPicker(): Promise<EmojiMartPicker> {
         onClickOutside: closeEmoji,
       })
     })()
+    // 失败不缓存：瞬时网络问题不该让之后的点击永远失败，清空让下次重试
+    emojiPickerLoad.catch(() => {
+      emojiPickerLoad = null
+    })
   }
   return emojiPickerLoad
 }
@@ -472,6 +477,26 @@ function handleEmojiKeydown(event: KeyboardEvent) {
 function handleEmojiResize() {
   if (emojiOpen.value)
     positionEmojiPop()
+}
+
+/**
+ * 意图触发预取：用户第一次与编辑器交互（聚焦输入框等）时才后台预取
+ * 表情面板的动态 chunk（组件 ~77KB + 表情数据 ~433KB，约 150KB gzip）。
+ * 刻意不用「页面空闲即预取」：慢链路上后台下载会与正在加载的图片抢带宽，
+ * 拖慢主站首屏。意图触发下，不碰评论框的用户一个字节都不下载；开始输入
+ * 的用户在打字期间 chunk 已就绪，点开表情面板即时弹出。
+ * 整页只触发一次（选择器实例全局共享），失败静默，点开时会再试。
+ */
+let emojiPrefetchScheduled = false
+
+function scheduleEmojiPrefetch() {
+  if (emojiPrefetchScheduled)
+    return
+  emojiPrefetchScheduled = true
+  loadEmojiPicker().catch(() => {
+    // 预取失败允许下一次交互再试
+    emojiPrefetchScheduled = false
+  })
 }
 
 onMounted(() => {
@@ -628,6 +653,7 @@ watch(isPreview, (preview) => {
     id="mdRoot"
     class="md-editor"
     :class="{ 'md-editor--compact': compact, 'md-editor--fill': fill }"
+    @focusin.once="scheduleEmojiPrefetch"
   >
     <div class="md-editor__toolbar">
       <div class="md-editor__tools" role="toolbar" aria-label="格式化工具">

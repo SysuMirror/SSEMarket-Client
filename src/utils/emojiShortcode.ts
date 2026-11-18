@@ -1,10 +1,10 @@
 /**
  * 表情 shortcode 提取工具。
  *
- * 设计约定：评论/帖子正文中表情一律存 `:shortcode:` 形态（与 GitHub 一致），
- * 由 MarkdownContainer 的 markdown-it-emoji 插件在渲染期替换为 Unicode 字符。
- * 好处：库内容保持纯 ASCII（不依赖 DB 表字符集）、旧客户端优雅降级为文字、
- * 后续集市主题表情包可复用同一条管线（shortcode → 图片的白名单映射）。
+ * 当前策略：编辑器选中的标准 emoji 直接插入 Unicode 字符（所见即所得，
+ * 评论表 utf8mb4 已确认）。本工具作为两类场景的回退：
+ * 1. 手写 `:smile:` —— MarkdownContainer 的 markdown-it-emoji 插件渲染；
+ * 2. 二期集市自定义表情包 —— 无 native 字段，插入 shortcode 走白名单映射。
  */
 
 /**
