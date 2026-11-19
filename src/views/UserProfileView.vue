@@ -74,15 +74,77 @@ const bannerFileInput = ref<HTMLInputElement | null>(null)
 const savedBannerUrl = computed(() => user.value?.profileBannerUrl?.trim() || '')
 
 /** 弹窗打开时用草稿实时预览，关闭时用服务端保存值。 */
-const profileBannerStyle = computed<Record<string, string>>(() => {
-  const url = bannerSettingsOpen.value ? bannerDraftUrl.value.trim() : savedBannerUrl.value
-  const rawOpacity = bannerSettingsOpen.value
+const bannerDisplayUrl = computed(() => (bannerSettingsOpen.value ? bannerDraftUrl.value.trim() : savedBannerUrl.value))
+
+/** 0-1 的不透明度：弹窗里取草稿，外面取服务端值。 */
+const bannerOpacity = computed(() => {
+  const raw = bannerSettingsOpen.value
     ? bannerDraftOpacity.value
     : (user.value?.profileBannerOpacity ?? 100)
-  const opacity = Math.min(100, Math.max(0, Math.round(rawOpacity)))
-  const style: Record<string, string> = { opacity: String(opacity / 100) }
-  if (url)
-    style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`
+  return Math.min(100, Math.max(0, Math.round(raw))) / 100
+})
+
+/** 设置弹窗里的小预览仍用 background-image，比例固定由 CSS 控制。 */
+const profileBannerStyle = computed<Record<string, string>>(() => {
+  const style: Record<string, string> = { opacity: String(bannerOpacity.value) }
+  if (bannerDisplayUrl.value)
+    style.backgroundImage = `url("${bannerDisplayUrl.value.replace(/"/g, '%22')}")`
+  return style
+})
+
+/**
+ * 页面栏板的高度不再写死 120px，而是跟着图片自身比例走。
+ *
+ * 原来的写法是固定 120px + background-size: cover：720 宽的页面里它是 6:1 的细条，
+ * 3:2 的照片只有四分之一能露出来，剩下全被裁掉，底部还硬切到页面底色。
+ *
+ * 现在：
+ *  - 比例收在 [1.5, 2.6]：1.5 覆盖 3:2 手机横图，2.6 覆盖常见宽幅；
+ *  - 落在区间内时容器比例 == 图片比例，配合 object-fit: contain 零裁剪；图片自己铺满，没有留白；
+ *  - 超出区间（竖图 / 超宽图）由同一张图的模糊放大版填满余量，既不裁主体也不出现空白。
+ */
+const BANNER_MIN_RATIO = 1.5
+const BANNER_MAX_RATIO = 2.6
+/** 比例未知时的兜底值：图片还没探测完先按 16:9 占位，避免先闪一条细边再撑开。 */
+const BANNER_FALLBACK_RATIO = 16 / 9
+
+/** 原始宽高比缓存：url -> ratio，来回切换不重复探测。 */
+const bannerRatioCache = new Map<string, number>()
+const bannerRatio = ref(0)
+
+watch(bannerDisplayUrl, (url) => {
+  if (!url) {
+    bannerRatio.value = 0
+    return
+  }
+  const cached = bannerRatioCache.get(url)
+  if (cached) {
+    bannerRatio.value = cached
+    return
+  }
+  bannerRatio.value = 0
+  const probe = new Image()
+  probe.decoding = 'async'
+  probe.onload = () => {
+    const ratio = probe.naturalWidth / probe.naturalHeight
+    if (!Number.isFinite(ratio) || ratio <= 0)
+      return
+    bannerRatioCache.set(url, ratio)
+    // 探测期间可能已经换了图，只认当前这张
+    if (bannerDisplayUrl.value === url)
+      bannerRatio.value = ratio
+  }
+  probe.src = url
+}, { immediate: true })
+
+/** 页面栏板样式：不透明度 + 由图片比例推出的 aspect-ratio。 */
+const profileBannerPageStyle = computed<Record<string, string>>(() => {
+  const style: Record<string, string> = { opacity: String(bannerOpacity.value) }
+  if (!bannerDisplayUrl.value)
+    return style
+  const ratio = bannerRatio.value || BANNER_FALLBACK_RATIO
+  const clamped = Math.min(BANNER_MAX_RATIO, Math.max(BANNER_MIN_RATIO, ratio))
+  style.aspectRatio = String(Math.round(clamped * 1000) / 1000)
   return style
 })
 
@@ -429,7 +491,29 @@ function onAvatarError(e: Event) {
   <div v-if="user" class="profile-page">
     <!-- 企业微信风格：顶部藏青色色块（主人可换成图床图片并调透明度） -->
     <div class="profile-banner-wrap">
-      <div class="profile-banner" :style="profileBannerStyle" />
+      <div
+        class="profile-banner"
+        :class="{ 'profile-banner--image': bannerDisplayUrl }"
+        :style="profileBannerPageStyle"
+      >
+        <!-- 有图时：模糊底衬填满余量 + 主图 contain 完整显示 + 底部渐变接入页面底色 -->
+        <template v-if="bannerDisplayUrl">
+          <img
+            class="profile-banner__backdrop"
+            :src="bannerDisplayUrl"
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+          >
+          <img
+            class="profile-banner__photo"
+            :src="bannerDisplayUrl"
+            alt="主页背景"
+            decoding="async"
+          >
+          <div class="profile-banner__fade" />
+        </template>
+      </div>
       <button
         v-if="isSelf"
         type="button"
@@ -674,7 +758,8 @@ function onAvatarError(e: Event) {
               </div>
             </div>
             <p class="banner-modal__note">
-              建议使用 16:9 或更宽的横图（JPG/PNG，≤15MB）。图片会上传到图床，以绝对地址保存。
+              横图效果最好（3:2 ~ 2.6:1），图片会按原比例完整显示，不会裁掉主体；竖图两侧自动用模糊底衬补足。
+              支持 JPG / PNG / WebP，≤15MB，上传后以图床绝对地址保存。
             </p>
           </div>
 
@@ -859,13 +944,55 @@ function onAvatarError(e: Event) {
 }
 
 .profile-banner {
+  position: relative;
   width: 100%;
+  /* 没设图时的兜底：维持原来的藏青渐变横条 */
   height: 120px;
   background: linear-gradient(135deg, var(--accent) 0%, #1e293b 100%);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  transition: opacity 0.2s ease;
+  overflow: hidden;
+  transition:
+    opacity 0.2s ease,
+    aspect-ratio 0.3s ease;
+}
+
+/* 有图时高度交给内联 aspect-ratio（按图片自身比例算），这里必须解除固定高度。
+   写成两段选择器是为了压过文件末尾 @media 里的 .profile-banner { height: 100px }。 */
+.profile-banner.profile-banner--image {
+  height: auto;
+}
+
+/* 模糊底衬：同一张图放大虚化，填掉 contain 在两侧/上下留下的余量，避免「大片空白」 */
+.profile-banner__backdrop {
+  position: absolute;
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+  object-fit: cover;
+  filter: blur(26px) saturate(1.3) brightness(0.9);
+  transform: scale(1.04);
+  pointer-events: none;
+}
+
+/* 主图：contain 保证图片完整显示，绝不裁掉主体 */
+.profile-banner__photo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* 底部渐变：把图片和页面底色缝合（--color-bg），消除硬切边 */
+.profile-banner__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 64px;
+  background: linear-gradient(to bottom, transparent, var(--color-bg));
+  pointer-events: none;
 }
 
 .profile-banner__edit {
@@ -1844,6 +1971,10 @@ function onAvatarError(e: Event) {
 @media screen and (max-width: 480px) {
   .profile-banner {
     height: 100px;
+  }
+
+  .profile-banner__fade {
+    height: 48px;
   }
 
   .profile-avatar-zone__img {
