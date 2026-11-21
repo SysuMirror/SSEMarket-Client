@@ -10,6 +10,7 @@ import dnsPrefetchPlugin from './plugins/vite-plugin-dns-prefetch'
 const base = process.env.VITE_BASE || (process.env.CF_PAGES ? '/' : '/new/')
 export default defineConfig({
   base,
+  envDir: process.env.MARKET_TEST_BUILD === 'true' ? false : undefined,
   // dev-only：本地开发经代理直连生产后端（构建产物不受影响）。
   // agent=宿主网络 8100 稳定；Go 的 docker-proxy 回环发布已废（000），
   // 必须打桥接 IP，启动时以 VITE_GO_API_TARGET 注入（容器重建后 IP 会变，需重解析）
@@ -34,7 +35,7 @@ export default defineConfig({
     //   openAnalyzer: true, // 自动打开浏览器
     //   analyzerPort: 8888, // 分析服务器端口
     // }),
-    dnsPrefetchPlugin({
+    process.env.MARKET_TEST_BUILD !== 'true' && dnsPrefetchPlugin({
       maxLinks: 5,
       exclude: ['localhost', '127.0.0.1', 'vuejs.org'],
     }),
