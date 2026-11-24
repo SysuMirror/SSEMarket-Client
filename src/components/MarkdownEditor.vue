@@ -1,14 +1,19 @@
 <!-- eslint-disable vue/html-self-closing -->
 <script setup lang="ts">
+import type { Picker as EmojiMartPicker } from 'emoji-mart'
+
 import type { StaffAlias } from '@/api/staff/staff'
 
-import { Icon } from '@iconify/vue'
-import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
+// 注意：本组件的图标是内联 SVG（tabler 图标 path 数据），不走 @iconify/vue 的
+// 运行时 API 拉取——api.iconify.design 在部分国内网络下不可达，曾导致编辑器
+// 工具栏图标在桌面端整体空白（手机端网络可通所以正常）。见 2026-11-17 修复。
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, useTemplateRef, watch } from 'vue'
 import { uploadFile, uploadPhoto } from '@/api/editPostAndComment/utils'
 
 import { showMsg } from '@/components/MessageBox'
 import { primeMentionCache } from '@/composables/useMentionResolve'
 import { useStaffAliases } from '@/composables/useStaffAliases'
+import { extractBaseShortcode } from '@/utils/emojiShortcode'
 import { buildMentionPrefix } from '@/utils/mention'
 import LoadingSpinner from './LoadingSpinner.vue'
 import MarkdownContainer from './MarkdownContainer.vue'
@@ -345,6 +350,175 @@ function pickStaffAlias(a: StaffAlias) {
 // 暴露关闭方法给父组件，方便父组件“收起”时同步关闭弹窗
 defineExpose({ insertAtCursor, closeMention })
 
+/* ---------------- 表情选择器（emoji-mart，按需动态加载） ---------------- */
+
+/**
+ * emoji-mart 组件 + 全量表情数据体积可观，这里首次点开表情按钮才动态 import，
+ * 不点开就不占任何加载体积；加载后复用同一实例（模块级缓存）：
+ * 同页多个评论框共享面板，「常用表情」记录自然全局保留。
+ * 实例是 web component（Shadow DOM 自带样式，不受站点 CSS 影响），
+ * 命令式挂到 Teleport 出去的宿主 div 上。
+ */
+let emojiPickerLoad: Promise<EmojiMartPicker> | null = null
+
+const emojiOpen = ref(false)
+const emojiLoading = ref(false)
+const emojiButtonRef = useTemplateRef<HTMLButtonElement>('emojiButton')
+const emojiHostRef = useTemplateRef<HTMLDivElement>('emojiHost')
+const emojiPopStyle = ref<Record<string, string>>({})
+
+/** emoji-mart 面板默认尺寸（px），仅用于定位与视口收敛估算 */
+const EMOJI_POP_WIDTH = 352
+const EMOJI_POP_HEIGHT = 435
+
+function currentEmojiTheme(): 'dark' | 'light' {
+  return document.body.classList.contains('dark-mode') ? 'dark' : 'light'
+}
+
+/** 面板锚定在表情按钮下方（右对齐），越界时向内收敛 / 翻到按钮上方 */
+function positionEmojiPop() {
+  const btn = emojiButtonRef.value
+  if (!btn)
+    return
+  const GAP = 8
+  const MARGIN = 8
+  const rect = btn.getBoundingClientRect()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const width = Math.min(EMOJI_POP_WIDTH, vw - MARGIN * 2)
+  let left = rect.right - width
+  left = Math.max(MARGIN, Math.min(left, vw - width - MARGIN))
+  let top = rect.bottom + GAP
+  if (top + EMOJI_POP_HEIGHT > vh - MARGIN)
+    top = Math.max(MARGIN, rect.top - EMOJI_POP_HEIGHT - GAP)
+  emojiPopStyle.value = {
+    left: `${Math.round(left)}px`,
+    top: `${Math.round(top)}px`,
+    width: `${Math.round(width)}px`,
+  }
+}
+
+/**
+ * 选中表情后直接插入 Unicode 字符（所见即所得）：
+ * 评论表已确认为 utf8mb4，存原生字符安全；肤色选择也能完整保留。
+ * 自定义表情（二期集市表情包）没有 native 字段，届时回退插入 shortcode，
+ * 由 MarkdownContainer 的 markdown-it-emoji 插件渲染。
+ * 手写 :smile: 的渲染支持不受影响。
+ */
+function handleEmojiSelect(emoji: { id?: string, native?: string, shortcodes?: string }) {
+  const insert = emoji.native || extractBaseShortcode(emoji.shortcodes, emoji.id)
+  if (insert)
+    insertAtCursor(insert)
+}
+
+function loadEmojiPicker(): Promise<EmojiMartPicker> {
+  if (!emojiPickerLoad) {
+    emojiPickerLoad = (async () => {
+      const [{ Picker }, { default: data }] = await Promise.all([
+        import('emoji-mart'),
+        import('@emoji-mart/data'),
+      ])
+      return new Picker({
+        data,
+        locale: 'zh',
+        // dynamicWidth 依赖 ResizeObserver 反复重算 perLine 并重置网格，
+        // 外层是 position:fixed 弹层时容易出现测量竞态：只有顶部几行渲染，
+        // 后续分类（动物与自然/食物与饮品等）永远不填充（桌面端高发）。
+        // 改为固定列数，配合 CSS 给定明确宽高，渲染结果稳定。
+        perLine: 9,
+        onEmojiSelect: handleEmojiSelect,
+        onClickOutside: closeEmoji,
+      })
+    })()
+    // 失败不缓存：瞬时网络问题不该让之后的点击永远失败，清空让下次重试
+    emojiPickerLoad.catch(() => {
+      emojiPickerLoad = null
+    })
+  }
+  return emojiPickerLoad
+}
+
+async function openEmoji() {
+  if (isPreview.value)
+    isPreview.value = false
+  positionEmojiPop()
+  emojiOpen.value = true
+  emojiLoading.value = true
+  try {
+    const picker = await loadEmojiPicker()
+    // 每次打开时同步站点明暗主题（body.dark-mode）
+    picker.update({ theme: currentEmojiTheme() })
+    await nextTick()
+    if (emojiHostRef.value)
+      emojiHostRef.value.replaceChildren(picker as unknown as HTMLElement)
+  }
+  catch (error) {
+    console.error('emoji picker load failed:', error)
+    showMsg('表情面板加载失败，请重试')
+    emojiOpen.value = false
+  }
+  finally {
+    emojiLoading.value = false
+  }
+}
+
+function closeEmoji() {
+  emojiOpen.value = false
+}
+
+function toggleEmoji() {
+  if (emojiOpen.value)
+    closeEmoji()
+  else
+    void openEmoji()
+}
+
+function handleEmojiKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && emojiOpen.value)
+    closeEmoji()
+}
+
+function handleEmojiResize() {
+  if (emojiOpen.value)
+    positionEmojiPop()
+}
+
+/**
+ * 意图触发预取：用户第一次与编辑器交互（聚焦输入框等）时才后台预取
+ * 表情面板的动态 chunk（组件 ~77KB + 表情数据 ~433KB，约 150KB gzip）。
+ * 刻意不用「页面空闲即预取」：慢链路上后台下载会与正在加载的图片抢带宽，
+ * 拖慢主站首屏。意图触发下，不碰评论框的用户一个字节都不下载；开始输入
+ * 的用户在打字期间 chunk 已就绪，点开表情面板即时弹出。
+ * 整页只触发一次（选择器实例全局共享），失败静默，点开时会再试。
+ */
+let emojiPrefetchScheduled = false
+
+function scheduleEmojiPrefetch() {
+  if (emojiPrefetchScheduled)
+    return
+  emojiPrefetchScheduled = true
+  loadEmojiPicker().catch(() => {
+    // 预取失败允许下一次交互再试
+    emojiPrefetchScheduled = false
+  })
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleEmojiKeydown)
+  window.addEventListener('resize', handleEmojiResize)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleEmojiKeydown)
+  window.removeEventListener('resize', handleEmojiResize)
+  closeEmoji()
+})
+
+watch(isPreview, (preview) => {
+  if (preview)
+    closeEmoji()
+})
+
 /* ---------------- 键盘 ---------------- */
 
 function handleKeydown(event: KeyboardEvent) {
@@ -379,7 +553,9 @@ function handleKeydown(event: KeyboardEvent) {
     const upto = modelValue.value.slice(0, s)
     const lineStart = upto.lastIndexOf('\n') + 1
     const curLine = upto.slice(lineStart)
-    const m = curLine.match(/^(\s*)([-*+]|\d+[.)])(\s+)(.*)$/)
+    // (\S.*)? 替代 (.*)：\s+ 与 .* 可交换空白字符造成多项式回溯；
+    // m[4] 只做真值判断，语义不变（贪婪 \s+ 本就吃光全部空白）。
+    const m = curLine.match(/^(\s*)([-*+]|\d+[.)])(\s+)(\S.*)?$/)
     if (!m)
       return
     event.preventDefault()
@@ -481,6 +657,7 @@ watch(isPreview, (preview) => {
     id="mdRoot"
     class="md-editor"
     :class="{ 'md-editor--compact': compact, 'md-editor--fill': fill }"
+    @focusin.once="scheduleEmojiPrefetch"
   >
     <div class="md-editor__toolbar">
       <div class="md-editor__tools" role="toolbar" aria-label="格式化工具">
@@ -532,13 +709,26 @@ watch(isPreview, (preview) => {
         >
           <span class="md-editor__glyph md-editor__glyph--at">@</span>
         </button>
+        <button
+          ref="emojiButton"
+          type="button"
+          class="md-editor__tool"
+          :class="{ 'md-editor__tool--active': emojiOpen }"
+          title="表情"
+          aria-haspopup="dialog"
+          :aria-expanded="emojiOpen"
+          @mousedown.prevent
+          @click="toggleEmoji"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0m6-2h.01M15 10h.01" /><path d="M9.5 15a3.5 3.5 0 0 0 5 0" /></g></svg>
+        </button>
         <button type="button" class="md-editor__tool" :disabled="imageUploading" :title="imageUploading ? '图片上传中…' : '插入图片(可直接粘贴)'" @mousedown.prevent @click="openImagePicker">
           <LoadingSpinner v-if="imageUploading" :size="17" />
-          <Icon v-else icon="tabler:photo" width="17" height="17" aria-hidden="true" />
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M15 8h.01M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z" /><path d="m3 16l5-5c.928-.893 2.072-.893 3 0l5 5" /><path d="m14 14l1-1c.928-.893 2.072-.893 3 0l3 3" /></g></svg>
         </button>
         <button type="button" class="md-editor__tool" :disabled="fileUploading" :title="fileUploading ? '文件上传中…' : '上传文件'" @mousedown.prevent @click="openFilePicker">
           <LoadingSpinner v-if="fileUploading" :size="17" />
-          <Icon v-else icon="tabler:paperclip" width="17" height="17" aria-hidden="true" />
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13" /></svg>
         </button>
         <button
           v-if="musicEnabled"
@@ -548,7 +738,7 @@ watch(isPreview, (preview) => {
           @mousedown.prevent
           @click="emit('insertMusic')"
         >
-          <Icon icon="tabler:disc" width="17" height="17" aria-hidden="true" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0" /><path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0m-4 0a5 5 0 0 1 5-5m0 10a5 5 0 0 0 5-5" /></g></svg>
         </button>
         <button
           type="button"
@@ -572,7 +762,7 @@ watch(isPreview, (preview) => {
           <div class="md-editor__mention-head">
             <span class="md-editor__mention-caption">要 @ 哪个职位？</span>
             <button type="button" class="md-editor__mention-close" @click="closeMention">
-              <Icon icon="tabler:x" width="20" height="20" />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12" /></svg>
             </button>
           </div>
 
@@ -609,6 +799,23 @@ watch(isPreview, (preview) => {
             </button>
           </div>
         </div>
+      </div>
+    </Teleport>
+
+    <!-- 表情面板：emoji-mart web component，首次打开动态加载后挂载到宿主 -->
+    <Teleport to="body">
+      <div
+        v-if="emojiOpen"
+        class="md-editor__emoji-pop"
+        :style="emojiPopStyle"
+        role="dialog"
+        aria-label="选择表情"
+      >
+        <div v-if="emojiLoading" class="md-editor__emoji-loading">
+          <LoadingSpinner :size="18" />
+          <span>表情加载中…</span>
+        </div>
+        <div ref="emojiHost" class="md-editor__emoji-host" />
       </div>
     </Teleport>
 
@@ -980,6 +1187,51 @@ watch(isPreview, (preview) => {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); /* 加强阴影，突出浮层 */
     border: 1px solid var(--chat-border);
   }
+}
+
+/* ---------- 表情面板 ---------- */
+
+.md-editor__emoji-pop {
+  position: fixed;
+  z-index: 99998;
+  display: flex;
+  flex-direction: column;
+  /* 明确高度：emoji-mart 的分类/分行渲染以内部滚动容器的实际高度为
+     IntersectionObserver 的 root，容器高度塌陷会只渲染顶部几行，
+     后面的分类永远不填充（桌面端高发，见 perLine 处注释） */
+  height: 435px;
+  max-height: calc(100vh - 16px);
+  border: 1px solid var(--chat-border);
+  border-radius: 12px;
+  background: var(--chat-bg-main);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.md-editor__emoji-host {
+  flex: 1 1 auto;
+  width: 100%;
+  /* flex 子项默认 min-height:auto，会被内容撑开或压扁，显式归零 */
+  min-height: 0;
+}
+
+/* em-emoji-picker 由 emoji-mart 命令式挂载（不带 scoped 属性），需 :deep 穿透 */
+.md-editor__emoji-host :deep(em-emoji-picker) {
+  width: 100%;
+  height: 100%;
+}
+
+.md-editor__emoji-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--chat-bg-main);
+  color: var(--chat-text-tips);
+  font-size: 13px;
 }
 
 /* ---------- 输入区 ---------- */
