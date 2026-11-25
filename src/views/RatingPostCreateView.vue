@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import type { RatingCategory } from '@/api/rating/types'
 import { Icon } from '@iconify/vue'
 import { onMounted, ref, watch } from 'vue'
@@ -49,6 +50,7 @@ async function submitPost() {
     showMsg('发布失败')
     return
   }
+  trackEvia('rating_post_created', {})
   showMsg('发布成功')
   router.push(`/rating/${id}`)
 }

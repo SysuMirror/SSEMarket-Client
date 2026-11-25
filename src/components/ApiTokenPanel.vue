@@ -349,7 +349,7 @@ onMounted(() => {
           明文 token 仅此一次显示，关闭后无法再次查看。请立即复制保存。
         </p>
         <div class="pat-modal__token-box">
-          <code class="pat-modal__token">{{ justCreatedToken }}</code>
+          <code class="pat-modal__token" data-evia-mask>{{ justCreatedToken }}</code>
           <button type="button" class="pat-btn pat-btn--small pat-btn--secondary" @click="copyToken">
             <Icon icon="tabler:copy" width="15" height="15" aria-hidden="true" />
             复制

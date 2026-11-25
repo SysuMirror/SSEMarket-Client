@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
@@ -19,11 +20,13 @@ import UserButton from '../UserButton.vue'
 import CoinThrowButton from '../CoinThrowButton.vue'
 import BasicCard from './BasicCard.vue'
 
-const { isDense, post, isNew, noSave = false } = defineProps<{
+const { isDense, post, isNew, noSave = false, searchId, resultRank } = defineProps<{
   isDense?: boolean
   post: Post
   isNew?: boolean
   noSave?: boolean
+  searchId?: string
+  resultRank?: number
 }>()
 
 const router = useRouter()
@@ -87,9 +90,13 @@ const hotCommentImages = computed<string[]>(() => {
   return imgs
 })
 
+const postTarget = computed(() => searchId
+  ? { path: `/postdetail/${post.PostID}`, query: { search_id: searchId, result_rank: String(resultRank ?? 0) } }
+  : `/postdetail/${post.PostID}`)
+
 /** 点击热门评论预览块跳转帖子详情 */
 function goDetail() {
-  router.push(`/postdetail/${post.PostID}`)
+  router.push(postTarget.value)
 }
 
 const isSelf = computed(() => isPostOwner(post, userInfo))
@@ -105,6 +112,7 @@ const profileOwnerId = computed(() => {
 async function like() {
   try {
     await likePost(post.PostID, userInfo.phone)
+    trackEvia('post_liked', { post_id: post.PostID, from: 'feed' })
     useCustomEvent('like')
   }
   catch (e) {
@@ -254,7 +262,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
     <div class="extension-slot">
       <slot name="right-extension" />
     </div>
-    <RouterLink class="post-card__link" :to="`/postdetail/${post.PostID}`">
+    <RouterLink class="post-card__link" :to="postTarget">
       <div class="post-card__title-wrap">
         <span v-if="post.IsPinned" class="post-card__pinned-badge">
           <Icon icon="tabler:pinned-filled" width="11" height="11" aria-hidden="true" />

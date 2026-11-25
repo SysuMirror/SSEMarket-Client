@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import type { RatingCategory, RatingPostItem } from '@/api/rating/types'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -94,6 +95,7 @@ function onLikeChange(p: RatingPostItem) {
 }
 
 onMounted(async () => {
+  trackEvia('rating_home_viewed', {})
   activeCategoryID.value = parseCategoryFromRoute()
   await loadCategories()
   await loadPosts(true)

@@ -2,6 +2,7 @@
 import type { StaffAlias } from '@/api/staff/staff'
 import type { Comment } from '@/types/comment'
 import { computed, defineAsyncComponent, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 import { delComment, sendPComment } from '@/api/editPostAndComment/editComment'
 import { likeRatingComment } from '@/api/rating'
 import {
@@ -106,6 +107,7 @@ async function sendCommentFunc() {
 
     const res = await sendPComment(sendingData)
     if (res) {
+      trackEvia('comment_sent', { post_id: Number(sendingData.postID ?? 0), parent_comment_id: Number(sendingData.pcommentID ?? 0), length_bucket: Math.min(Math.ceil(String(sendingData.content ?? '').length / 50), 20) })
       commentContent.value = ''
       commentButtonIsShow.value = false
       staffReplyAs.value = 0
@@ -209,6 +211,7 @@ async function like() {
       showMsg('点赞失败')
       return
     }
+    trackEvia(comment.IsLiked ? 'comment_liked' : 'comment_like_cancelled', { comment_id: Number(comment.PcommentID), level: 1 })
     root.value?.dispatchEvent(new CustomEvent('comment-handle', {
       bubbles: true,
     }))

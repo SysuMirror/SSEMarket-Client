@@ -47,3 +47,5 @@ tmp_upload/
 
 # 所有 .bak-* 结尾的备份文件
 *.bak-*
+
+.env.*.local

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { CustomFormData } from '@/composables/FormExam'
-
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 
 import { getInfo } from '@/api/info/getInfo'
 import { userLogin } from '@/api/LoginAndRegister/login'
@@ -73,6 +73,7 @@ async function loginHandler() {
     setRefreshToken(result.refresh_token)
     const info = await getInfo()
     setUserInfo(info)
+    trackEvia('login_succeeded', { method: 'password' })
     // 每日进入网页 +1 币（后端按日期幂等，重复登录不会重复发）
     void reportDailyVisit()
   }
@@ -119,6 +120,7 @@ async function tryAutoLogin(): Promise<boolean> {
   setRefreshToken(silent.refresh_token)
   const info = await getInfo()
   setUserInfo(info)
+  trackEvia('login_succeeded', { method: 'sso' })
   void reportDailyVisit()
   return true
 }
@@ -148,6 +150,7 @@ onMounted(async () => {
       const info = await getInfo()
       if (info && info.userID && info.userID !== 0) {
         setUserInfo(info)
+        trackEvia('login_succeeded', { method: 'sso' })
         void reportDailyVisit()
         router.replace(redirectTarget())
       }

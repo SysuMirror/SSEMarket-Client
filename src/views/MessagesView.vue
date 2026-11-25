@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import { Icon } from '@iconify/vue'
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -36,6 +37,8 @@ function switchTab(tab: MessageTab) {
 watch(
   () => route.query.tab,
   (tab) => {
+    const resolved = tab === 'chat' ? 'chat' : 'notice'
+    trackEvia('message_center_opened', { tab: resolved })
     if (tab && tab !== 'notice' && tab !== 'chat')
       router.replace({ path: '/messages', query: { tab: 'notice' } })
   },

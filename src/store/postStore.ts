@@ -350,5 +350,6 @@ export function usePostStore() {
     setSearchTimeRange,
     setHomeOrder,
     conditions,
+    totalNum,
   }
 }

@@ -5,12 +5,13 @@ import { onUnmounted, useTemplateRef, watch } from 'vue'
 import PostCard from './card/PostCard.vue'
 import PageSkeleton from './PageSkeleton.vue'
 
-const { isDense, posts = [], isLoading = false, hasMore = true, newPostIds = [] } = defineProps<{
+const { isDense, posts = [], isLoading = false, hasMore = true, newPostIds = [], searchId } = defineProps<{
   isDense?: boolean
   posts?: Post[]
   isLoading?: boolean
   hasMore?: boolean
   newPostIds?: number[]
+  searchId?: string
 }>()
 
 const emits = defineEmits(['bottom', 'pinChange'])
@@ -63,12 +64,14 @@ onUnmounted(() => {
     <!-- 首屏还没任何数据时先摆骨架，避免整页空白 -->
     <PageSkeleton v-if="isLoading && !posts.length" variant="feed" :count="isDense ? 3 : 4" />
     <PostCard
-      v-for="post in posts"
+      v-for="(post, index) in posts"
       :key="post.PostID"
       class="feed-list__item"
       :is-dense="isDense"
       :is-new="newPostIds.includes(post.PostID)"
       :post="post"
+      :search-id="searchId"
+      :result-rank="index + 1"
       @pin-change="emits('pinChange', $event)"
     />
     <template v-if="hasMore">

@@ -1,4 +1,5 @@
 import { computed, reactive } from 'vue'
+import { identifyEvia, resetEvia } from '@/analytics/evia'
 
 const SEVEN_DAYS_IN_MS = 7 * 24 * 60 * 60 * 1000 - 1000 * 60 * 60
 const THIRTY_DAYS_IN_MS = 30 * 24 * 60 * 60 * 1000
@@ -107,8 +108,20 @@ function setRefreshToken(newToken: string) {
   }
 })()
 
+let lastIdentifiedUserId = 0
+
 function setUserInfo(newUserInfo: UserInfo) {
   Object.assign(userInfo, newUserInfo)
+  if (newUserInfo.userID > 0) {
+    if (lastIdentifiedUserId !== newUserInfo.userID) {
+      lastIdentifiedUserId = newUserInfo.userID
+      identifyEvia(`newsse-u${newUserInfo.userID}`)
+    }
+  }
+  else if (lastIdentifiedUserId !== 0) {
+    lastIdentifiedUserId = 0
+    resetEvia()
+  }
 }
 export function useUserStore() {
   return {

@@ -4,6 +4,8 @@ import type { Suggestion } from '@/api/opsagent/suggestions'
 import type { TimelineImage, TimelineItem, TimelinePostDraft } from '@/composables/useOpsAgentStream'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
+import { trackSensitiveContent } from '@/analytics/sensitive'
 import {
   deleteConversation,
   fetchConversationBootstrap,
@@ -311,6 +313,7 @@ async function startNewChat() {
   }
   try {
     const freshId = newSessionId()
+    trackEvia('chat_action', { action: 'new_conversation', conversation_id: freshId })
     const data = await fetchConversationBootstrap(freshId)
     sessionId.value = freshId
     currentMode.value = data.mode === 'image' ? 'image' : 'chat'
@@ -445,24 +448,61 @@ async function sendMessage() {
   // 参考图行拼进消息：agent 按提示词纪律识别「参考图：<url>」并 edit_image 垫图
   const content = text + urls.map(u => `\n参考图：${u}`).join('')
 
+  const conversationId = sessionId.value
+  const userMessageId = crypto.randomUUID()
+  const startedAt = Date.now()
   pushUserMessage(content)
+  const responseStartIndex = timeline.value.length
   draft.value = ''
   attachUrls.value = []
   suggestions.value = []
   scrollToBottom(true)
 
   try {
+    trackEvia('chat_action', { action: 'send', conversation_id: conversationId, message_id: userMessageId })
+    trackEvia('chat_message_sent', { entry: 'page', length_bucket: Math.min(Math.ceil(content.length / 50), 20) })
+    await trackSensitiveContent({
+      conversationId,
+      messageId: userMessageId,
+      role: 'user',
+      content,
+    })
     await sendAgentMessage({
-      sessionId: sessionId.value,
+      sessionId: conversationId,
       task: content,
       mode: currentMode.value,
       // agent 自主切换（hidden switch_mode）→ pill 跟随，用户无感知动作可见化
       onMode: (m) => { currentMode.value = m === 'image' ? 'image' : 'chat' },
       onAfterUpdate: () => scrollToBottom(),
     })
+    const assistant = timeline.value
+      .slice(responseStartIndex)
+      .findLast(item => item.kind === 'assistant' && item.status === 'done')
+    if (assistant && assistant.kind === 'assistant' && assistant.text) {
+      await trackSensitiveContent({
+        conversationId,
+        messageId: assistant.id,
+        role: 'assistant',
+        content: assistant.text,
+        responseStatus: 'done',
+        durationMs: Date.now() - startedAt,
+      })
+      trackEvia('chat_action', {
+        action: 'response_completed',
+        conversation_id: conversationId,
+        message_id: assistant.id,
+        duration_ms: Math.min(Date.now() - startedAt, 3_600_000),
+      })
+    }
     schedulePostSendRefresh()
   }
   catch (e) {
+    trackEvia('chat_action', {
+      action: 'response_error',
+      conversation_id: conversationId,
+      message_id: userMessageId,
+      duration_ms: Math.min(Date.now() - startedAt, 3_600_000),
+    })
     console.error(e)
     if (e instanceof OpsAgentRequestError && e.httpStatus === 410) {
       showMsg('该会话已结束，已为你开启新对话，请重新发送。')
@@ -557,7 +597,13 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
+function stopMessage() {
+  trackEvia('chat_action', { action: 'stop', conversation_id: sessionId.value })
+  abort()
+}
+
 onMounted(() => {
+  trackEvia('chat_opened', { entry: 'page' })
   const restored = sessionStorage.getItem(DRAFT_KEY)
   if (restored)
     draft.value = restored
@@ -843,7 +889,7 @@ function onDraftUpdate(updated: TimelinePostDraft) {
                 class="icon-btn stop"
                 aria-label="停止生成"
                 title="停止生成"
-                @click="abort"
+                @click="stopMessage"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <rect x="6" y="6" width="12" height="12" rx="2" />

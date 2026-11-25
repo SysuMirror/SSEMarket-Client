@@ -11,8 +11,8 @@ import {
   ref,
   watch,
 } from 'vue'
-
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 import { searchRagPosts } from '@/api/ragSearch'
 import { searchUsers } from '@/api/search/searchUsers'
 import AppDatetimePicker from '@/components/AppDatetimePicker.vue'
@@ -30,7 +30,7 @@ defineOptions({
   name: 'SearchView',
 })
 
-const { search, setSearchTimeRange, refreshPosts, conditions, updateNum, restorePosts, storePosts } = usePostStore()
+const { search, setSearchTimeRange, refreshPosts, conditions, updateNum, totalNum, restorePosts, storePosts } = usePostStore()
 const { userInfo } = useUserStore()
 const route = useRoute()
 const { posts, update, isLoading, hasMore, initialize } = usePostView()
@@ -47,6 +47,7 @@ const initialized = ref(false)
 const userResults = ref<UserSearchUser[]>([])
 const userLoading = ref(false)
 let userSearchSeq = 0
+const activeSearchID = ref('')
 
 // 返回搜索页时恢复列表与滚动位置（配合 KeepAlive）
 const scrollTop = ref(0)
@@ -120,6 +121,11 @@ async function runSmartSearch() {
       .map(result => result.post)
       .filter((post): post is Post => !!post)
     posts.splice(0, posts.length, ...ragPosts)
+    trackEvia('search_results_viewed', {
+      search_id: activeSearchID.value,
+      scope: 'smart',
+      result_count: Math.min(ragPosts.length, 100),
+    })
   }
   catch (error) {
     smartError.value = error instanceof Error ? error.message : '智能检索失败'
@@ -146,6 +152,10 @@ async function initializeFromRoute() {
   if (!('sinfo' in query))
     return showMsg('未知的搜索')
   hasCache.value = false
+  const suppliedSearchID = typeof query.search_id === 'string' ? query.search_id : ''
+  activeSearchID.value = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(suppliedSearchID)
+    ? suppliedSearchID
+    : crypto.randomUUID()
   const sinfo = query.sinfo as string
   keyword.value = sinfo
   void loadUserCards()
@@ -167,6 +177,11 @@ async function initializeFromRoute() {
       if (timeFrom.value || timeTo.value)
         setSearchTimeRange(timeFrom.value, timeTo.value)
     },
+  })
+  trackEvia('search_results_viewed', {
+    search_id: activeSearchID.value,
+    scope: query.smart === '1' ? 'smart_pending' : 'normal',
+    result_count: Math.min(totalNum.value ?? 0, 100),
   })
   if (query.smart === '1')
     await runSmartSearch()
@@ -332,6 +347,7 @@ watch(
 
     <PostList
       :posts="posts"
+      :search-id="activeSearchID"
       :is-dense="isDense"
       :is-loading="isLoading || filtering || smartLoading"
       :has-more="hasMore"

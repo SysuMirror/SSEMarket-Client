@@ -6,7 +6,8 @@ import type { LotteryDetail } from '@/api/lottery/lottery'
 import type { Comment } from '@/types/comment'
 import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 import { fetchAssistPost } from '@/api/assist'
 import { getCommentsByPostID } from '@/api/browse/getComment'
 
@@ -188,12 +189,25 @@ function infoChange(type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', pa
   }
 }
 
+const enteredAt = Date.now()
+onBeforeRouteLeave(() => {
+  trackEvia('post_exited', { post_id: Number(route.params.id), total_dwell_ms: Math.min(Date.now() - enteredAt, 3_600_000) })
+})
+
 onMounted(async () => {
   try {
     const ID = Number(route.params.id)
     const curPost = await getPostByID(ID, userInfo.phone)
     post.value = curPost as Post
     setTitle(post.value.Title)
+    const searchId = typeof route.query.search_id === 'string' ? route.query.search_id : ''
+    const resultRank = Number(route.query.result_rank)
+    trackEvia('post_opened', {
+      post_id: ID,
+      from: searchId ? 'search' : 'detail',
+      ...(searchId ? { search_id: searchId.slice(0, 36) } : {}),
+      ...(Number.isInteger(resultRank) && resultRank > 0 ? { result_rank: Math.min(resultRank, 500) } : {}),
+    })
     // 点进详情才标记已读（默认未读）；游客不调用，避免触发登录提示。
     if (userStore.token.value)
       void reportRecommendationRead(ID)

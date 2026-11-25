@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isEviaConsentEnabled, resetEvia, setEviaConsentEnabled, trackEvia } from '@/analytics/evia'
 import type { Ref } from 'vue'
 import type { AllInfo } from '@/api/info/getInfo'
 import { computed, inject, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
@@ -28,6 +29,8 @@ const isPC = inject('isPC', ref(false)) as Ref<boolean>
 const { setRecommendationModeEnabled } = useNewPostsStore()
 const { userInfo, setToken, setRefreshToken, setUserInfo } = useUserStore()
 const { pwaExperienceEnabled } = usePWA()
+const analyticsEnabled = ref(isEviaConsentEnabled())
+const analyticsToggling = ref(false)
 
 const allInfo = ref<AllInfo>({
   avatarURL: '',
@@ -349,6 +352,21 @@ function togglePWAExperience() {
   showMsg(`电脑端样式新体验已${pwaExperienceEnabled.value ? '启用' : '关闭'}`)
 }
 
+async function toggleAnalyticsConsent(nextValue: boolean) {
+  if (analyticsToggling.value)
+    return
+  analyticsToggling.value = true
+  analyticsEnabled.value = nextValue
+  try {
+    await setEviaConsentEnabled(nextValue, { source: 'options' })
+    showMsg(nextValue ? '已开启「帮助集市变得更好」' : '已关闭「帮助集市变得更好」，后续将不再上报使用统计')
+  }
+  finally {
+    analyticsEnabled.value = isEviaConsentEnabled()
+    analyticsToggling.value = false
+  }
+}
+
 async function sendPasswordCode() {
   try {
     if (!allInfo.value)
@@ -471,6 +489,8 @@ async function resetEmail() {
 async function logout() {
   if (!await confirmDialog({ message: '确定要退出登录吗？', confirmText: '退出登录', danger: true }))
     return
+  trackEvia('logout', {})
+  resetEvia()
   // 单点登出：先吊销 unisso 共享会话并清父域 Cookie，再清本地；服务端不可达也继续本地退出。
   await ssoLogout()
   localStorage.removeItem('userInfo')
@@ -766,6 +786,13 @@ onMounted(() => {
         title="电脑端样式新体验"
         hint="实验性 PWA 布局"
         @update:model-value="togglePWAExperience"
+      />
+      <SettingsToggle
+        :model-value="analyticsEnabled"
+        :disabled="analyticsToggling"
+        title="帮助集市变得更好"
+        hint="允许上报使用统计与体验改进数据，关闭后将停止后续采集"
+        @update:model-value="toggleAnalyticsConsent"
       />
     </SettingsGroup>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import type { ResumeItem } from '@/api/resume/types'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -85,6 +86,8 @@ async function fetchDetail() {
   isLoading.value = false
   if (!resume.value)
     showMsg('简历不存在或已删除')
+  else
+    trackEvia('resume_viewed', { resume_id: Number(resumeID.value) })
 }
 
 function startEdit() {

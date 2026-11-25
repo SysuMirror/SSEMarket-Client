@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 import { getInfo } from '@/api/info/getInfo'
 import { ssoExchange } from '@/api/sso/sso'
 import { showMsg } from '@/components/MessageBox'
@@ -24,6 +25,7 @@ async function enterMarket(token: string, refreshToken: string, bound: boolean) 
   setRefreshToken(refreshToken)
   const info = await getInfo()
   setUserInfo(info)
+  trackEvia('login_succeeded', { method: 'sso' })
   if (bound)
     showMsg('SSO 绑定成功')
   router.replace('/')

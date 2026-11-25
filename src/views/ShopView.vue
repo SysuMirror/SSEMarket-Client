@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import type { ShopProduct } from '@/api/shop/types'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -68,6 +69,7 @@ const statsText = computed(() => {
 async function loadProducts() {
   loading.value = true
   try {
+    trackEvia('shop_browsed', { tab: isMain.value ? 'home' : 'history' })
     products.value = await getShopProducts({
       searchsort: isMain.value ? 'home' : 'history',
       searchinfo: searchKeyword.value.trim(),

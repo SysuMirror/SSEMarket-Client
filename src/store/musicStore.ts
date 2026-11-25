@@ -6,6 +6,7 @@ import { getMusicList } from '@/api/music/getMusicList'
 import defaultCover from '@/assets/music-default-cover.svg'
 
 import { showMsg } from '@/components/MessageBox'
+import { trackEvia } from '@/analytics/evia'
 
 const apiUrl = import.meta.env.VITE_API_BASE_URL
 
@@ -161,6 +162,7 @@ function playIndex(index: number) {
   howl?.play()
   persistState()
   reportMusicPlayed(music.musicID)
+  trackEvia('music_played', { track_id: music.musicID })
 }
 
 function nextIndex(): number {
@@ -264,8 +266,12 @@ function togglePlay() {
   }
   if (isPlaying.value)
     howl.pause()
-  else
+  else {
     howl.play()
+    const current = playlist.value[currentIndex.value]
+    if (current)
+      trackEvia('music_played', { track_id: current.musicID })
+  }
 }
 
 function seekTo(sec: number) {

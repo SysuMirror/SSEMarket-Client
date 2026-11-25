@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import type { ChatMessageItem, RelevantUser } from '@/composables/useChat'
 import { Icon } from '@iconify/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
@@ -152,6 +153,7 @@ function sendMessage() {
     return
   }
 
+  trackEvia('message_sent', { thread_anonymous: isAnonymousMode.value ? 1 : 0, length_bucket: Math.min(Math.ceil(draft.value.length / 50), 20) })
   if (!sendChatMessage(draft.value)) {
     toastError('消息发送失败（服务器未连接）')
   }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import { computed, ref, watch } from 'vue'
 import { toggleWatchPost } from '@/api/watch/watch'
 import { showMsg } from '@/components/MessageBox'
@@ -42,6 +43,7 @@ async function handleToggle(event: Event) {
     const { ok, msg, watched } = await toggleWatchPost(props.postID, userInfo.phone)
     showMsg(msg)
     if (ok) {
+      trackEvia(watched ? 'post_watched' : 'post_watch_cancelled', { post_id: Number(props.postID) })
       isWatched.value = watched
       emit('watchedChange', watched)
     }

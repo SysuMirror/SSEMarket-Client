@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackEvia } from '@/analytics/evia'
 import type { ShopProduct } from '@/api/shop/types'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -46,6 +47,7 @@ async function loadDetail() {
   loading.value = true
   try {
     const detail = await getShopProductDetail(id)
+    trackEvia('product_viewed', { product_id: Number(id) })
     if (!detail) {
       showMsg('商品不存在')
       router.replace('/shop')

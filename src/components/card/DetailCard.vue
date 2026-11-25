@@ -2,6 +2,7 @@
 import type { StaffAlias } from '@/api/staff/staff'
 import type { Post } from '@/types/post'
 import { computed, defineAsyncComponent, ref, useTemplateRef, watch } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 import { sendComment } from '@/api/editPostAndComment/editComment'
 import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
 
@@ -87,6 +88,7 @@ async function sendCommentFunc() {
     staffReplyAs.value,
   )
   if (res) {
+    trackEvia('comment_sent', { post_id: Number(post.PostID), parent_comment_id: 0, length_bucket: Math.min(Math.ceil(commentContent.value.length / 50), 20) })
     commentContent.value = ''
     commentButtonIsShow.value = false
     staffReplyAs.value = 0
@@ -135,6 +137,7 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
           showMsg(msg || '失败了:-(')
           return
         }
+        trackEvia(isSaved ? 'post_saved' : 'post_save_cancelled', { post_id: post.PostID })
         useCustomEvent('save', isSaved ?? !post.IsSaved)
       }
       catch (e) {
@@ -176,6 +179,7 @@ async function like() {
   // 后端没有返回数据，不要赋值后再更新
   try {
     await likePost(post.PostID, userInfo.phone)
+    trackEvia('post_liked', { post_id: post.PostID, from: 'detail' })
     useCustomEvent('like')
   }
   catch (e) {
