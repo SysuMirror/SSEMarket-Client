@@ -395,16 +395,18 @@ export async function waitForContentEncryptionConfig(timeoutMs = 5000): Promise<
   return null
 }
 
-/** 登录成功后绑定业务身份；uid 用站内稳定键（邮箱哈希或 userID）。 */
+/** 登录成功后绑定业务身份；uid 用站内稳定键（newsse-u<userID>）。 */
 export function identifyEvia(uid: string): void {
   latestUid = uid
-  runOrQueue(ready => ready.identify(uid))
+  if (client && enabled)
+    runOrQueue(ready => ready.identify(uid))
 }
 
 /** 登出/切换账号：旋转会话与匿名范围。 */
 export function resetEvia(): void {
   latestUid = ''
-  runOrQueue(ready => ready.reset())
+  if (client && enabled)
+    runOrQueue(ready => ready.reset())
 }
 
 /** SPA 路由切换：更新页面上下文（不自动发页面事件，由 autoPageViews 发）。 */
