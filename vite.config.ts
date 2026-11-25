@@ -3,11 +3,17 @@ import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import vueJsxPlugin from '@vitejs/plugin-vue-jsx'
 import UnoCSS from 'unocss/vite'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import dnsPrefetchPlugin from './plugins/vite-plugin-dns-prefetch'
 // https://vitejs.dev/config/
 // VITE_BASE：测试环境按路径分流时用（例如 /zhangsan/）；不设就沿用主站的 /new/
 const base = process.env.VITE_BASE || (process.env.CF_PAGES ? '/' : '/new/')
+if (process.env.MARKET_TEST_BUILD === 'true') {
+  for (const [key, value] of Object.entries(loadEnv('development', process.cwd(), 'VITE_EVIA_'))) {
+    if (process.env[key] === undefined && value !== '')
+      process.env[key] = value
+  }
+}
 export default defineConfig({
   base,
   envDir: process.env.MARKET_TEST_BUILD === 'true' ? false : undefined,
