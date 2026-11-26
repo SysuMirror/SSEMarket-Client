@@ -411,6 +411,11 @@ async function onFeedback(runId: string, rating: 1 | -1) {
  *  tweak=预填底图 URL 的一句话，聚焦等用户补要改什么。
  */
 function onImageAction(action: 'redo' | 'tweak', item: TimelineImage) {
+  trackEvia('chat_action', {
+    action: action === 'redo' ? 'image_redo' : 'image_tweak',
+    conversation_id: sessionId.value,
+    mode: 'image',
+  })
   if (action === 'redo') {
     draft.value = item.prompt
       ? `再画一张：${item.prompt}`

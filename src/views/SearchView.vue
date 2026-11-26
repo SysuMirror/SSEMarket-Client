@@ -116,6 +116,7 @@ async function runSmartSearch() {
   hasMore.value = false
   setWindowScrollY(0)
   try {
+    const smartStartedAt = Date.now()
     const response = await searchRagPosts(keyword.value, 10, 'manual')
     const ragPosts = (response.data?.results || [])
       .map(result => result.post)
@@ -127,6 +128,7 @@ async function runSmartSearch() {
       result_count: Math.min(ragPosts.length, 100),
       is_zero_result: ragPosts.length === 0,
       has_time_filter: Boolean(timeFrom.value || timeTo.value),
+      latency_ms: Math.min(Math.max(Date.now() - smartStartedAt, 0), 300_000),
     })
   }
   catch (error) {
@@ -173,6 +175,7 @@ async function initializeFromRoute() {
   if (partition === '课程专区')
     isDense.value = true
   setWindowScrollY(0)
+  const normalStartedAt = Date.now()
   await initialize(partition || '主页', {
     afterRefresh: () => {
       search(sinfo, partition)
@@ -186,6 +189,7 @@ async function initializeFromRoute() {
     result_count: Math.min(totalNum.value ?? 0, 100),
     is_zero_result: (totalNum.value ?? 0) === 0,
     has_time_filter: Boolean(timeFrom.value || timeTo.value),
+    latency_ms: Math.min(Math.max(Date.now() - normalStartedAt, 0), 300_000),
   })
   if (query.smart === '1')
     await runSmartSearch()

@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { Icon } from '@iconify/vue'
 import { ref } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 
 // 主题引导已移至 main.ts（首帧前同步应用）；此处仅负责切换与展示
 const mode = ref(document.body.classList.contains('dark-mode') ? 'dark-mode' : 'light-mode')
@@ -10,6 +11,7 @@ function changeMode() {
     ? 'dark-mode'
     : 'light-mode'
   localStorage.setItem('mode', mode.value)
+  trackEvia('theme_mode_changed', { theme_mode: mode.value === 'dark-mode' ? 'dark' : 'light' })
 }
 </script>
 

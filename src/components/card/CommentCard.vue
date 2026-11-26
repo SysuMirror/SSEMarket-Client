@@ -127,6 +127,7 @@ async function deleteFunc() {
     return
   const res = await delComment(id)
   if (res) {
+    trackEvia('comment_deleted', { comment_id: Number(id), level: 1 })
     return true
   }
   else {

@@ -1,4 +1,4 @@
-import { drainEncryptedContent, drainEvia, isEviaConsentEnabled, onEviaConsentChange } from './evia'
+import { drainEncryptedContent, drainEvia, isEviaConsentEnabled, onEviaConsentChange, trackEvia } from './evia'
 import { enqueueGenericSensitiveContent } from './sensitive'
 
 const FORMAT = 'evia.session-replay.v1'
@@ -374,6 +374,7 @@ async function emitPayload(contentType: string, envelope: ReplayEnvelope): Promi
     recordRejectedPayload(encoded.length)
     persistBudgetCheckpoint()
     enabled = false
+    trackEvia('replay_stopped', { reason: 'budget_exceeded', used_bytes: Math.min(usedBytes, 100_000_000) })
     return
   }
   pendingBytes += encoded.length
@@ -461,6 +462,7 @@ function enqueuePayload(contentType: string, payload: Record<string, unknown>, r
     .then(() => emitPayload(contentType, envelope))
     .catch((error) => {
       enabled = false
+      trackEvia('replay_stopped', { reason: 'delivery_failed', used_bytes: Math.min(usedBytes, 100_000_000) })
       console.warn('[evia] 回放密文交付失败，已停止当前会话录制', error instanceof Error ? error.message : 'unknown')
     })
   return deliveryFlight

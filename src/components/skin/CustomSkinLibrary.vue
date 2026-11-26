@@ -185,6 +185,8 @@ async function applySkin(skin: UserSkin) {
   })
   if (!result.ok)
     showMsg(result.msg || '切换皮肤失败')
+  else
+    void import('@/analytics/evia').then(({ trackEvia }) => trackEvia('skin_applied', { skin_id: Number(skin.skinID) || 0, is_public: Boolean(skin.isPublic) }))
 }
 
 async function togglePublic(skin: UserSkin) {
@@ -218,6 +220,7 @@ async function copyShareLink(skin: UserSkin) {
   const url = buildSkinShareURL(skin.shareToken)
   try {
     await navigator.clipboard.writeText(url)
+    void import('@/analytics/evia').then(({ trackEvia }) => trackEvia('skin_shared', { skin_id: Number(skin.skinID) || 0 }))
     showMsg('添加链接已复制，发给朋友即可')
   }
   catch {

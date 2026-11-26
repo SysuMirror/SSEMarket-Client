@@ -13,6 +13,7 @@ import {
   watch,
 } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 import PostList from '@/components/PostList.vue'
 import PresenceBadge from '@/components/PresenceBadge.vue'
 import FestivalBanner from '@/components/skin/FestivalBanner.vue'
@@ -78,6 +79,11 @@ const featuredOnly = ref(false)
 
 async function toggleFeatured() {
   featuredOnly.value = !featuredOnly.value
+  trackEvia('feed_sort_changed', {
+    source: 'home',
+    order_by: 'time_desc',
+    featured_only: featuredOnly.value,
+  })
   hasMore.value = true
   await initialize(featuredOnly.value ? '精华帖' : '主页')
   syncSortUiFromOrderBy('time_desc')
@@ -114,6 +120,11 @@ async function applySort(field: SortField) {
   const orderBy = toOrderBy(sortField.value, sortDesc.value)
   if (!setHomeOrder(orderBy))
     return
+  trackEvia('feed_sort_changed', {
+    source: 'home',
+    order_by: orderBy,
+    featured_only: featuredOnly.value,
+  })
   // 切排序后必须重新拉首页；勿在此先置 isLoading=true，
   // 否则 usePostView.update 会因 isLoading 守卫直接 return，列表被清空却不请求。
   hasMore.value = true

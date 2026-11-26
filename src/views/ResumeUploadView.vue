@@ -2,7 +2,7 @@
 import { Icon } from '@iconify/vue'
 import { ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { trackEvia } from '@/analytics/evia'
+import { reportValidationBlocked, trackEvia } from '@/analytics/evia'
 import { uploadResume } from '@/api/resume/uploadResume'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
@@ -32,11 +32,13 @@ function handleFileChange(event: Event) {
 
   const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
   if (!allowedExt.includes(ext)) {
+    reportValidationBlocked('resume_upload', 'unsupported_ext')
     showMsg('仅支持 PDF、Word、JPG、PNG、WebP、GIF 格式')
     input.value = ''
     return
   }
   if (file.size > 10 * 1024 * 1024) {
+    reportValidationBlocked('resume_upload', 'file_too_large')
     showMsg('文件不能超过 10MB')
     input.value = ''
     return

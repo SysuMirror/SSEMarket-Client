@@ -101,7 +101,11 @@ function signingPublicJWK(): Readonly<Record<string, unknown>> | undefined {
 export const EVIA_CONSENT_STORAGE_KEY = 'evia:analytics_consent:v1'
 const ATTRIBUTION_STORAGE_KEY = 'evia:session_attribution:v1'
 const POST_ENTRY_STORAGE_KEY = 'evia:post_entry:v1'
+const PROFILE_SNAPSHOT_STORAGE_KEY = 'evia:profile_snapshot_sent:v1'
+const REC_EXPERIMENT_STORAGE_KEY = 'evia:rec_experiment_exposed:v1'
 const MAX_DWELL_MS = 3_600_000
+let lastSearchState: { id: string, at: number } | null = null
+let recExperimentExposed = false
 
 export interface PostEntryHint {
   postId: number
@@ -638,6 +642,135 @@ export function bucketCount(count: number): string {
   return 'gt_100'
 }
 
+export function bucketScore(score: number): string {
+  if (!Number.isFinite(score) || score <= 0)
+    return '0'
+  if (score < 100)
+    return '1_99'
+  if (score < 500)
+    return '100_499'
+  if (score < 2000)
+    return '500_1999'
+  if (score < 5000)
+    return '2000_4999'
+  return '5000_plus'
+}
+
+export function bucketCoins(coins: number): string {
+  if (!Number.isFinite(coins) || coins <= 0)
+    return '0'
+  if (coins <= 10)
+    return '1_10'
+  if (coins <= 50)
+    return '11_50'
+  if (coins <= 200)
+    return '51_200'
+  return 'gt_200'
+}
+
+export function detectDisplayMode(): { isPwa: boolean, displayMode: 'pwa_standalone' | 'browser' } {
+  if (typeof window === 'undefined')
+    return { isPwa: false, displayMode: 'browser' }
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const standalone = params.get('pwa') === 'true'
+      || (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches)
+      || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+      || (typeof document !== 'undefined' && document.referrer.includes('android-app://'))
+    return { isPwa: Boolean(standalone), displayMode: standalone ? 'pwa_standalone' : 'browser' }
+  }
+  catch {
+    return { isPwa: false, displayMode: 'browser' }
+  }
+}
+
+/** 记录搜索会话链：60 秒内再次发起搜索视为改写重搜，返回前一次 search_id。 */
+export function recordSearchAndGetPrevious(searchId: string): string {
+  const now = Date.now()
+  const prev = lastSearchState && now - lastSearchState.at <= 60_000 ? lastSearchState.id : ''
+  lastSearchState = { id: searchId, at: now }
+  return prev
+}
+
+/** 前端校验拦截埋点（如超字数、文件超限、格式不符等未到 HTTP 层的隐性摩擦）。 */
+export function reportValidationBlocked(form: string, reason: string): void {
+  trackEvia('client_validation_blocked', {
+    form: form.slice(0, 64),
+    reason: reason.slice(0, 64),
+  })
+}
+
+export interface SessionProfileSnapshotInput {
+  userId: number
+  userIdentity?: string
+  score?: number
+  coins?: number
+  recMode?: string
+  recEffective?: string
+  recGrayMatched?: boolean
+  pushEnabled?: boolean
+}
+
+/** 每会话上报一次非 PII 用户分层画像快照，并同步上报推荐系统灰度实验曝光。 */
+export function reportSessionProfileSnapshot(input: SessionProfileSnapshotInput): void {
+  if (!consentEnabled || !Number.isFinite(input.userId) || input.userId <= 0)
+    return
+  if (typeof input.recGrayMatched === 'boolean' && !recExperimentExposed) {
+    let alreadySent = false
+    try {
+      if (typeof sessionStorage !== 'undefined')
+        alreadySent = sessionStorage.getItem(REC_EXPERIMENT_STORAGE_KEY) === '1'
+    }
+    catch {
+      // ignore storage restriction
+    }
+    recExperimentExposed = true
+    if (!alreadySent) {
+      try {
+        if (typeof sessionStorage !== 'undefined')
+          sessionStorage.setItem(REC_EXPERIMENT_STORAGE_KEY, '1')
+      }
+      catch {
+        // ignore storage restriction
+      }
+      trackExperimentExposure(
+        'home_recommendation',
+        input.recGrayMatched ? 'treatment' : 'control',
+        'recommendation_settings',
+      )
+    }
+  }
+  const key = `${input.userId}:${input.recEffective ?? ''}`
+  try {
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(PROFILE_SNAPSHOT_STORAGE_KEY) === key)
+      return
+    if (typeof sessionStorage !== 'undefined')
+      sessionStorage.setItem(PROFILE_SNAPSHOT_STORAGE_KEY, key)
+  }
+  catch {
+    // ignore storage restriction
+  }
+  const { isPwa, displayMode } = detectDisplayMode()
+  const props: Record<string, string | number | boolean> = {
+    user_identity: (input.userIdentity || 'user').slice(0, 32),
+    score_bucket: bucketScore(input.score ?? 0),
+    coin_bucket: bucketCoins(input.coins ?? 0),
+    is_pwa: isPwa,
+    display_mode: displayMode,
+    theme_mode: currentThemeMode(),
+    app_version: getAppVersion(),
+  }
+  if (input.recMode)
+    props.rec_mode = input.recMode.slice(0, 16)
+  if (input.recEffective)
+    props.rec_effective = input.recEffective.slice(0, 16)
+  if (typeof input.recGrayMatched === 'boolean')
+    props.rec_gray_matched = input.recGrayMatched
+  if (typeof input.pushEnabled === 'boolean')
+    props.push_enabled = input.pushEnabled
+  trackEvia('session_profile_snapshot', props)
+}
+
 function referrerHost(): string {
   if (typeof document === 'undefined' || !document.referrer)
     return ''
@@ -804,6 +937,7 @@ export function trackPageNavigation(page: PageNavigation): void {
   const screenHeight = Math.max(1, Math.min(65535, Math.round(window.screen.height)))
   const referrer = referrerHost()
   const attribution = resolveSessionAttribution()
+  const { isPwa, displayMode } = detectDisplayMode()
   const properties: Record<string, string | number | boolean> = {
     route_name: page.routeName.slice(0, 128),
     route_path: page.routePath.slice(0, 256),
@@ -823,6 +957,8 @@ export function trackPageNavigation(page: PageNavigation): void {
     os_family: detectOsFamily(),
     browser_family: detectBrowserFamily(),
     is_logged_in: Boolean(latestUid),
+    is_pwa: isPwa,
+    display_mode: displayMode,
   }
   if (referrer)
     properties.referrer_host = referrer

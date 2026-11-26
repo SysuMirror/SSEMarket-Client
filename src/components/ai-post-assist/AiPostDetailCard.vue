@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { AssistPostData } from '@/api/assist'
 import { Icon } from '@iconify/vue'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { bucketLength, trackEvia } from '@/analytics/evia'
 import { fetchAssistFollowup } from '@/api/assist'
 import MarkdownContainer from '@/components/MarkdownContainer.vue'
 
@@ -27,6 +28,24 @@ function measure() {
 }
 
 watch(() => props.data.answer, measure, { immediate: true })
+
+onMounted(() => {
+  trackEvia('ai_post_assist_interacted', {
+    post_id: Number(props.postId),
+    action: 'viewed',
+    sources_type: (props.data.sources_type || 'local').slice(0, 32),
+  })
+})
+
+watch(expanded, (next) => {
+  if (next) {
+    trackEvia('ai_post_assist_interacted', {
+      post_id: Number(props.postId),
+      action: 'expanded',
+      sources_type: (props.data.sources_type || 'local').slice(0, 32),
+    })
+  }
+})
 
 // ---- 追加上下文 ----
 const showFollowUp = ref(false)
@@ -63,6 +82,12 @@ async function handleFollowUp() {
   const answer = await fetchAssistFollowup(props.postId, q, history)
   if (answer) {
     followUps.value.push({ question: q, answer })
+    trackEvia('ai_post_assist_interacted', {
+      post_id: Number(props.postId),
+      action: 'followup_sent',
+      sources_type: (props.data.sources_type || 'local').slice(0, 32),
+      length_bucket: bucketLength(q.length),
+    })
     followUpQuestion.value = ''
   }
   else {

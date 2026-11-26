@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { StaffAlias } from '@/api/staff/staff'
 import type { Post } from '@/types/post'
-import { computed, defineAsyncComponent, ref, useTemplateRef, watch } from 'vue'
-import { trackEvia } from '@/analytics/evia'
+import { computed, defineAsyncComponent, onUnmounted, ref, useTemplateRef, watch } from 'vue'
+import { bucketLength, trackEvia } from '@/analytics/evia'
 import { sendComment } from '@/api/editPostAndComment/editComment'
 import { delPost, updatePostPrivacy } from '@/api/editPostAndComment/editPost'
 
@@ -48,10 +48,25 @@ const commentSubmitting = ref(false)
 const staffAliases = ref<StaffAlias[]>([])
 const staffReplyAs = ref(0)
 
-watch(commentButtonIsShow, async (open) => {
+watch(commentButtonIsShow, async (open, prev) => {
+  if (!open && prev && commentContent.value.trim()) {
+    trackEvia('comment_abandoned', {
+      post_id: Number(post.PostID),
+      length_bucket: bucketLength(commentContent.value.trim().length),
+    })
+  }
   if (!open || staffAliases.value.length > 0)
     return
   staffAliases.value = await fetchThreadStaffAliases(Number(post.PostID))
+})
+
+onUnmounted(() => {
+  if (commentButtonIsShow.value && commentContent.value.trim()) {
+    trackEvia('comment_abandoned', {
+      post_id: Number(post.PostID),
+      length_bucket: bucketLength(commentContent.value.trim().length),
+    })
+  }
 })
 
 const { userInfo } = useUserStore()

@@ -91,6 +91,33 @@ test('bucketing helpers normalize length, price, count, and age cleanly', () => 
   assert.equal(evia.bucketAgeHours(Date.now() - 10 * 60 * 1000), 'lt_1h')
   assert.equal(evia.bucketAgeHours(Date.now() - 48 * 3600 * 1000), '1_3d')
   assert.equal(evia.bucketAgeHours('not-a-date'), 'unknown')
+
+  assert.equal(evia.bucketScore(0), '0')
+  assert.equal(evia.bucketScore(350), '100_499')
+  assert.equal(evia.bucketScore(6000), '5000_plus')
+  assert.equal(evia.bucketCoins(0), '0')
+  assert.equal(evia.bucketCoins(25), '11_50')
+  assert.equal(evia.bucketCoins(500), 'gt_200')
+})
+
+test('search chain links consecutive searches within 60s', () => {
+  const firstPrev = evia.recordSearchAndGetPrevious('search-1')
+  assert.equal(firstPrev, '')
+  const secondPrev = evia.recordSearchAndGetPrevious('search-2')
+  assert.equal(secondPrev, 'search-1')
+})
+
+test('display mode detection and profile snapshot are safe in node', () => {
+  assert.deepEqual(evia.detectDisplayMode(), { isPwa: false, displayMode: 'browser' })
+  assert.doesNotThrow(() => evia.reportSessionProfileSnapshot({
+    userId: 42,
+    userIdentity: 'user',
+    score: 120,
+    coins: 20,
+    recMode: 'auto',
+    recEffective: 'recommend',
+    recGrayMatched: true,
+  }))
 })
 
 test('active dwell tracker returns bounded non-negative durations', () => {

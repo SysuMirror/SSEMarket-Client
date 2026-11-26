@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { isEviaConsentEnabled, resetEvia, setEviaConsentEnabled, trackEvia } from '@/analytics/evia'
+import { isEviaConsentEnabled, reportSessionProfileSnapshot, resetEvia, setEviaConsentEnabled, trackEvia } from '@/analytics/evia'
 import type { Ref } from 'vue'
 import type { AllInfo } from '@/api/info/getInfo'
 import { computed, inject, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
@@ -88,13 +88,27 @@ const recHint = computed(() => {
 
 async function loadRecommendationSettings() {
   recSettings.value = await getRecommendationSettings()
-  if (recSettings.value)
+  if (recSettings.value) {
     setRecommendationModeEnabled(recSettings.value.effective === 'recommend' || recSettings.value.mode === 'on')
+    if (userInfo.userID > 0) {
+      reportSessionProfileSnapshot({
+        userId: userInfo.userID,
+        userIdentity: userInfo.identity,
+        score: allInfo.value?.score ?? 0,
+        coins: userInfo.coins ?? 0,
+        recMode: recSettings.value.mode,
+        recEffective: recSettings.value.effective,
+        recGrayMatched: recSettings.value.grayMatched,
+        pushEnabled: !isPushDisabled.value,
+      })
+    }
+  }
 }
 
 async function chooseRecMode(mode: RecommendationMode) {
   if (recSaving.value || recSettings.value?.mode === mode)
     return
+  const previousMode = recSettings.value?.mode ?? 'auto'
   recSaving.value = true
   try {
     const next = await setRecommendationMode(mode)
@@ -102,6 +116,11 @@ async function chooseRecMode(mode: RecommendationMode) {
       recSettings.value = next
       // 开启为你推荐后不再提醒新帖；关掉后恢复轮询。
       setRecommendationModeEnabled(next.effective === 'recommend' || next.mode === 'on')
+      trackEvia('recommendation_mode_changed', {
+        previous_mode: previousMode,
+        next_mode: next.mode,
+        effective: next.effective,
+      })
     }
     else {
       showMsg('保存推荐设置失败')
@@ -234,6 +253,10 @@ function openMyBadges() {
 /** 设置页下载入口：与个人主页按钮同口径，按当前设备给安装包。 */
 function handleDownloadApp() {
   const target = resolveAppDownload()
+  trackEvia('app_download_clicked', {
+    platform: target.label.slice(0, 32),
+    supported: Boolean(target.supported && target.url),
+  })
   if (!target.supported) {
     showMsg(`暂未提供 ${target.label} 版 App，请继续使用网页版`, 'warning')
     return
@@ -318,6 +341,7 @@ async function toggleHideProfile(value: boolean) {
   try {
     await persistUserInfoToServer()
     await reloadSettingsFromServer()
+    trackEvia('profile_privacy_changed', { hidden: value })
   }
   catch {
     allInfo.value.hideProfilePosts = prev
@@ -335,6 +359,7 @@ async function togglePush() {
       return
     await updateEmailPush(allInfo.value.userID)
     await reloadSettingsFromServer()
+    trackEvia('push_preference_changed', { enabled: !isPushDisabled.value })
     showMsg(
       isPushDisabled.value
         ? '已禁用邮箱推送，将不再接收系统邮件'

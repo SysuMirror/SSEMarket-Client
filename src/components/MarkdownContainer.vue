@@ -353,6 +353,14 @@ async function handleMarkdownClick(event: MouseEvent) {
   }
   try {
     await navigator.clipboard.writeText(text)
+    const langMatch = codeEl?.className.match(/language-([a-z0-9_-]+)/i)
+    void import('@/analytics/evia').then(({ bucketLength, getCurrentRouteTemplate, trackEvia }) => {
+      trackEvia('code_block_copied', {
+        language: (langMatch?.[1] || 'plain').toLowerCase().slice(0, 32),
+        length_bucket: bucketLength(text.length),
+        route_template: getCurrentRouteTemplate().slice(0, 128),
+      })
+    })
     showMsg('代码已复制')
   }
   catch {

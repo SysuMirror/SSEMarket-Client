@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { onMounted, ref } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 import { requestFunc } from '@/api/req'
 import { CONTENT_PARTITIONS } from '@/constants/partitions'
 
@@ -76,6 +77,13 @@ onMounted(loadWorkbenchApps)
 
 const partitions = CONTENT_PARTITIONS
 
+function trackWorkbenchClick(entryKey: string, kind: 'route' | 'link' | 'partition') {
+  trackEvia('workbench_entry_clicked', {
+    entry_key: entryKey.slice(0, 64),
+    kind,
+  })
+}
+
 function entryStyle(entry: CommonEntry) {
   const style: Record<string, string> = {}
   if (entry.colorBg)
@@ -113,6 +121,7 @@ function entryStyle(entry: CommonEntry) {
             :href="entry.href"
             :target="entry.href ? '_blank' : undefined"
             :rel="entry.href ? 'noopener noreferrer' : undefined"
+            @click="trackWorkbenchClick(entry.key, entry.href ? 'link' : 'route')"
           >
             <span v-if="entry.to" class="wb-cell__router-wrap">
               <RouterLink :to="entry.to" class="wb-cell__link">
@@ -143,6 +152,7 @@ function entryStyle(entry: CommonEntry) {
             class="wb-cell"
             :class="`wb-cell--${p.key}`"
             :to="`/partition/${encodeURIComponent(p.name)}`"
+            @click="trackWorkbenchClick(p.key, 'partition')"
           >
             <span class="wb-cell__link">
               <span class="wb-cell__icon-wrap">

@@ -11,6 +11,19 @@ function normalizeApiOperation(method: string, url: string): string {
   return `api:${method.toUpperCase()}:${cleanPath}`.slice(0, 128)
 }
 
+const SLOW_API_THRESHOLD_MS = 1500
+
+function reportSlowRequestIfNeeded(method: string, url: string, status: number, startedAt: number): void {
+  const durationMs = Math.round(Date.now() - startedAt)
+  if (durationMs < SLOW_API_THRESHOLD_MS)
+    return
+  trackEvia('api_slow_request', {
+    operation: normalizeApiOperation(method, url),
+    duration_ms: Math.min(durationMs, 300_000),
+    status,
+  })
+}
+
 function reportHttpFailure(method: string, url: string, status: number): void {
   if (status < 400)
     return
@@ -140,8 +153,9 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
     const finalUrl = `${apiUrl}${url}?${new URLSearchParams(object.query).toString()}`
 
     const doRequest = async () => {
+      const startedAt = Date.now()
       try {
-        return await fetch(`${finalUrl}`, {
+        const response = await fetch(`${finalUrl}`, {
           method: object.method,
           headers: {
             ...object.headers,
@@ -149,6 +163,9 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
           },
           body: JSON.stringify(object.body),
         })
+        if (response.ok)
+          reportSlowRequestIfNeeded(object.method, url, response.status, startedAt)
+        return response
       }
       catch (err) {
         reportNetworkFailure(object.method, url, err)
@@ -272,6 +289,7 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
     return res
   }
   else {
+    const startedAt = Date.now()
     try {
       const res = await fetch(`${apiUrl}${url}`, {
         method: object.method,
@@ -280,6 +298,8 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
       })
       if (!res.ok)
         reportHttpFailure(object.method, url, res.status)
+      else
+        reportSlowRequestIfNeeded(object.method, url, res.status, startedAt)
       return res
     }
     catch (err) {

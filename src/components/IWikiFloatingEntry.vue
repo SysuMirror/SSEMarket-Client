@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 const entry = ref<HTMLElement | null>(null)
 const position = ref<{ x: number; y: number } | null>(null)
 const dragging = ref(false)
@@ -17,6 +18,7 @@ function dismissedRecently(): boolean {
 const hidden = ref(dismissedRecently())
 function dismiss() {
   hidden.value = true
+  trackEvia('iwiki_entry_interacted', { action: 'dismissed' })
   try { localStorage.setItem(dismissedKey, String(Date.now() + dismissedForMs)) } catch { /* Storage may be disabled. */ }
 }
 let gesture: { id: number; x: number; y: number; left: number; top: number } | null = null
@@ -85,7 +87,12 @@ function finish(event: PointerEvent) {
   }
 }
 function click(event: MouseEvent) {
-  if (suppressClick && event.detail !== 0) { event.preventDefault(); event.stopPropagation() }
+  if (suppressClick && event.detail !== 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  trackEvia('iwiki_entry_interacted', { action: 'clicked' })
 }
 function resized() {
   if (position.value) restore()

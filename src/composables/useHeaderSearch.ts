@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchHotQueries } from '@/api/ragSearch'
-import { trackEvia } from '@/analytics/evia'
+import { recordSearchAndGetPrevious, trackEvia } from '@/analytics/evia'
 
 const isSmartSearchMode = ref(false)
 const hotQueries = ref<string[]>([])
@@ -72,6 +72,7 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
 
   function search() {
     const el = inputRef.value
+    const fromPlaceholder = !searchInputValue.value.trim() && Boolean(searchPlaceholder.value.trim())
     const value = currentSearchValue()
     if (!value)
       return
@@ -87,11 +88,14 @@ export function useHeaderSearch(inputRef: Readonly<Ref<HTMLInputElement | null>>
       return
     }
     const searchId = crypto.randomUUID()
+    const prevSearchId = recordSearchAndGetPrevious(searchId)
     trackEvia('search_performed', {
       search_id: searchId,
       scope: isSmartSearchMode.value ? 'smart' : 'normal',
       keyword_length: Math.min(Math.ceil(value.length / 10), 20),
       keyword: value.slice(0, 64),
+      input_source: fromPlaceholder ? 'hot_placeholder' : 'typed',
+      ...(prevSearchId ? { prev_search_id: prevSearchId.slice(0, 36) } : {}),
     })
     router.push({
       name: 'Search',

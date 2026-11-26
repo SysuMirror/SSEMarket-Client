@@ -59,6 +59,20 @@ const levelLabel = computed(() => {
 
 const isSelf = computed(() => userInfo.userID === user.value?.userID)
 
+watch(
+  () => user.value?.userID,
+  (targetId, prevId) => {
+    if (!targetId || targetId === prevId)
+      return
+    void import('@/analytics/evia').then(({ trackEvia }) => {
+      trackEvia('profile_viewed', {
+        is_self: userInfo.userID === targetId,
+        posts_hidden: Boolean(user.value?.hideProfilePosts),
+      })
+    })
+  },
+)
+
 // 币余额仅本人可见（后端只在本人查看时返回 coins）
 const showCoins = computed(() => isSelf.value && user.value?.coins !== undefined)
 const coinRulesOpen = ref(false)

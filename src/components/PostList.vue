@@ -3,6 +3,7 @@ import type { Post } from '@/types/post'
 import type { ComponentPublicInstance } from 'vue'
 
 import { computed, onUnmounted, useTemplateRef, watch } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 import { createImpressionTracker } from '@/analytics/telemetry'
 import PostCard from './card/PostCard.vue'
 import PageSkeleton from './PageSkeleton.vue'
@@ -33,12 +34,23 @@ const emits = defineEmits(['bottom', 'pinChange'])
 const bottom = useTemplateRef('bottom')
 let observer: IntersectionObserver
 
+let pageIndex = 1
+
 function startObserver() {
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting)
+        if (entry.isIntersecting) {
+          if (posts.length > 0 && !isLoading) {
+            pageIndex += 1
+            trackEvia('feed_page_loaded', {
+              source: resolvedSource.value,
+              page_index: Math.min(pageIndex, 500),
+              loaded_count: Math.min(posts.length, 5000),
+            })
+          }
           emits('bottom')
+        }
       })
     },
     {

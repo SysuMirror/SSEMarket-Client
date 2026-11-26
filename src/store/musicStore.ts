@@ -199,6 +199,18 @@ function prevIndex(): number {
 }
 
 function nextTrack(fromEnd = false) {
+  if (!fromEnd && isPlaying.value) {
+    const current = playlist.value[currentIndex.value]
+    if (current) {
+      const totalSec = Math.max(Math.round(duration.value || current.durationSec || 0), 0)
+      const playedSec = Math.max(Math.round(progress.value || 0), 0)
+      trackEvia('music_skipped', {
+        track_id: current.musicID,
+        played_sec: Math.min(playedSec, 86400),
+        duration_sec: Math.min(totalSec, 86400),
+      })
+    }
+  }
   const i = nextIndex()
   if (i >= 0)
     playIndex(i)

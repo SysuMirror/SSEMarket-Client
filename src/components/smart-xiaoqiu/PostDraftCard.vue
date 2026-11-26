@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PostDraftPayload, TimelinePostDraft } from '@/composables/useOpsAgentStream'
 import { computed, ref } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 import { submitDraft, uploadDraftImage } from '@/api/post/draft'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
@@ -136,6 +137,10 @@ async function handleConfirm() {
     const result = await submitDraft(buildDraft(), uploadedUrls)
     if (result.ok) {
       successUrl.value = result.url || ''
+      trackEvia('ai_draft_interacted', {
+        draft_type: type.value,
+        action: 'published',
+      })
       patch({
         status: 'success',
         result: {
@@ -162,6 +167,10 @@ async function handleConfirm() {
 }
 
 function handleCancel() {
+  trackEvia('ai_draft_interacted', {
+    draft_type: type.value,
+    action: 'dismissed',
+  })
   patch({ status: 'error', error: '已取消' })
 }
 </script>

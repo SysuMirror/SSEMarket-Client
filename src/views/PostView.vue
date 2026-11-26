@@ -6,7 +6,7 @@ import type { LotteryMode, LotteryPrizeInput } from '@/api/lottery/lottery'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { bucketLength, trackEvia } from '@/analytics/evia'
+import { bucketLength, reportValidationBlocked, trackEvia } from '@/analytics/evia'
 
 import { fetchAssistMatch } from '@/api/assist'
 import { sendPost } from '@/api/editPostAndComment/editPost'
@@ -63,6 +63,8 @@ const lotteryPrizes = ref<LotteryPrizeInput[]>([
 const titleCount = computed(() => postTitle.value.length)
 
 let autoSaveTimer: number | null = null
+const composerOpenedAt = Date.now()
+let postPublishedInSession = false
 
 function validateLotteryConfig(): string | null {
   if (!lotteryDrawAt.value)
@@ -141,16 +143,19 @@ async function submitPost() {
   const postPartition = partition.value
 
   if (!title || !content) {
+    reportValidationBlocked('post_composer', 'missing_title_or_content')
     showMsg('请填写完整信息')
     return
   }
   if (isPostContentTooLong(content)) {
+    reportValidationBlocked('post_composer', 'content_too_long')
     showMsg(`正文最多 ${POST_CONTENT_MAX_RUNES} 字`)
     return
   }
   if (postKind.value === 'lottery') {
     const err = validateLotteryConfig()
     if (err) {
+      reportValidationBlocked('post_composer', 'invalid_lottery_config')
       showMsg(err)
       return
     }
@@ -176,6 +181,7 @@ async function submitPost() {
       })
       showMsg(msg)
       if (ok) {
+        postPublishedInSession = true
         trackEvia('post_published', {
           post_id: Number(postID ?? 0),
           partition: postPartition.slice(0, 64),
@@ -216,6 +222,7 @@ async function submitPost() {
     }
     // 发帖后生成一次并落库：静默预生成，不阻塞跳转；120s 覆盖服务端 LLM 最长 100s
     const newPostID = Number((res.data as { postID?: number } | null)?.postID ?? 0)
+    postPublishedInSession = true
     trackEvia('post_published', {
       post_id: newPostID,
       partition: postPartition.slice(0, 64),
@@ -272,6 +279,14 @@ onMounted(async () => {
 onUnmounted(() => {
   if (autoSaveTimer)
     clearInterval(autoSaveTimer)
+  if (!postPublishedInSession && (postTitle.value.trim() || postContent.value.trim())) {
+    trackEvia('post_editor_abandoned', {
+      had_title: Boolean(postTitle.value.trim()),
+      content_length_bucket: bucketLength(postContent.value.trim().length),
+      post_kind: postKind.value,
+      dwell_ms: Math.min(Math.max(Date.now() - composerOpenedAt, 0), 3_600_000),
+    })
+  }
 })
 </script>
 

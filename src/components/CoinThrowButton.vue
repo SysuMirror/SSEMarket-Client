@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CoinTargetType } from '@/api/coin/coin'
 import { computed, ref, watch } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 import coinIcon from '@/assets/coin-icon.png'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
@@ -75,6 +76,14 @@ function onChanged(nextMy: number, delta: number) {
   my.value = nextMy
   // delta：+n 投出去 / -n 撤回；目标总数跟着增减（其余人的币不受影响）
   total.value = Math.max(total.value + delta, 0)
+  if (delta !== 0) {
+    trackEvia('coin_thrown', {
+      target_type: props.targetType,
+      target_id: Number(props.targetID),
+      amount: delta,
+      from: props.variant === 'prominent' ? 'detail' : 'feed',
+    })
+  }
   emit('thrown', my.value, total.value)
 }
 </script>

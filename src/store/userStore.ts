@@ -1,5 +1,5 @@
 import { computed, reactive } from 'vue'
-import { identifyEvia, resetEvia } from '@/analytics/evia'
+import { identifyEvia, reportSessionProfileSnapshot, resetEvia } from '@/analytics/evia'
 
 const SEVEN_DAYS_IN_MS = 7 * 24 * 60 * 60 * 1000 - 1000 * 60 * 60
 const THIRTY_DAYS_IN_MS = 30 * 24 * 60 * 60 * 1000
@@ -116,6 +116,28 @@ function setUserInfo(newUserInfo: UserInfo) {
     if (lastIdentifiedUserId !== newUserInfo.userID) {
       lastIdentifiedUserId = newUserInfo.userID
       identifyEvia(`newsse-u${newUserInfo.userID}`)
+      const raw = newUserInfo as UserInfo & { score?: number }
+      reportSessionProfileSnapshot({
+        userId: newUserInfo.userID,
+        userIdentity: newUserInfo.identity,
+        score: raw.score ?? 0,
+        coins: newUserInfo.coins ?? 0,
+      })
+      void import('@/api/recommendation').then(({ getRecommendationSettings }) =>
+        getRecommendationSettings().then((settings) => {
+          if (!settings)
+            return
+          reportSessionProfileSnapshot({
+            userId: newUserInfo.userID,
+            userIdentity: newUserInfo.identity,
+            score: raw.score ?? 0,
+            coins: newUserInfo.coins ?? 0,
+            recMode: settings.mode,
+            recEffective: settings.effective,
+            recGrayMatched: settings.grayMatched,
+          })
+        }),
+      ).catch(() => {})
     }
   }
   else if (lastIdentifiedUserId !== 0) {

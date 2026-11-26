@@ -200,8 +200,11 @@ function reportPostExited() {
   postExitedReported = true
   const snap = dwellTracker.snapshot()
   dwellTracker.dispose()
+  const postId = Number(route.params.id)
+  if (userStore.token.value && Number.isFinite(postId) && postId > 0 && snap.activeMs > 0)
+    void reportRecommendationRead(postId, snap.activeMs)
   trackEvia('post_exited', {
-    post_id: Number(route.params.id),
+    post_id: postId,
     total_dwell_ms: snap.totalMs,
     active_dwell_ms: snap.activeMs,
     quick_bounce: snap.activeMs < 10_000,

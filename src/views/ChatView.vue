@@ -164,9 +164,12 @@ function sendMessage() {
 
 function toggleAnonymousMode() {
   if (current.threadAnonymous) {
-    setAnonymousMode(!isAnonymousMode.value)
+    const next = !isAnonymousMode.value
+    setAnonymousMode(next)
+    trackEvia('chat_anonymous_toggled', { enabled: next })
     return
   }
+  trackEvia('chat_anonymous_toggled', { enabled: true })
   startAnonymousThread()
 }
 
@@ -192,7 +195,9 @@ async function handleRecall(entry: ChatMessageItem) {
   if (!canRecallMessage(entry, userInfo.userID))
     return
   const ok = await recallMessage(entry.chatMsgID)
-  if (!ok)
+  if (ok)
+    trackEvia('message_recalled', { anonymous: Boolean(entry.isAnonymous) })
+  else
     showMsg('撤回失败，请稍后重试')
 }
 

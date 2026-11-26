@@ -256,13 +256,15 @@ export interface ImpressionBatchTracker {
 }
 
 /**
- * 轻量列表批量曝光追踪器：
- * - 单卡片在当前列表生命周期内仅计一次（IntersectionObserver threshold 0.5）
+ * Viewable Impression 列表批量曝光追踪器：
+ * - 卡片 >= 50% 可见且持续停留 >= 500ms 才确认有效曝光，过滤快速滑屏噪声
+ * - 单卡片在当前列表生命周期内仅计一次
  * - 每 2 秒或满 10 条打包发一条 feed_impressions_recorded，避免高并发刷屏。
  */
-export function createImpressionTracker(source: () => string): ImpressionBatchTracker {
+export function createImpressionTracker(source: () => string, minVisibleMs = 500): ImpressionBatchTracker {
   const seen = new Set<number>()
   const meta = new WeakMap<Element, { itemId: number, position: number }>()
+  const dwellTimers = new Map<Element, ReturnType<typeof setTimeout>>()
   let pending: { itemId: number, position: number }[] = []
   let timer: ReturnType<typeof setTimeout> | null = null
 
@@ -295,18 +297,38 @@ export function createImpressionTracker(source: () => string): ImpressionBatchTr
       timer = setTimeout(flush, 2000)
   }
 
+  const clearDwellTimer = (el: Element) => {
+    const existing = dwellTimers.get(el)
+    if (existing !== undefined) {
+      clearTimeout(existing)
+      dwellTimers.delete(el)
+    }
+  }
+
   const observer = typeof IntersectionObserver !== 'undefined'
     ? new IntersectionObserver((entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting)
-            continue
           const info = meta.get(entry.target)
-          if (!info || seen.has(info.itemId))
+          if (!info || seen.has(info.itemId)) {
+            clearDwellTimer(entry.target)
             continue
-          seen.add(info.itemId)
-          observer?.unobserve(entry.target)
-          pending.push(info)
-          scheduleFlush()
+          }
+          if (!entry.isIntersecting) {
+            clearDwellTimer(entry.target)
+            continue
+          }
+          if (dwellTimers.has(entry.target))
+            continue
+          const handle = setTimeout(() => {
+            dwellTimers.delete(entry.target)
+            if (seen.has(info.itemId))
+              return
+            seen.add(info.itemId)
+            observer?.unobserve(entry.target)
+            pending.push(info)
+            scheduleFlush()
+          }, minVisibleMs)
+          dwellTimers.set(entry.target, handle)
         }
       }, { threshold: 0.5 })
     : null
@@ -319,10 +341,14 @@ export function createImpressionTracker(source: () => string): ImpressionBatchTr
       observer.observe(element)
     },
     unobserve(element: Element): void {
+      clearDwellTimer(element)
       observer?.unobserve(element)
     },
     flush,
     dispose(): void {
+      for (const handle of dwellTimers.values())
+        clearTimeout(handle)
+      dwellTimers.clear()
       flush()
       observer?.disconnect()
     },
