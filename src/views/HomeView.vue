@@ -233,6 +233,7 @@ watch(() => route.query.refresh, async (newRefresh) => {
 
     <PostList
       :posts="allPosts"
+      :source="featuredOnly ? 'feed_featured' : (feedMode === 'recommend' ? 'feed_recommend' : 'feed_time')"
       :is-loading="isLoading"
       :has-more="hasMore"
       :new-post-ids="newPostsNotification.newPostIds"

@@ -6,6 +6,7 @@ import type { LotteryMode, LotteryPrizeInput } from '@/api/lottery/lottery'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
+import { bucketLength, trackEvia } from '@/analytics/evia'
 
 import { fetchAssistMatch } from '@/api/assist'
 import { sendPost } from '@/api/editPostAndComment/editPost'
@@ -104,6 +105,7 @@ async function saveDraft() {
 
   const newDraftId = await addDraft({ title: draftTitle, content: draftContent }) as unknown as number
   selectDraft(newDraftId)
+  trackEvia('post_draft_saved', { mode: 'manual', content_length_bucket: bucketLength(draftContent.length) })
   showMsg('草稿已保存')
 }
 
@@ -115,7 +117,10 @@ function autoSaveDraft() {
 
   if (draftTitle || draftContent) {
     return updateDraft({ id: current.id, title: draftTitle, content: draftContent })
-      .then(() => true)
+      .then(() => {
+        trackEvia('post_draft_saved', { mode: 'auto', content_length_bucket: bucketLength(draftContent.length) })
+        return true
+      })
   }
   return Promise.resolve(false)
 }
@@ -171,10 +176,24 @@ async function submitPost() {
       })
       showMsg(msg)
       if (ok) {
+        trackEvia('post_published', {
+          post_id: Number(postID ?? 0),
+          partition: postPartition.slice(0, 64),
+          post_kind: 'lottery',
+          is_anonymous: false,
+          is_private: postPrivate.value,
+          is_pinned: false,
+          content_length_bucket: bucketLength(content.length),
+          has_media: /!\[[^\]]*\]\([^)]+\)|::music\s+\d+::/.test(content),
+          used_draft: (current.id ?? 0) > 0,
+        })
         if (postID)
           router.push(`/postdetail/${postID}`)
         else
           router.push('/')
+      }
+      else {
+        trackEvia('post_publish_failed', { post_kind: 'lottery', reason: 'api_rejected' })
       }
       return
     }
@@ -191,11 +210,23 @@ async function submitPost() {
       postPinned.value,
     )
     if (!res || typeof res.msg !== 'string') {
+      trackEvia('post_publish_failed', { post_kind: 'normal', reason: 'network_or_empty' })
       showMsg('发帖失败，请检查网络后重试')
       return
     }
     // 发帖后生成一次并落库：静默预生成，不阻塞跳转；120s 覆盖服务端 LLM 最长 100s
     const newPostID = Number((res.data as { postID?: number } | null)?.postID ?? 0)
+    trackEvia('post_published', {
+      post_id: newPostID,
+      partition: postPartition.slice(0, 64),
+      post_kind: 'normal',
+      is_anonymous: postAnonymous.value,
+      is_private: postPrivate.value,
+      is_pinned: postPinned.value,
+      content_length_bucket: bucketLength(content.length),
+      has_media: /!\[[^\]]*\]\([^)]+\)|::music\s+\d+::/.test(content),
+      used_draft: (current.id ?? 0) > 0,
+    })
     if (newPostID > 0) {
       fetchAssistMatch(
         { partition: postPartition, title, content, postID: newPostID },
@@ -215,6 +246,10 @@ onMounted(async () => {
   teachers.value = data
 
   await syncDrafts()
+  trackEvia('post_editor_opened', {
+    has_drafts: drafts.length > 0,
+    draft_count: Math.min(drafts.length, 100),
+  })
 
   if (drafts.length > 0) {
     const latestDraft = drafts[drafts.length - 1]

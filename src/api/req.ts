@@ -1,9 +1,36 @@
+import { reportEviaOperationFailure, trackEvia } from '@/analytics/evia'
 import { showMsg } from '@/components/MessageBox'
 import router from '@/router'
 import { useUserStore } from '@/store/userStore'
 import { ssoTry, waitSsoProbeSettled } from '@/api/sso/sso'
 
 const apiUrl = import.meta.env.VITE_API_BASE_URL
+
+function normalizeApiOperation(method: string, url: string): string {
+  const cleanPath = url.split('?')[0].replace(/\/\d+(?=\/|$)/g, '/:id')
+  return `api:${method.toUpperCase()}:${cleanPath}`.slice(0, 128)
+}
+
+function reportHttpFailure(method: string, url: string, status: number): void {
+  if (status < 400)
+    return
+  reportEviaOperationFailure({
+    operation: normalizeApiOperation(method, url),
+    errorCategory: 'http',
+    retryable: status === 408 || status === 429 || status >= 500,
+    errorCode: `HTTP_${status}`,
+  })
+}
+
+function reportNetworkFailure(method: string, url: string, error: unknown): void {
+  const isTimeout = error instanceof DOMException && (error.name === 'AbortError' || error.name === 'TimeoutError')
+  reportEviaOperationFailure({
+    operation: normalizeApiOperation(method, url),
+    errorCategory: isTimeout ? 'timeout' : 'network',
+    retryable: true,
+    errorCode: isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR',
+  })
+}
 
 let refreshPromise: Promise<void> | null = null
 
@@ -80,6 +107,7 @@ function recoverSession(): Promise<'ok' | 'unauthorized' | 'unavailable'> {
     if (result.state === 'ok') {
       store.setToken(result.token)
       store.setRefreshToken(result.refresh_token)
+      trackEvia('sso_silent_restored', { source: 'api_recover' })
       return 'ok' as const
     }
     return result.state === 'unauthorized' ? 'unauthorized' as const : 'unavailable' as const
@@ -112,14 +140,20 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
     const finalUrl = `${apiUrl}${url}?${new URLSearchParams(object.query).toString()}`
 
     const doRequest = async () => {
-      return fetch(`${finalUrl}`, {
-        method: object.method,
-        headers: {
-          ...object.headers,
-          Authorization: `Bearer ${store.token.value}`,
-        },
-        body: JSON.stringify(object.body),
-      })
+      try {
+        return await fetch(`${finalUrl}`, {
+          method: object.method,
+          headers: {
+            ...object.headers,
+            Authorization: `Bearer ${store.token.value}`,
+          },
+          body: JSON.stringify(object.body),
+        })
+      }
+      catch (err) {
+        reportNetworkFailure(object.method, url, err)
+        throw err
+      }
     }
 
     let res: Response
@@ -185,6 +219,8 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
     }
 
     if (res.status !== 401) {
+      if (!res.ok)
+        reportHttpFailure(object.method, url, res.status)
       return res
     }
 
@@ -207,8 +243,16 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
       const rec = await recoverSession()
       if (rec === 'ok') {
         res = await doRequest()
+        if (!res.ok)
+          reportHttpFailure(object.method, url, res.status)
         return res
       }
+      reportEviaOperationFailure({
+        operation: normalizeApiOperation(object.method, url),
+        errorCategory: rec === 'unauthorized' ? 'http' : 'network',
+        retryable: rec !== 'unauthorized',
+        errorCode: rec === 'unauthorized' ? 'AUTH_EXPIRED' : 'SSO_UNAVAILABLE',
+      })
       if (rec === 'unauthorized') {
         showMsg('登录过期，请重新登录')
         store.setToken('')
@@ -223,15 +267,25 @@ async function requestFunc(url: string, object: RequestObject, tokenIsNeeded: bo
     }
 
     res = await doRequest()
+    if (!res.ok)
+      reportHttpFailure(object.method, url, res.status)
     return res
   }
   else {
-    const res = await fetch(`${apiUrl}${url}`, {
-      method: object.method,
-      headers: object.headers,
-      body: JSON.stringify(object.body),
-    })
-    return res
+    try {
+      const res = await fetch(`${apiUrl}${url}`, {
+        method: object.method,
+        headers: object.headers,
+        body: JSON.stringify(object.body),
+      })
+      if (!res.ok)
+        reportHttpFailure(object.method, url, res.status)
+      return res
+    }
+    catch (err) {
+      reportNetworkFailure(object.method, url, err)
+      throw err
+    }
   }
 }
 

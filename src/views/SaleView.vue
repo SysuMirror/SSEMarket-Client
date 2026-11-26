@@ -2,6 +2,7 @@
 import { Icon } from '@iconify/vue'
 import { ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
+import { bucketPrice, trackEvia } from '@/analytics/evia'
 import { uploadPhoto } from '@/api/editPostAndComment/utils'
 import { createShopProduct } from '@/api/shop/mutations'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
@@ -89,6 +90,12 @@ async function submit() {
       showMsg('发布失败')
       return
     }
+    trackEvia('product_published', {
+      product_id: Number(id),
+      price_bucket: bucketPrice(p),
+      image_count: Math.min(imageUrls.length, 20),
+      sync_feed: syncFeedPost.value,
+    })
     showMsg(syncFeedPost.value ? '已发布，并已同步发帖到主页' : '商品发布成功')
     router.push(shopProductPath(id))
   }

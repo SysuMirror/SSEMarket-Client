@@ -9,6 +9,7 @@ defineProps<{
 
 defineEmits<{
   play: []
+  milestone: [percent: 25 | 50 | 75 | 100]
 }>()
 </script>
 
@@ -23,6 +24,7 @@ defineEmits<{
       v-else-if="video.sourceType === 'mp4' || video.sourceType === 'hls'"
       :video="video"
       @play="$emit('play')"
+      @milestone="$emit('milestone', $event)"
     />
     <div v-else class="video-player__failed" role="status">
       <p>暂不支持播放此视频</p>

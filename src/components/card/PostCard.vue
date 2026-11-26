@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { trackEvia } from '@/analytics/evia'
+import { markPostEntry, trackEvia } from '@/analytics/evia'
 import type { Post } from '@/types/post'
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
@@ -20,12 +20,13 @@ import UserButton from '../UserButton.vue'
 import CoinThrowButton from '../CoinThrowButton.vue'
 import BasicCard from './BasicCard.vue'
 
-const { isDense, post, isNew, noSave = false, searchId, resultRank } = defineProps<{
+const { isDense, post, isNew, noSave = false, searchId, source, resultRank } = defineProps<{
   isDense?: boolean
   post: Post
   isNew?: boolean
   noSave?: boolean
   searchId?: string
+  source?: string
   resultRank?: number
 }>()
 
@@ -94,8 +95,13 @@ const postTarget = computed(() => searchId
   ? { path: `/postdetail/${post.PostID}`, query: { search_id: searchId, result_rank: String(resultRank ?? 0) } }
   : `/postdetail/${post.PostID}`)
 
+function recordPostOpenSource() {
+  markPostEntry(post.PostID, source || (searchId ? 'search' : 'feed'), resultRank)
+}
+
 /** 点击热门评论预览块跳转帖子详情 */
 function goDetail() {
+  recordPostOpenSource()
   router.push(postTarget.value)
 }
 
@@ -111,8 +117,9 @@ const profileOwnerId = computed(() => {
 
 async function like() {
   try {
+    const nextLiked = !post.IsLiked
     await likePost(post.PostID, userInfo.phone)
-    trackEvia('post_liked', { post_id: post.PostID, from: 'feed' })
+    trackEvia(nextLiked ? 'post_liked' : 'post_like_cancelled', { post_id: post.PostID, from: 'feed' })
     useCustomEvent('like')
   }
   catch (e) {
@@ -134,7 +141,9 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy' | 'pin' | 'u
           showMsg(msg || '失败了:-(')
           return
         }
-        useCustomEvent('save', isSaved ?? !post.IsSaved)
+        const nextSaved = isSaved ?? !post.IsSaved
+        trackEvia(nextSaved ? 'post_saved' : 'post_save_cancelled', { post_id: post.PostID, from: 'feed' })
+        useCustomEvent('save', nextSaved)
       }
       catch (e) {
         console.error(e)
@@ -145,6 +154,7 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy' | 'pin' | 'u
     case 'delete': {
       try {
         await delPost(post.PostID)
+        trackEvia('post_deleted', { post_id: post.PostID, from: 'feed' })
         useCustomEvent('delete')
       }
       catch (error) {
@@ -157,6 +167,7 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy' | 'pin' | 'u
       try {
         const nextPrivate = !post.IsPrivate
         await updatePostPrivacy(post.PostID, userInfo.phone, nextPrivate)
+        trackEvia('post_privacy_changed', { post_id: post.PostID, is_private: nextPrivate, from: 'feed' })
         useCustomEvent('privacy', nextPrivate)
         showMsg(nextPrivate ? '已设为仅自己可见' : '已公开')
       }
@@ -262,7 +273,7 @@ function useCustomEvent(type: 'delete' | 'save' | 'like' | 'privacy', value?: bo
     <div class="extension-slot">
       <slot name="right-extension" />
     </div>
-    <RouterLink class="post-card__link" :to="postTarget">
+    <RouterLink class="post-card__link" :to="postTarget" @click="recordPostOpenSource">
       <div class="post-card__title-wrap">
         <span v-if="post.IsPinned" class="post-card__pinned-badge">
           <Icon icon="tabler:pinned-filled" width="11" height="11" aria-hidden="true" />

@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import process from 'node:process'
 import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
@@ -8,6 +9,18 @@ import dnsPrefetchPlugin from './plugins/vite-plugin-dns-prefetch'
 // https://vitejs.dev/config/
 // VITE_BASE：测试环境按路径分流时用（例如 /zhangsan/）；不设就沿用主站的 /new/
 const base = process.env.VITE_BASE || (process.env.CF_PAGES ? '/' : '/new/')
+function resolveAppVersion(): string {
+  const fromEnv = (process.env.VITE_APP_VERSION || '').trim()
+  if (fromEnv)
+    return fromEnv.slice(0, 32)
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().slice(0, 32) || 'dev'
+  }
+  catch {
+    return 'dev'
+  }
+}
+const appVersion = resolveAppVersion()
 if (process.env.MARKET_TEST_BUILD === 'true') {
   for (const [key, value] of Object.entries(loadEnv('development', process.cwd(), 'VITE_EVIA_'))) {
     if (process.env[key] === undefined && value !== '')
@@ -16,6 +29,9 @@ if (process.env.MARKET_TEST_BUILD === 'true') {
 }
 export default defineConfig({
   base,
+  define: {
+    __EVIA_APP_VERSION__: JSON.stringify(appVersion),
+  },
   envDir: process.env.MARKET_TEST_BUILD === 'true' ? false : undefined,
   // dev-only：本地开发经代理直连生产后端（构建产物不受影响）。
   // agent=宿主网络 8100 稳定；Go 的 docker-proxy 回环发布已废（000），

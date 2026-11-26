@@ -2,6 +2,7 @@
 import type { HeatPost } from '@/api/browse/getPost'
 
 import { onMounted, shallowRef } from 'vue'
+import { markPostEntry } from '@/analytics/evia'
 import { getHeatPosts } from '@/api/browse/getPost'
 import { showMsg } from '@/components/MessageBox'
 
@@ -25,10 +26,11 @@ onMounted(async () => {
       热榜
     </h2>
     <router-link
-      v-for="post in heatPosts"
+      v-for="(post, idx) in heatPosts"
       :key="post.PostID"
       class="nav"
       :to="`/postdetail/${post.PostID}`"
+      @click="markPostEntry(post.PostID, 'hot', idx + 1)"
     >
       <span>
         {{ post.Title }}

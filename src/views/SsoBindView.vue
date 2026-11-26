@@ -3,6 +3,7 @@ import type { CustomFormData } from '@/composables/FormExam'
 
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 
 import { getInfo } from '@/api/info/getInfo'
 import { ssoBind } from '@/api/sso/sso'
@@ -54,17 +55,21 @@ async function bindHandler() {
   busy.value = true
   try {
     const tokens = await ssoBind(ticket, email, password)
-    if (!tokens)
+    if (!tokens) {
+      trackEvia('sso_bind_failed', { reason: 'rejected' })
       return
+    }
     localStorage.setItem('rememberMe', 'true')
     setToken(tokens.token)
     setRefreshToken(tokens.refresh_token)
     const info = await getInfo()
     setUserInfo(info)
+    trackEvia('sso_bind_succeeded', { source: 'sso_bind' })
     showMsg('绑定成功，已登录')
     router.replace('/')
   }
   catch (error) {
+    trackEvia('sso_bind_failed', { reason: 'request_error' })
     showMsg(error instanceof Error ? error.message : '绑定失败')
   }
   finally {

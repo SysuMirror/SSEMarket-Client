@@ -134,6 +134,10 @@ function startPreview() {
   if (!resume.value?.canPreview)
     return
   previewActive.value = true
+  trackEvia('resume_previewed', {
+    resume_id: Number(resume.value.resumeID),
+    file_ext: (resume.value.fileExt || 'unknown').toLowerCase().slice(0, 16),
+  })
 }
 
 async function handleDownload() {
@@ -148,6 +152,10 @@ async function handleDownload() {
       showMsg('获取下载链接失败')
       return
     }
+    trackEvia('resume_downloaded', {
+      resume_id: Number(resume.value.resumeID),
+      file_ext: (resume.value.fileExt || 'unknown').toLowerCase().slice(0, 16),
+    })
     if (inWeChat) {
       window.location.href = data.downloadURL
     }

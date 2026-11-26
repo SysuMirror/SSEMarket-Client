@@ -60,6 +60,7 @@ async function loginHandler() {
   try {
     const result = await userLogin(email, password)
     if (!result) {
+      trackEvia('login_failed', { method: 'password', reason: 'invalid_credentials' })
       showMsg('登录失败')
       return
     }
@@ -78,6 +79,7 @@ async function loginHandler() {
     void reportDailyVisit()
   }
   catch (error) {
+    trackEvia('login_failed', { method: 'password', reason: 'request_error' })
     console.error('登录失败', error)
     showMsg(error instanceof Error && error.message ? error.message : '登录失败')
   }
@@ -136,6 +138,7 @@ onMounted(async () => {
   const error = typeof route.query.error === 'string' ? route.query.error : ''
   if (error) {
     modeError.value = ssoErrorTexts[error] ?? '统一登录失败，请重试'
+    trackEvia('login_failed', { method: 'sso', reason: error.slice(0, 32) })
   }
   // 慢链路下静默探测可能晚于 UI 上界才成功：落定后若用户尚未开始输入，自动进入登录态，
   // 免去"首访停在登录页、手动刷新才登录"的时序竞态（同 iwiki 加固）。

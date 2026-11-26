@@ -6,7 +6,7 @@
  * 任一缺失时静默禁用（生产灰度期间可整组留空关闭上报）。
  *
  * 自动行为：页面视图（router 钩子传入）、identify 身份关联、会话结束、
- * 滚动深度、持久队列（刷新不丢，靠服务端幂等去重）。
+ * 滚动深度、热力图点击、活跃停留时长、归因参数、持久队列（刷新不丢，靠服务端幂等去重）。
  */
 import type {
   BrowserClient,
@@ -14,7 +14,11 @@ import type {
   DrainUntilSettledResult,
   Emission,
   EncryptedContentChunk,
+  OperationFailure,
+  PageOptions,
 } from './vendor/@evia/browser-sdk/index.js'
+
+declare const __EVIA_APP_VERSION__: string | undefined
 
 interface EviaConfig {
   endpoint: string
@@ -28,6 +32,7 @@ export interface PageNavigation {
   routePath: string
   routeTemplate: string
   fromRoute: string
+  navigationType?: PageOptions['navigationType']
 }
 
 interface ActivePage {
@@ -35,6 +40,25 @@ interface ActivePage {
   routePath: string
   routeTemplate: string
   enteredAt: number
+  dwell: ActiveDwellTracker
+}
+
+export interface ActiveDwellSnapshot {
+  totalMs: number
+  activeMs: number
+  hiddenCount: number
+}
+
+export interface ActiveDwellTracker {
+  snapshot(): ActiveDwellSnapshot
+  dispose(): void
+}
+
+export interface AttributionParams {
+  utm_source?: string
+  utm_medium?: string
+  utm_campaign?: string
+  share_from?: string
 }
 
 export interface ContentEncryptionConfig {
@@ -48,6 +72,17 @@ export interface ContentEncryptionConfig {
 function envVar(key: string): string {
   const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
   return env?.[key] ?? ''
+}
+
+export function getAppVersion(): string {
+  try {
+    if (typeof __EVIA_APP_VERSION__ === 'string' && __EVIA_APP_VERSION__)
+      return __EVIA_APP_VERSION__.slice(0, 32)
+  }
+  catch {
+    // Node 单测环境未经过 Vite define 替换时回退
+  }
+  return (envVar('VITE_APP_VERSION') || 'dev').slice(0, 32)
 }
 
 function signingPublicJWK(): Readonly<Record<string, unknown>> | undefined {
@@ -64,6 +99,58 @@ function signingPublicJWK(): Readonly<Record<string, unknown>> | undefined {
 }
 
 export const EVIA_CONSENT_STORAGE_KEY = 'evia:analytics_consent:v1'
+const ATTRIBUTION_STORAGE_KEY = 'evia:session_attribution:v1'
+const POST_ENTRY_STORAGE_KEY = 'evia:post_entry:v1'
+const MAX_DWELL_MS = 3_600_000
+
+export interface PostEntryHint {
+  postId: number
+  source: string
+  rank?: number
+  at: number
+}
+
+/** 记录即将打开帖子的来源入口与位次，避免污染详情页 URL，10 秒内有效。 */
+export function markPostEntry(postId: number, source: string, rank?: number): void {
+  if (!Number.isFinite(postId) || postId <= 0 || !source)
+    return
+  const hint: PostEntryHint = {
+    postId,
+    source: source.slice(0, 32),
+    ...(Number.isInteger(rank) && (rank as number) > 0 ? { rank: Math.min(rank as number, 500) } : {}),
+    at: Date.now(),
+  }
+  try {
+    if (typeof sessionStorage !== 'undefined')
+      sessionStorage.setItem(POST_ENTRY_STORAGE_KEY, JSON.stringify(hint))
+  }
+  catch {
+    // ignore storage restriction
+  }
+}
+
+export function consumePostEntry(postId: number): { source: string, rank?: number } | null {
+  try {
+    if (typeof sessionStorage === 'undefined')
+      return null
+    const raw = sessionStorage.getItem(POST_ENTRY_STORAGE_KEY)
+    if (!raw)
+      return null
+    const hint = JSON.parse(raw) as Partial<PostEntryHint>
+    if (hint.postId !== postId || typeof hint.source !== 'string' || !hint.source)
+      return null
+    sessionStorage.removeItem(POST_ENTRY_STORAGE_KEY)
+    if (typeof hint.at === 'number' && Date.now() - hint.at > 10_000)
+      return null
+    return {
+      source: hint.source.slice(0, 32),
+      ...(Number.isInteger(hint.rank) && (hint.rank as number) > 0 ? { rank: hint.rank } : {}),
+    }
+  }
+  catch {
+    return null
+  }
+}
 
 function readStoredConsent(): boolean {
   try {
@@ -98,6 +185,7 @@ let consentGeneration = 0
 let latestUid = ''
 let contentEncryption: ContentEncryptionConfig | null = null
 let activePage: ActivePage | null = null
+let currentRouteTemplate = ''
 const pendingActions: ((ready: BrowserClient) => void)[] = []
 const consentListeners = new Set<ConsentListener>()
 const MAX_PENDING_ACTIONS = 64
@@ -121,6 +209,51 @@ export function onEviaConsentChange(listener: ConsentListener): () => void {
   consentListeners.add(listener)
   return () => {
     consentListeners.delete(listener)
+  }
+}
+
+export function getCurrentRouteTemplate(): string {
+  return currentRouteTemplate || (typeof location !== 'undefined' ? location.pathname.slice(0, 128) : '/')
+}
+
+/** 精确追踪页面可见活跃停留时长（剔除切后台/锁屏挂机时间）。 */
+export function createActiveDwellTracker(): ActiveDwellTracker {
+  const startedAt = Date.now()
+  let visibleSince: number | null = (typeof document === 'undefined' || document.visibilityState !== 'hidden')
+    ? startedAt
+    : null
+  let accumulatedActiveMs = 0
+  let hiddenCount = 0
+
+  const onVisibilityChange = () => {
+    const now = Date.now()
+    if (document.visibilityState === 'hidden') {
+      if (visibleSince !== null) {
+        accumulatedActiveMs += Math.max(0, now - visibleSince)
+        visibleSince = null
+      }
+      hiddenCount += 1
+    }
+    else if (visibleSince === null) {
+      visibleSince = now
+    }
+  }
+
+  if (typeof document !== 'undefined')
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+  return {
+    snapshot(): ActiveDwellSnapshot {
+      const now = Date.now()
+      const currentVisible = visibleSince !== null ? Math.max(0, now - visibleSince) : 0
+      const totalMs = Math.min(Math.max(now - startedAt, 0), MAX_DWELL_MS)
+      const activeMs = Math.min(Math.max(accumulatedActiveMs + currentVisible, 0), totalMs)
+      return { totalMs, activeMs, hiddenCount }
+    },
+    dispose(): void {
+      if (typeof document !== 'undefined')
+        document.removeEventListener('visibilitychange', onVisibilityChange)
+    },
   }
 }
 
@@ -274,6 +407,7 @@ export async function setEviaConsentEnabled(
 
   if (!nextEnabled) {
     pendingActions.length = 0
+    activePage?.dwell.dispose()
     activePage = null
     notifyConsentListeners(false)
 
@@ -409,14 +543,99 @@ export function resetEvia(): void {
     runOrQueue(ready => ready.reset())
 }
 
-/** SPA 路由切换：更新页面上下文（不自动发页面事件，由 autoPageViews 发）。 */
-export function navigateEvia(routeName: string): void {
-  runOrQueue(ready => ready.navigate({ routeName }))
+/** SPA 路由切换：透传 routeName / routeTemplate / navigationType，激活 SDK 因果流转与热力图模板聚合。 */
+export function navigateEvia(options: string | PageOptions): void {
+  const payload: PageOptions = typeof options === 'string'
+    ? { routeName: options }
+    : options
+  runOrQueue(ready => ready.navigate(payload))
 }
 
 /** 业务事件上报：属性必须是标量或标量数组（snake_case 键）。 */
 export function trackEvia(eventKey: string, properties: Record<string, string | number | boolean | (string | number | boolean)[]> = {}): void {
   runOrQueue(ready => ready.emit(eventKey, properties))
+}
+
+/** 上报结构化终端操作失败（平台保留事件 sys.operation_failed，不含原始异常或敏感载荷）。 */
+export function reportEviaOperationFailure(failure: OperationFailure): void {
+  const sanitized: OperationFailure = {
+    operation: failure.operation.replace(/[^a-zA-Z0-9_.:/-]/g, '_').slice(0, 128) || 'unknown',
+    errorCategory: failure.errorCategory,
+    retryable: Boolean(failure.retryable),
+    ...(failure.errorCode ? { errorCode: failure.errorCode.replace(/[^a-zA-Z0-9_.:/-]/g, '_').slice(0, 128) } : {}),
+  }
+  runOrQueue(ready => ready.reportOperationFailure(sanitized))
+}
+
+/** 预留 A/B 实验曝光上报接口，用于后续算法或 UI 灰度因果评估。 */
+export function trackExperimentExposure(experimentKey: string, variant: string, source = 'client'): void {
+  const key = experimentKey.trim().slice(0, 64)
+  const v = variant.trim().slice(0, 64)
+  if (!key || !v)
+    return
+  trackEvia('experiment_exposed', {
+    experiment_key: key,
+    variant: v,
+    source: source.slice(0, 64),
+  })
+}
+
+export function bucketLength(len: number, step = 50, maxBucket = 20): number {
+  if (!Number.isFinite(len) || len <= 0)
+    return 0
+  return Math.min(Math.ceil(len / step), maxBucket)
+}
+
+export function bucketPrice(price: number): string {
+  if (!Number.isFinite(price) || price <= 0)
+    return '0'
+  if (price < 20)
+    return '1_19'
+  if (price < 50)
+    return '20_49'
+  if (price < 100)
+    return '50_99'
+  if (price < 300)
+    return '100_299'
+  if (price < 1000)
+    return '300_999'
+  return '1000_plus'
+}
+
+export function bucketAgeHours(createdAt?: string | number): string {
+  if (createdAt === undefined || createdAt === null || createdAt === '')
+    return 'unknown'
+  let ms = typeof createdAt === 'number' ? createdAt : Date.parse(createdAt)
+  if (!Number.isFinite(ms) && typeof createdAt === 'string')
+    ms = Date.parse(createdAt.trim().replace(' ', 'T'))
+  if (!Number.isFinite(ms))
+    return 'unknown'
+  const hours = Math.max(0, (Date.now() - ms) / 3_600_000)
+  if (hours < 1)
+    return 'lt_1h'
+  if (hours < 6)
+    return '1_6h'
+  if (hours < 24)
+    return '6_24h'
+  if (hours < 72)
+    return '1_3d'
+  if (hours < 168)
+    return '3_7d'
+  if (hours < 720)
+    return '7_30d'
+  return 'gt_30d'
+}
+
+export function bucketCount(count: number): string {
+  if (!Number.isFinite(count) || count <= 0)
+    return '0'
+  if (count <= 5)
+    return '1_5'
+  if (count <= 20)
+    return '6_20'
+  if (count <= 100)
+    return '21_100'
+  return 'gt_100'
 }
 
 function referrerHost(): string {
@@ -430,7 +649,7 @@ function referrerHost(): string {
   }
 }
 
-function connectionType(): string {
+export function connectionType(): string {
   if (typeof navigator === 'undefined')
     return 'unknown'
   const connection = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection
@@ -440,7 +659,7 @@ function connectionType(): string {
     : 'unknown'
 }
 
-function deviceType(width: number): string {
+export function deviceType(width: number): string {
   if (width < 768)
     return 'mobile'
   if (width < 1100)
@@ -448,36 +667,144 @@ function deviceType(width: number): string {
   return 'desktop'
 }
 
+function detectOsFamily(): string {
+  if (typeof navigator === 'undefined')
+    return 'unknown'
+  const ua = navigator.userAgent || ''
+  if (/HarmonyOS/i.test(ua))
+    return 'harmonyos'
+  if (/Android/i.test(ua))
+    return 'android'
+  if (/iPhone|iPad|iPod/i.test(ua))
+    return 'ios'
+  if (/Mac OS X|Macintosh/i.test(ua))
+    return 'macos'
+  if (/Windows/i.test(ua))
+    return 'windows'
+  if (/Linux/i.test(ua))
+    return 'linux'
+  return 'other'
+}
+
+function detectBrowserFamily(): string {
+  if (typeof navigator === 'undefined')
+    return 'unknown'
+  const ua = navigator.userAgent || ''
+  if (/MicroMessenger/i.test(ua))
+    return 'wechat'
+  if (/QQ\//i.test(ua))
+    return 'qq'
+  if (/Edg\//i.test(ua))
+    return 'edge'
+  if (/Firefox\//i.test(ua))
+    return 'firefox'
+  if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua))
+    return 'chrome'
+  if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua))
+    return 'safari'
+  return 'other'
+}
+
+function currentThemeMode(): 'dark' | 'light' {
+  if (typeof document !== 'undefined' && document.body?.classList.contains('dark-mode'))
+    return 'dark'
+  return 'light'
+}
+
+function sanitizeAttrValue(value: string | null): string | undefined {
+  if (!value)
+    return undefined
+  const clean = value.trim().replace(/[^\w.-]/g, '').slice(0, 64)
+  return clean || undefined
+}
+
+/** 仅提取白名单渠道归因参数，并在当前会话内持久化，不采集任意 query 参数。 */
+export function resolveSessionAttribution(): AttributionParams {
+  const fromUrl: AttributionParams = {}
+  if (typeof location !== 'undefined' && location.search) {
+    try {
+      const params = new URLSearchParams(location.search)
+      const utmSource = sanitizeAttrValue(params.get('utm_source'))
+      const utmMedium = sanitizeAttrValue(params.get('utm_medium'))
+      const utmCampaign = sanitizeAttrValue(params.get('utm_campaign'))
+      const shareFrom = sanitizeAttrValue(params.get('share_from'))
+      if (utmSource)
+        fromUrl.utm_source = utmSource
+      if (utmMedium)
+        fromUrl.utm_medium = utmMedium
+      if (utmCampaign)
+        fromUrl.utm_campaign = utmCampaign
+      if (shareFrom)
+        fromUrl.share_from = shareFrom
+    }
+    catch {
+      // ignore invalid URL search
+    }
+  }
+  if (Object.keys(fromUrl).length > 0) {
+    try {
+      if (typeof sessionStorage !== 'undefined')
+        sessionStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(fromUrl))
+    }
+    catch {
+      // ignore storage failure
+    }
+    return fromUrl
+  }
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const raw = sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY)
+      if (raw)
+        return JSON.parse(raw) as AttributionParams
+    }
+  }
+  catch {
+    // ignore parse/storage failure
+  }
+  return {}
+}
+
 function exitActivePage(exitType: 'route_change' | 'pagehide'): void {
   if (!activePage)
     return
+  const snap = activePage.dwell.snapshot()
+  activePage.dwell.dispose()
   trackEvia('page_exited', {
     route_name: activePage.routeName,
     route_path: activePage.routePath,
     route_template: activePage.routeTemplate,
-    dwell_ms: Math.min(Math.max(Date.now() - activePage.enteredAt, 0), 3_600_000),
+    dwell_ms: snap.totalMs,
+    active_dwell_ms: snap.activeMs,
+    hidden_count: Math.min(snap.hiddenCount, 1000),
     exit_type: exitType,
   })
   activePage = null
 }
 
 /**
- * SPA 页面访问画像：公共 envelope 已携带身份/会话/顺序，本事件只补
- * 路由来源、设备与视口维度，不采 query/hash、输入值、cookie 或完整 UA。
+ * SPA 页面访问画像：公共 envelope 已携带身份/会话/顺序，本事件补齐
+ * 路由来源、设备、粗粒度环境、版本与白名单归因维度，不采任意 query/hash、输入值、cookie 或完整 UA。
  */
 export function trackPageNavigation(page: PageNavigation): void {
+  currentRouteTemplate = page.routeTemplate.slice(0, 128)
   if (!consentEnabled) {
+    activePage?.dwell.dispose()
     activePage = null
     return
   }
   exitActivePage('route_change')
-  navigateEvia(page.routeName)
+  navigateEvia({
+    routeName: page.routeName.slice(0, 128),
+    routeTemplate: page.routeTemplate.slice(0, 128),
+    navigationType: page.navigationType ?? (page.fromRoute ? 'push' : 'initial'),
+  })
   const viewportWidth = Math.max(1, Math.min(65535, Math.round(window.innerWidth)))
   const viewportHeight = Math.max(1, Math.min(65535, Math.round(window.innerHeight)))
   const screenWidth = Math.max(1, Math.min(65535, Math.round(window.screen.width)))
   const screenHeight = Math.max(1, Math.min(65535, Math.round(window.screen.height)))
   const referrer = referrerHost()
-  const properties: Record<string, string | number> = {
+  const attribution = resolveSessionAttribution()
+  const properties: Record<string, string | number | boolean> = {
     route_name: page.routeName.slice(0, 128),
     route_path: page.routePath.slice(0, 256),
     route_template: page.routeTemplate.slice(0, 256),
@@ -491,15 +818,29 @@ export function trackPageNavigation(page: PageNavigation): void {
     language: (navigator.language || 'unknown').slice(0, 32),
     timezone_offset_minutes: new Date().getTimezoneOffset(),
     connection_type: connectionType(),
+    app_version: getAppVersion(),
+    theme_mode: currentThemeMode(),
+    os_family: detectOsFamily(),
+    browser_family: detectBrowserFamily(),
+    is_logged_in: Boolean(latestUid),
   }
   if (referrer)
     properties.referrer_host = referrer
+  if (attribution.utm_source)
+    properties.utm_source = attribution.utm_source
+  if (attribution.utm_medium)
+    properties.utm_medium = attribution.utm_medium
+  if (attribution.utm_campaign)
+    properties.utm_campaign = attribution.utm_campaign
+  if (attribution.share_from)
+    properties.share_from = attribution.share_from
   trackEvia('page_opened', properties)
   activePage = {
     routeName: page.routeName,
     routePath: page.routePath,
     routeTemplate: page.routeTemplate,
     enteredAt: Date.now(),
+    dwell: createActiveDwellTracker(),
   }
 }
 

@@ -3,6 +3,7 @@ import type { NovelChapterDetail, NovelChapterItem, NovelCommentItem, NovelParag
 import { Icon } from '@iconify/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 import {
   createNovelComment,
   getNovelChapter,
@@ -98,6 +99,7 @@ const furthestIndex = ref(0)
 let observer: IntersectionObserver | null = null
 let progressTimer: ReturnType<typeof setTimeout> | null = null
 let lastReportedPercent = -1
+const chapterMilestones = new Set<number>()
 /** 阅读时长心跳：累计「还没上报的秒数」，后端按满 1 小时结算经验 */
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 let lastTickAt = 0
@@ -263,8 +265,19 @@ async function flushProgress() {
   if (!ok)
     return
   pendingReadSeconds = 0
-  if (percentChanged)
+  if (percentChanged) {
     lastReportedPercent = percent
+    for (const milestone of [25, 50, 75, 100] as const) {
+      if (percent >= milestone && !chapterMilestones.has(milestone)) {
+        chapterMilestones.add(milestone)
+        trackEvia('novel_progress_milestone', {
+          novel_id: Number(detail.value.novelID),
+          chapter_id: Number(detail.value.chapter.chapterID),
+          milestone,
+        })
+      }
+    }
+  }
 }
 
 async function observeParagraphs() {
@@ -303,6 +316,7 @@ async function loadChapter() {
   lightboxURL.value = ''
   furthestIndex.value = 0
   lastReportedPercent = -1
+  chapterMilestones.clear()
 
   const data = await getNovelChapter(chapterID.value)
   if (!data) {
@@ -312,6 +326,10 @@ async function loadChapter() {
     return
   }
   detail.value = data
+  trackEvia('novel_chapter_opened', {
+    novel_id: Number(data.novelID),
+    chapter_id: Number(data.chapter.chapterID),
+  })
   furthestIndex.value = 0
   setTitle(`${data.novelTitle} · ${data.chapter.title}`)
   loading.value = false

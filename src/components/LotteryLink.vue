@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 import { participateLottery } from '@/api/lottery/lottery'
 import { showMsg } from '@/components/MessageBox'
 import { useUserStore } from '@/store/userStore'
@@ -38,6 +39,7 @@ async function handleParticipate(event: Event) {
     showMsg(msg)
     if (ok) {
       joined.value = true
+      trackEvia('lottery_joined', { post_id: Number(props.postID) })
       emit('participated')
     }
   }

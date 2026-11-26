@@ -38,7 +38,10 @@ watch(
   () => route.query.tab,
   (tab) => {
     const resolved = tab === 'chat' ? 'chat' : 'notice'
-    trackEvia('message_center_opened', { tab: resolved })
+    trackEvia('message_center_opened', {
+      tab: resolved,
+      unread_count: Math.min(resolved === 'chat' ? unreadChat.value : unreadNotice.value, 9999),
+    })
     if (tab && tab !== 'notice' && tab !== 'chat')
       router.replace({ path: '/messages', query: { tab: 'notice' } })
   },

@@ -5,9 +5,10 @@ import type { DigestPrefData } from '@/api/digestPref'
 import type { LotteryDetail } from '@/api/lottery/lottery'
 import type { Comment } from '@/types/comment'
 import type { Post } from '@/types/post'
-import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { trackEvia } from '@/analytics/evia'
+import { bucketAgeHours, bucketCount, consumePostEntry, createActiveDwellTracker, trackEvia } from '@/analytics/evia'
+import { isPostOwner } from '@/utils/postOwner'
 import { fetchAssistPost } from '@/api/assist'
 import { getCommentsByPostID } from '@/api/browse/getComment'
 
@@ -189,24 +190,62 @@ function infoChange(type: 'like' | 'save' | 'delete' | 'comment' | 'privacy', pa
   }
 }
 
-const enteredAt = Date.now()
+const dwellTracker = createActiveDwellTracker()
+let postEntrySource = 'detail'
+let postExitedReported = false
+
+function reportPostExited() {
+  if (postExitedReported)
+    return
+  postExitedReported = true
+  const snap = dwellTracker.snapshot()
+  dwellTracker.dispose()
+  trackEvia('post_exited', {
+    post_id: Number(route.params.id),
+    total_dwell_ms: snap.totalMs,
+    active_dwell_ms: snap.activeMs,
+    quick_bounce: snap.activeMs < 10_000,
+    from: postEntrySource,
+  })
+}
+
 onBeforeRouteLeave(() => {
-  trackEvia('post_exited', { post_id: Number(route.params.id), total_dwell_ms: Math.min(Date.now() - enteredAt, 3_600_000) })
+  reportPostExited()
+})
+
+const onPostPageHide = () => reportPostExited()
+
+onUnmounted(() => {
+  window.removeEventListener('pagehide', onPostPageHide)
+  reportPostExited()
 })
 
 onMounted(async () => {
+  window.addEventListener('pagehide', onPostPageHide)
   try {
     const ID = Number(route.params.id)
     const curPost = await getPostByID(ID, userInfo.phone)
     post.value = curPost as Post
     setTitle(post.value.Title)
     const searchId = typeof route.query.search_id === 'string' ? route.query.search_id : ''
-    const resultRank = Number(route.query.result_rank)
+    const queryRank = Number(route.query.result_rank)
+    const entryHint = searchId ? null : consumePostEntry(ID)
+    postEntrySource = searchId ? 'search' : (entryHint?.source || 'detail')
+    const resolvedRank = Number.isInteger(queryRank) && queryRank > 0
+      ? queryRank
+      : (entryHint?.rank ?? 0)
+    const hasMedia = Boolean(post.value.Photos) || /!\[[^\]]*\]\([^)]+\)|::music\s+\d+::/.test(post.value.Content || '')
     trackEvia('post_opened', {
       post_id: ID,
-      from: searchId ? 'search' : 'detail',
+      from: postEntrySource,
+      partition: (post.value.Tag || (post.value as { Partition?: string }).Partition || 'unknown').slice(0, 64),
+      post_age_hours_bucket: bucketAgeHours(post.value.PostTime),
+      comment_count_bucket: bucketCount(post.value.Comment ?? 0),
+      has_media: hasMedia,
+      is_lottery: Boolean(post.value.IsLottery),
+      author_is_self: isPostOwner(post.value, userInfo),
       ...(searchId ? { search_id: searchId.slice(0, 36) } : {}),
-      ...(Number.isInteger(resultRank) && resultRank > 0 ? { result_rank: Math.min(resultRank, 500) } : {}),
+      ...(resolvedRank > 0 ? { result_rank: Math.min(resolvedRank, 500) } : {}),
     })
     // 点进详情才标记已读（默认未读）；游客不调用，避免触发登录提示。
     if (userStore.token.value)

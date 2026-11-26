@@ -26,6 +26,6 @@ onMounted(async () => {
 <template>
   <div class="w-full">
     <h2>发帖历史</h2>
-    <PostList :posts="posts" :is-loading="isLoading" :has-more="hasMore" @bottom="update" />
+    <PostList :posts="posts" source="history" :is-loading="isLoading" :has-more="hasMore" @bottom="update" />
   </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PublicVideo } from '@/types/video'
 import { computed, onMounted, ref } from 'vue'
+import { trackEvia } from '@/analytics/evia'
 import { getVideo } from '@/api/video/getVideos'
 import { recordVideoPlayed } from '@/api/video/recordPlayed'
 import VideoPlayer from '@/components/video/VideoPlayer.vue'
@@ -56,12 +57,24 @@ async function onPlayed() {
   if (playRecorded)
     return
   playRecorded = true
+  trackEvia('video_played', {
+    video_id: videoID,
+    source_type: (video.value?.sourceType || 'unknown').slice(0, 32),
+  })
   try {
     await recordVideoPlayed(videoID)
   }
   catch {
     playRecorded = false
   }
+}
+
+function onMilestone(percent: 25 | 50 | 75 | 100) {
+  trackEvia('video_progress_milestone', {
+    video_id: videoID,
+    milestone: percent,
+    source_type: (video.value?.sourceType || 'unknown').slice(0, 32),
+  })
 }
 
 onMounted(loadVideo)
@@ -80,7 +93,7 @@ onMounted(loadVideo)
       {{ error || '视频不存在' }}
     </div>
     <template v-else>
-      <VideoPlayer :video="video" @play="onPlayed" />
+      <VideoPlayer :video="video" @play="onPlayed" @milestone="onMilestone" />
       <div class="meta">
         <h1>{{ video.title }}</h1>
         <div class="meta-row">

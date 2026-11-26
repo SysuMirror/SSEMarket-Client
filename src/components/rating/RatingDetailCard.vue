@@ -3,6 +3,7 @@ import type { RatingPostDetail } from '@/api/rating/types'
 import { Icon } from '@iconify/vue'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { bucketLength, trackEvia } from '@/analytics/evia'
 import { createRatingComment, deleteRatingPost, likeRatingPost, submitRatingStar } from '@/api/rating'
 import { confirmDialog } from '@/components/ConfirmDialog'
 import { showMsg } from '@/components/MessageBox'
@@ -76,10 +77,17 @@ async function onStarClick(n: number) {
   currRating.value = n
   try {
     const ok = await submitRatingStar(post.ratingPostID, n)
-    if (ok)
+    if (ok) {
+      trackEvia('rating_scored', {
+        rating_post_id: Number(post.ratingPostID),
+        stars: n,
+        is_update: prev > 0,
+      })
       emits('infoChange', 'rating')
-    else
+    }
+    else {
       currRating.value = prev
+    }
   }
   catch {
     showMsg('评分失败')
@@ -126,6 +134,11 @@ async function submitComment() {
       currRating.value,
     )
     if (ok) {
+      trackEvia('rating_commented', {
+        rating_post_id: Number(post.ratingPostID),
+        stars: currRating.value,
+        length_bucket: bucketLength(commentContent.value.length),
+      })
       showMsg('已发布')
       commentContent.value = ''
       showCompose.value = false

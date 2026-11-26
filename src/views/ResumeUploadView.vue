@@ -2,6 +2,7 @@
 import { Icon } from '@iconify/vue'
 import { ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 import { uploadResume } from '@/api/resume/uploadResume'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { showMsg } from '@/components/MessageBox'
@@ -67,6 +68,14 @@ async function submit() {
       description.value.trim(),
       isAnonymous.value,
     )
+    const fileExt = selectedFile.value!.name.includes('.')
+      ? selectedFile.value!.name.slice(selectedFile.value!.name.lastIndexOf('.') + 1).toLowerCase().slice(0, 16)
+      : 'unknown'
+    trackEvia('resume_uploaded', {
+      resume_id: Number(result.data.resumeID),
+      file_ext: fileExt,
+      is_anonymous: isAnonymous.value,
+    })
     showMsg(result.msg || '上传成功')
     router.push(`/resume/${result.data.resumeID}`)
   }

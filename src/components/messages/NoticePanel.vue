@@ -3,6 +3,7 @@ import type { Notice } from '@/api/notice/notice'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { markPostEntry, trackEvia } from '@/analytics/evia'
 import { getNotices, readNotice } from '@/api/notice/notice'
 import { showMsg } from '@/components/MessageBox'
 import UserAvatar from '@/components/UserAvatar.vue'
@@ -192,6 +193,13 @@ async function readAll() {
 }
 
 async function changeToPost(postID: number, noticeID: number) {
+  const matched = activeList.value.find(item => item.noticeID === noticeID)
+  trackEvia('notification_clicked', {
+    notice_type: (matched?.type || 'unknown').slice(0, 32),
+    is_unread: readPage.value,
+    post_id: Number(postID) || 0,
+  })
+  markPostEntry(postID, 'notification')
   if (readPage.value)
     await readComment(noticeID)
   await router.push(`/postdetail/${postID}`)

@@ -665,6 +665,7 @@ function onAvatarError(e: Event) {
       <div v-else class="profile-feed">
         <PostList
           :posts="profilePosts"
+          source="profile"
           post-type="post"
           :is-dense="true"
           :is-loading="profileLoading"

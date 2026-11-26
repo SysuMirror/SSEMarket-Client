@@ -75,6 +75,10 @@ async function loadDetail() {
 function chatWithSeller(anonymous: boolean) {
   if (!canBuy.value || !product.value?.SellerID)
     return
+  trackEvia('product_contacted', {
+    product_id: Number(product.value.ProductID),
+    anonymous,
+  })
   router.push({
     path: '/messages',
     query: {
@@ -92,6 +96,10 @@ async function markSold() {
     return
   if (await markShopProductSold(product.value.ProductID)) {
     product.value.ISSold = true
+    trackEvia('product_status_changed', {
+      product_id: Number(product.value.ProductID),
+      action: 'sold',
+    })
     showMsg('已标记售出')
   }
   else {
@@ -105,6 +113,10 @@ async function removeProduct() {
   if (!await confirmDialog({ message: '确定删除该商品？', confirmText: '删除', danger: true }))
     return
   if (await deleteShopProduct(product.value.ProductID)) {
+    trackEvia('product_status_changed', {
+      product_id: Number(product.value.ProductID),
+      action: 'deleted',
+    })
     showMsg('已删除')
     router.push('/shop/myproducts')
   }

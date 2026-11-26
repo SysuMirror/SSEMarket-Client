@@ -392,6 +392,12 @@ async function onFeedback(runId: string, rating: 1 | -1) {
   try {
     await submitMessageFeedback(runId, sessionId.value, rating)
     ratings.value = { ...ratings.value, [runId]: rating }
+    trackEvia('chat_action', {
+      action: 'feedback',
+      conversation_id: sessionId.value,
+      message_id: runId.slice(0, 64),
+      rating,
+    })
     showMsg(rating === 1 ? '感谢反馈，对小秋是鼓励。' : '收到，我们会改进小秋的回答质量。')
   }
   catch (e) {
@@ -427,6 +433,7 @@ function onImageAction(action: 'redo' | 'tweak', item: TimelineImage) {
 function onSuggestion(s: Suggestion) {
   if (isStreaming.value || !sessionReady.value)
     return
+  trackEvia('chat_action', { action: 'suggestion_clicked', conversation_id: sessionId.value })
   draft.value = s.text
   void sendMessage()
 }
@@ -451,7 +458,9 @@ async function sendMessage() {
   const conversationId = sessionId.value
   const userMessageId = crypto.randomUUID()
   const startedAt = Date.now()
+  let firstTokenMs = -1
   pushUserMessage(content)
+  const turnIndex = Math.min(timeline.value.filter(item => item.kind === 'user').length, 500)
   const responseStartIndex = timeline.value.length
   draft.value = ''
   attachUrls.value = []
@@ -459,7 +468,13 @@ async function sendMessage() {
   scrollToBottom(true)
 
   try {
-    trackEvia('chat_action', { action: 'send', conversation_id: conversationId, message_id: userMessageId })
+    trackEvia('chat_action', {
+      action: 'send',
+      conversation_id: conversationId,
+      message_id: userMessageId,
+      turn_index: turnIndex,
+      mode: currentMode.value,
+    })
     trackEvia('chat_message_sent', { entry: 'page', length_bucket: Math.min(Math.ceil(content.length / 50), 20) })
     await trackSensitiveContent({
       conversationId,
@@ -473,7 +488,11 @@ async function sendMessage() {
       mode: currentMode.value,
       // agent 自主切换（hidden switch_mode）→ pill 跟随，用户无感知动作可见化
       onMode: (m) => { currentMode.value = m === 'image' ? 'image' : 'chat' },
-      onAfterUpdate: () => scrollToBottom(),
+      onAfterUpdate: () => {
+        if (firstTokenMs < 0)
+          firstTokenMs = Math.min(Math.max(Date.now() - startedAt, 0), 3_600_000)
+        scrollToBottom()
+      },
     })
     const assistant = timeline.value
       .slice(responseStartIndex)
@@ -492,6 +511,9 @@ async function sendMessage() {
         conversation_id: conversationId,
         message_id: assistant.id,
         duration_ms: Math.min(Date.now() - startedAt, 3_600_000),
+        turn_index: turnIndex,
+        mode: currentMode.value,
+        ...(firstTokenMs >= 0 ? { first_token_ms: firstTokenMs } : {}),
       })
     }
     schedulePostSendRefresh()

@@ -2,6 +2,7 @@
 import { Icon } from '@iconify/vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 import { createRatingCategory } from '@/api/rating'
 import { showMsg } from '@/components/MessageBox'
 
@@ -26,6 +27,10 @@ async function submit() {
     showMsg('创建失败，名称可能已存在')
     return
   }
+  trackEvia('rating_category_created', {
+    category_id: Number(cat.categoryID),
+    sync_feed: syncFeedPost.value,
+  })
   showMsg(syncFeedPost.value ? '分区已创建，并已同步发帖到主页' : '分区已创建')
   router.replace({ path: '/rating', query: { category: String(cat.categoryID) } })
 }

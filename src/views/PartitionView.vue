@@ -106,7 +106,7 @@ onBeforeRouteLeave(async () => {
     <h2 class="partition-feed__title">
       {{ name }}
     </h2>
-    <PostList :posts="posts" :is-dense="isDense" :is-loading="isLoading" :has-more="hasMore" @bottom="update" />
+    <PostList :posts="posts" source="partition" :is-dense="isDense" :is-loading="isLoading" :has-more="hasMore" @bottom="update" />
   </div>
 </template>
 

@@ -3,6 +3,7 @@ import type { CustomFormData } from '@/composables/FormExam'
 import { computed, onMounted, ref } from 'vue'
 
 import { useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 import { updatePassword } from '@/api/LoginAndRegister/forgetPwd'
 import { sendCode } from '@/api/LoginAndRegister/utils'
 import { ssoMode } from '@/api/sso/sso'
@@ -85,6 +86,7 @@ async function resetHandler() {
         showMsg(res.msg)
         return
       }
+      trackEvia('password_reset_succeeded', { method: 'local' })
       showMsg('重置密码成功')
       router.push('/auth/login')
     }

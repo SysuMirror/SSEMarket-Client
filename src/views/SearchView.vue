@@ -125,6 +125,8 @@ async function runSmartSearch() {
       search_id: activeSearchID.value,
       scope: 'smart',
       result_count: Math.min(ragPosts.length, 100),
+      is_zero_result: ragPosts.length === 0,
+      has_time_filter: Boolean(timeFrom.value || timeTo.value),
     })
   }
   catch (error) {
@@ -182,6 +184,8 @@ async function initializeFromRoute() {
     search_id: activeSearchID.value,
     scope: query.smart === '1' ? 'smart_pending' : 'normal',
     result_count: Math.min(totalNum.value ?? 0, 100),
+    is_zero_result: (totalNum.value ?? 0) === 0,
+    has_time_filter: Boolean(timeFrom.value || timeTo.value),
   })
   if (query.smart === '1')
     await runSmartSearch()
@@ -347,6 +351,7 @@ watch(
 
     <PostList
       :posts="posts"
+      source="search"
       :search-id="activeSearchID"
       :is-dense="isDense"
       :is-loading="isLoading || filtering || smartLoading"

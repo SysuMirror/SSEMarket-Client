@@ -105,6 +105,13 @@ function startProgressTimer() {
 }
 
 function onTrackEnd() {
+  const current = playlist.value[currentIndex.value]
+  if (current) {
+    trackEvia('music_completed', {
+      track_id: current.musicID,
+      duration_sec: Math.min(Math.max(Math.round(duration.value || current.durationSec || 0), 0), 86400),
+    })
+  }
   if (playMode.value === 'one') {
     howl?.seek(0)
     howl?.play()

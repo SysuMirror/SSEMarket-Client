@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useTemplateRef } from 'vue'
+import { bucketLength, trackEvia } from '@/analytics/evia'
 import { feedback } from '@/api/feedback/feedback'
 import { showMsg } from '@/components/MessageBox'
 import { debounceAsync } from '@/utils/debounced'
@@ -17,6 +18,7 @@ async function submitFeedback() {
   el.value = el.value.trim()
   if (el.value) {
     const res = await feedback(el.value, '')
+    trackEvia('feedback_submitted', { length_bucket: bucketLength(el.value.length) })
     showMsg(res.msg)
   }
   else {

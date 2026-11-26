@@ -59,6 +59,6 @@ watch(tag, async (newTag) => {
         </option>
       </select>
     </div>
-    <PostList :posts="posts" :is-loading="isLoading" :has-more="hasMore" @bottom="update" />
+    <PostList :posts="posts" source="course" :is-loading="isLoading" :has-more="hasMore" @bottom="update" />
   </div>
 </template>

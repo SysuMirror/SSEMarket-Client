@@ -1,18 +1,32 @@
 <script setup lang="ts">
 import type { Post } from '@/types/post'
+import type { ComponentPublicInstance } from 'vue'
 
-import { onUnmounted, useTemplateRef, watch } from 'vue'
+import { computed, onUnmounted, useTemplateRef, watch } from 'vue'
+import { createImpressionTracker } from '@/analytics/telemetry'
 import PostCard from './card/PostCard.vue'
 import PageSkeleton from './PageSkeleton.vue'
 
-const { isDense, posts = [], isLoading = false, hasMore = true, newPostIds = [], searchId } = defineProps<{
+const { isDense, posts = [], isLoading = false, hasMore = true, newPostIds = [], searchId, source } = defineProps<{
   isDense?: boolean
   posts?: Post[]
   isLoading?: boolean
   hasMore?: boolean
   newPostIds?: number[]
   searchId?: string
+  source?: string
 }>()
+
+const resolvedSource = computed(() => source || (searchId ? 'search' : 'feed'))
+const impressionTracker = createImpressionTracker(() => resolvedSource.value)
+
+function bindImpressionRef(el: Element | ComponentPublicInstance | null, postId: number, position: number) {
+  if (!el)
+    return
+  const dom = el instanceof Element ? el : (el.$el instanceof Element ? el.$el : null)
+  if (dom)
+    impressionTracker.observe(dom, postId, position)
+}
 
 const emits = defineEmits(['bottom', 'pinChange'])
 
@@ -56,6 +70,7 @@ watch(
 
 onUnmounted(() => {
   endObserver()
+  impressionTracker.dispose()
 })
 </script>
 
@@ -66,11 +81,13 @@ onUnmounted(() => {
     <PostCard
       v-for="(post, index) in posts"
       :key="post.PostID"
+      :ref="(el) => bindImpressionRef(el, post.PostID, index + 1)"
       class="feed-list__item"
       :is-dense="isDense"
       :is-new="newPostIds.includes(post.PostID)"
       :post="post"
       :search-id="searchId"
+      :source="resolvedSource"
       :result-rank="index + 1"
       @pin-change="emits('pinChange', $event)"
     />

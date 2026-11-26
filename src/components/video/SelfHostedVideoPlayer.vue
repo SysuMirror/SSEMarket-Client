@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   play: []
+  milestone: [percent: 25 | 50 | 75 | 100]
 }>()
 
 const container = ref<HTMLDivElement>()
@@ -18,12 +19,36 @@ let art: ArtplayerType | null = null
 let hls: HlsType | null = null
 let hlsFatalRetry = false
 let playEmitted = false
+const reachedMilestones = new Set<number>()
 
 function handlePlay() {
   if (playEmitted)
     return
   playEmitted = true
   emit('play')
+}
+
+function handleTimeUpdate() {
+  if (!art)
+    return
+  const duration = art.duration
+  const current = art.currentTime
+  if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current))
+    return
+  const pct = (current / duration) * 100
+  for (const m of [25, 50, 75] as const) {
+    if (pct >= m && !reachedMilestones.has(m)) {
+      reachedMilestones.add(m)
+      emit('milestone', m)
+    }
+  }
+}
+
+function handleEnded() {
+  if (!reachedMilestones.has(100)) {
+    reachedMilestones.add(100)
+    emit('milestone', 100)
+  }
 }
 
 function destroyPlayer() {
@@ -59,6 +84,8 @@ onMounted(async () => {
       miniProgressBar: true,
     })
     art.on('video:play', handlePlay)
+    art.on('video:timeupdate', handleTimeUpdate)
+    art.on('video:ended', handleEnded)
 
     if (!isHls)
       return

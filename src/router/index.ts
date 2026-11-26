@@ -363,6 +363,9 @@ router.beforeEach(async (to, from, next) => {
       if (sso?.state === 'ok') {
         setToken(sso.token)
         setRefreshToken(sso.refresh_token)
+        void import('@/analytics/evia').then(({ trackEvia }) => {
+          trackEvia('sso_silent_restored', { source: 'router' })
+        })
         next()
         setTitle(to.name as string)
         return

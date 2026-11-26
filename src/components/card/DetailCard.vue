@@ -137,8 +137,9 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
           showMsg(msg || '失败了:-(')
           return
         }
-        trackEvia(isSaved ? 'post_saved' : 'post_save_cancelled', { post_id: post.PostID })
-        useCustomEvent('save', isSaved ?? !post.IsSaved)
+        const nextSaved = isSaved ?? !post.IsSaved
+        trackEvia(nextSaved ? 'post_saved' : 'post_save_cancelled', { post_id: post.PostID, from: 'detail' })
+        useCustomEvent('save', nextSaved)
       }
       catch (e) {
         console.error(e)
@@ -149,6 +150,7 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
     case 'delete': {
       try {
         await delPost(post.PostID)
+        trackEvia('post_deleted', { post_id: post.PostID, from: 'detail' })
         useCustomEvent('delete')
       }
       catch (error) {
@@ -161,6 +163,7 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
       try {
         const nextPrivate = !post.IsPrivate
         await updatePostPrivacy(post.PostID, userInfo.phone, nextPrivate)
+        trackEvia('post_privacy_changed', { post_id: post.PostID, is_private: nextPrivate, from: 'detail' })
         useCustomEvent('privacy', nextPrivate)
         showMsg(nextPrivate ? '已设为仅自己可见' : '已公开')
       }
@@ -178,8 +181,9 @@ async function handleUserAction(type: 'delete' | 'save' | 'privacy') {
 async function like() {
   // 后端没有返回数据，不要赋值后再更新
   try {
+    const nextLiked = !post.IsLiked
     await likePost(post.PostID, userInfo.phone)
-    trackEvia('post_liked', { post_id: post.PostID, from: 'detail' })
+    trackEvia(nextLiked ? 'post_liked' : 'post_like_cancelled', { post_id: post.PostID, from: 'detail' })
     useCustomEvent('like')
   }
   catch (e) {

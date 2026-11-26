@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 
 import { initEvia, trackPageHide, trackPageNavigation } from './analytics/evia'
 import { initSessionReplay, recordReplayNavigation } from './analytics/replay'
+import { initTelemetryObservers } from './analytics/telemetry'
 import App from './App.vue'
 import { initSkin } from './composables/useSkin'
 import router from './router'
@@ -28,6 +29,7 @@ initSkin()
 // Evia 埋点：未配置环境变量时静默禁用
 initEvia()
 initSessionReplay()
+initTelemetryObservers()
 router.afterEach((to, from) => {
   const routeName = String(to.name ?? to.path)
   const routeTemplate = to.matched.at(-1)?.path ?? to.path
@@ -37,6 +39,7 @@ router.afterEach((to, from) => {
     routePath: to.path,
     routeTemplate,
     fromRoute,
+    navigationType: from.matched.length === 0 ? 'initial' : 'push',
   })
   recordReplayNavigation(routeTemplate)
 })

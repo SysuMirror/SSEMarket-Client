@@ -3,6 +3,7 @@
 import type { CustomFormData } from '@/composables/FormExam'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
+import { trackEvia } from '@/analytics/evia'
 
 import { getInfo } from '@/api/info/getInfo'
 import { userRegister } from '@/api/LoginAndRegister/register'
@@ -111,6 +112,7 @@ async function registerAction() {
   try {
     const resp = await userRegister(cd_key, email, name, password, password2, vcode)
     if (resp.code !== 200) {
+      trackEvia('register_failed', { reason: `code_${resp.code}` })
       showMsg(resp.msg)
       return
     }
@@ -118,6 +120,7 @@ async function registerAction() {
     const token = resp.data?.token
     const refreshToken = resp.data?.refresh_token
     if (!token || !refreshToken) {
+      trackEvia('register_succeeded', { method: 'local' })
       showMsg('注册成功，但登录信息异常，请手动登录')
       router.push('/auth/login')
       return
@@ -141,10 +144,12 @@ async function registerAction() {
       console.error('获取用户信息失败', e)
     }
 
+    trackEvia('register_succeeded', { method: 'local' })
     showMsg('注册成功，已自动登录')
     router.push('/')
   }
   catch (error) {
+    trackEvia('register_failed', { reason: 'request_error' })
     console.error('Register failed:', error)
     showMsg('注册失败，请稍后再试')
   }
