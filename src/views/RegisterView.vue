@@ -2,7 +2,7 @@
 <script lang="ts" setup>
 import type { CustomFormData } from '@/composables/FormExam'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { getInfo } from '@/api/info/getInfo'
 import { userRegister } from '@/api/LoginAndRegister/register'
@@ -15,16 +15,27 @@ import { showMsg } from '@/components/MessageBox'
 import { useFormExam } from '@/composables/FormExam'
 import { useUserStore } from '@/store/userStore'
 
+const route = useRoute()
 const router = useRouter()
 const { setToken, setRefreshToken, setUserInfo } = useUserStore()
 const rememberMe = useTemplateRef('rememberMe')
+
+// 注册完成后的回跳地址：优先沿用登录守卫留下的 redirect 深链，否则回集市首页。
+// router.resolve 会带上应用基路径（/new/），new URL 再补成绝对地址，交给 UniSSO 校验。
+function marketReturnURL(): string {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+  const target = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
+  return new URL(router.resolve(target).href, window.location.origin).href
+}
 
 // 统一身份模式下注册只在 sso.ssemarket.cn/register 完成（UniSSO 会回调集市建号）。
 // 集市本地注册页保留仅用于 SSO 整体停用（disabled）的场景。
 onMounted(async () => {
   const info = await ssoMode()
-  if (info && info.mode !== 'disabled')
-    window.location.replace('https://sso.ssemarket.cn/register')
+  if (info && info.mode !== 'disabled') {
+    const params = new URLSearchParams({ redirect_uri: marketReturnURL() })
+    window.location.replace(`https://sso.ssemarket.cn/register?${params.toString()}`)
+  }
 })
 
 // const passwordReg = /^\S*(?=\S{6})(?=\S*\d)(?=\S*[A-Z])(?=\S*[a-z])(?=\S*[!@#$%^&*? ])\S+$/
