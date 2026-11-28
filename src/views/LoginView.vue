@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CustomFormData } from '@/composables/FormExam'
 
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getInfo } from '@/api/info/getInfo'
@@ -102,6 +102,12 @@ function redirectTarget(): string {
   return `${redirect}${redirect.includes('?') ? '&' : '?'}${otherParams.toString()}`
 }
 
+// 去 UniSSO 注册时把当前回跳目标带过去；注册完成后由 SSO 校验并整页跳回集市。
+const ssoRegisterUrl = computed(() => {
+  const target = new URL(router.resolve(redirectTarget()).href, window.location.origin).href
+  return `https://sso.ssemarket.cn/register?redirect_uri=${encodeURIComponent(target)}`
+})
+
 /** 已有本地会话或共享 Cookie 能静默兑换时，直接进入登录态；否则留在表单。 */
 async function tryAutoLogin(): Promise<boolean> {
   if (token.value || refreshToken.value) {
@@ -192,7 +198,7 @@ onMounted(async () => {
     </p>
     <div class="auth-links">
       <template v-if="ssoManaged">
-        <a class="auth-link" href="https://sso.ssemarket.cn/register">
+        <a class="auth-link" :href="ssoRegisterUrl">
           注册账号
         </a>
         <span class="auth-links__sep" aria-hidden="true">·</span>
